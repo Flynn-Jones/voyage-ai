@@ -1,0 +1,29 @@
+services:
+  database-service:
+    build:
+      context: .
+      dockerfile: database-service/Dockerfile
+    ports:
+      - "6000:6000"
+
+  access-service:
+    build:
+      context: .
+      dockerfile: access-service/Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      DATABASE_SERVICE_URL: http://database-service:6000
+    depends_on:
+      - database-service
+
+  frontend-service:
+    build:
+      context: .
+      dockerfile: frontend-service/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      ACCESS_SERVICE_URL: http://access-service:5000
+    depends_on:
+      - access-service

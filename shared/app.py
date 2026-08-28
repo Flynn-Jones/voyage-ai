@@ -1,0 +1,81 @@
+"""Runs database-service (:6000), access-service (:5000), and frontend-service (:3000)
+together from a single command, for local development.
+"""
+import os
+import sys
+import threading
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATABASE_SERVICE_DIR = os.path.join(BASE_DIR, "database-service")
+ACCESS_SERVICE_DIR = os.path.join(BASE_DIR, "access-service")
+FRONTEND_SERVICE_DIR = os.path.join(BASE_DIR, "frontend-service")
+
+sys.path.insert(0, DATABASE_SERVICE_DIR)
+sys.path.insert(0, ACCESS_SERVICE_DIR)
+
+import requests
+from flask import Flask, render_template
+
+import init_db
+from db import DB_PATH, init_schema  # noqa: E402  (database-service)
+from db_routes import db_api  # noqa: E402  (database-service)
+from routes.access_routes import access_api  # noqa: E402  (access-service)
+
+ACCESS_SERVICE_URL = os.environ.get("ACCESS_SERVICE_URL", "http://localhost:5000")
+
+
+def ensure_database_seeded():
+    if not os.path.exists(DB_PATH):
+        init_db.main()
+
+
+def make_database_app():
+    app = Flask(__name__)
+    app.register_blueprint(db_api)
+    return app
+
+
+def make_access_app():
+    app = Flask(__name__)
+    app.register_blueprint(access_api)
+    return app
+
+
+def make_frontend_app():
+    app = Flask(
+        __name__,
+        template_folder=os.path.join(FRONTEND_SERVICE_DIR, "templates"),
+        static_folder=os.path.join(FRONTEND_SERVICE_DIR, "css"),
+    )
+
+    @app.route("/")
+    def index():
+        nav = requests.get(f"{ACCESS_SERVICE_URL}/nav", timeout=5).json()
+        return render_template("index.html", features=nav["features"])
+
+    return app
+
+
+def run_database_service():
+    make_database_app().run(host="0.0.0.0", port=6000, debug=False, use_reloader=False)
+
+
+def run_access_service():
+    make_access_app().run(host="0.0.0.0", port=5000, debug=False, use_reloader=False)
+
+
+def run_frontend_service():
+    make_frontend_app().run(host="0.0.0.0", port=3000, debug=False, use_reloader=False)
+
+
+if __name__ == "__main__":
+    ensure_database_seeded()
+
+    threading.Thread(target=run_database_service, daemon=True).start()
+    threading.Thread(target=run_access_service, daemon=True).start()
+
+    print("Database service: http://localhost:6000")
+    print("Access service:   http://localhost:5000")
+    print("Frontend:         http://localhost:3000")
+
+    run_frontend_service()

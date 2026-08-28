@@ -1,0 +1,25 @@
+{% extends "layout.html" %}
+
+{% block title %}VoyageAI — Plan your next adventure{% endblock %}
+
+{% block content %}
+<section class="voyage-hero">
+  <h1>Plan your next adventure, all in one place.</h1>
+  <p>Destinations, accommodation, activities, budget, and itinerary &mdash; together.</p>
+</section>
+
+<section class="voyage-grid">
+  {% for feature in features %}
+  <article class="voyage-card">
+    <h2>{{ feature.name }}</h2>
+    <p>Managed by {{ feature.owner }} &mdash; running on port {{ feature.port }}.</p>
+    <a class="voyage-card__link" href="http://localhost:{{ feature.port }}">Open {{ feature.name }}</a>
+  </article>
+  {% endfor %}
+</section>
+
+<p class="voyage-note">
+  Feature links point to teammates' own services (ports 3001&ndash;3005) and will only work once
+  those services are running locally &mdash; expect a connection error until then.
+</p>
+{% endblock %}

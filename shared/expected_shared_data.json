@@ -1,0 +1,108 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "name": "Ava Chen",
+      "preferences": "beaches, local food, budget-friendly",
+      "travel_style": "relaxed"
+    },
+    {
+      "id": 2,
+      "name": "Liam Patel",
+      "preferences": "hiking, national parks, adventure sports",
+      "travel_style": "adventurous"
+    },
+    {
+      "id": 3,
+      "name": "Sofia Rossi",
+      "preferences": "museums, architecture, fine dining",
+      "travel_style": "cultural"
+    },
+    {
+      "id": 4,
+      "name": "Noah Williams",
+      "preferences": "nightlife, city breaks, shopping",
+      "travel_style": "fast-paced"
+    },
+    {
+      "id": 5,
+      "name": "Mia Thompson",
+      "preferences": "family-friendly, theme parks, beaches",
+      "travel_style": "family"
+    }
+  ],
+  "trips": [
+    {
+      "id": 1,
+      "user_id": 1,
+      "trip_name": "Bali Getaway",
+      "start_date": "2026-09-10",
+      "end_date": "2026-09-20",
+      "status": "confirmed"
+    },
+    {
+      "id": 2,
+      "user_id": 1,
+      "trip_name": "Gold Coast Weekend",
+      "start_date": "2026-11-01",
+      "end_date": "2026-11-04",
+      "status": "planning"
+    },
+    {
+      "id": 3,
+      "user_id": 2,
+      "trip_name": "Blue Mountains Trek",
+      "start_date": "2026-10-05",
+      "end_date": "2026-10-09",
+      "status": "confirmed"
+    },
+    {
+      "id": 4,
+      "user_id": 2,
+      "trip_name": "Patagonia Expedition",
+      "start_date": "2027-01-15",
+      "end_date": "2027-02-01",
+      "status": "planning"
+    },
+    {
+      "id": 5,
+      "user_id": 3,
+      "trip_name": "Rome & Florence",
+      "start_date": "2026-09-25",
+      "end_date": "2026-10-03",
+      "status": "confirmed"
+    },
+    {
+      "id": 6,
+      "user_id": 3,
+      "trip_name": "Paris Art Tour",
+      "start_date": "2026-12-10",
+      "end_date": "2026-12-16",
+      "status": "planning"
+    },
+    {
+      "id": 7,
+      "user_id": 4,
+      "trip_name": "Tokyo Nights",
+      "start_date": "2026-10-20",
+      "end_date": "2026-10-27",
+      "status": "confirmed"
+    },
+    {
+      "id": 8,
+      "user_id": 5,
+      "trip_name": "Gold Coast Family Trip",
+      "start_date": "2026-12-20",
+      "end_date": "2026-12-30",
+      "status": "confirmed"
+    },
+    {
+      "id": 9,
+      "user_id": 5,
+      "trip_name": "Queenstown Adventure",
+      "start_date": "2027-03-01",
+      "end_date": "2027-03-08",
+      "status": "planning"
+    }
+  ]
+}
