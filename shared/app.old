@@ -1,4 +1,4 @@
-"""Runs database-service (:6000), access-service (:5000), and frontend-service (:3000)
+"""Runs database (:6000), access (:5000), and frontend (:3000)
 together from a single command, for local development.
 """
 import os
@@ -6,9 +6,9 @@ import sys
 import threading
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATABASE_SERVICE_DIR = os.path.join(BASE_DIR, "database-service")
-ACCESS_SERVICE_DIR = os.path.join(BASE_DIR, "access-service")
-FRONTEND_SERVICE_DIR = os.path.join(BASE_DIR, "frontend-service")
+DATABASE_SERVICE_DIR = os.path.join(BASE_DIR, "database")
+ACCESS_SERVICE_DIR = os.path.join(BASE_DIR, "access")
+FRONTEND_SERVICE_DIR = os.path.join(BASE_DIR, "frontend")
 
 sys.path.insert(0, DATABASE_SERVICE_DIR)
 sys.path.insert(0, ACCESS_SERVICE_DIR)
@@ -17,9 +17,9 @@ import requests
 from flask import Flask, render_template
 
 import init_db
-from db import DB_PATH, init_schema  # noqa: E402  (database-service)
-from db_routes import db_api  # noqa: E402  (database-service)
-from routes.access_routes import access_api  # noqa: E402  (access-service)
+from db import DB_PATH, init_schema  # noqa: E402  (database)
+from db_routes import db_api  # noqa: E402  (database)
+from routes.access_routes import access_api  # noqa: E402  (access)
 
 ACCESS_SERVICE_URL = os.environ.get("ACCESS_SERVICE_URL", "http://localhost:5000")
 

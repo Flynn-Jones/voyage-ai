@@ -8,7 +8,7 @@ db_api = Blueprint("db_api", __name__)
 
 @db_api.route("/health")
 def health():
-    return jsonify({"status": "ok", "service": "database-service"})
+    return jsonify({"status": "ok", "service": "database"})
 
 
 @db_api.route("/users")

@@ -5,10 +5,10 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY database-service/ ./database-service/
+COPY database ./database
 COPY init_db.py .
 COPY expected_shared_data.json .
 
 EXPOSE 6000
 
-CMD ["sh", "-c", "python init_db.py && python database-service/app.py"]
+CMD ["sh", "-c", "python init_db.py && python database/app.py"]

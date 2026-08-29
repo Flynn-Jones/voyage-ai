@@ -1,4 +1,4 @@
-"""HTTP client wrapper around the internal database-service (port 6000)."""
+"""HTTP client wrapper around the internal database (port 6000)."""
 import os
 
 import requests
@@ -7,11 +7,11 @@ DATABASE_SERVICE_URL = os.environ.get("DATABASE_SERVICE_URL", "http://localhost:
 
 
 class DatabaseServiceError(Exception):
-    """Raised when database-service cannot be reached or returns an unexpected error."""
+    """Raised when database cannot be reached or returns an unexpected error."""
 
 
 class NotFoundError(Exception):
-    """Raised when database-service returns a 404 for the requested resource."""
+    """Raised when database returns a 404 for the requested resource."""
 
 
 def _get(path):
@@ -23,7 +23,7 @@ def _get(path):
     if response.status_code == 404:
         raise NotFoundError(path)
     if response.status_code != 200:
-        raise DatabaseServiceError(f"database-service returned {response.status_code} for {path}")
+        raise DatabaseServiceError(f"database returned {response.status_code} for {path}")
 
     return response.json()
 

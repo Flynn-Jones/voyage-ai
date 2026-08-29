@@ -1,4 +1,4 @@
-"""Shapes trip data into the access-service's public response contract."""
+"""Shapes trip data into the access's public response contract."""
 
 
 def format_trip(trip):

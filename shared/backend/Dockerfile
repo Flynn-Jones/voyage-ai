@@ -5,8 +5,8 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY access-service/ ./access-service/
+COPY backend ./backend
 
 EXPOSE 5000
 
-CMD ["python", "access-service/app.py"]
+CMD ["python", "backend/app.py"]

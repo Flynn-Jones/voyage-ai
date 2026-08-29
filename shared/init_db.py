@@ -3,7 +3,7 @@ import json
 import os
 import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "database-service"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "database"))
 
 from db import DB_PATH, get_connection, init_schema  # noqa: E402
 

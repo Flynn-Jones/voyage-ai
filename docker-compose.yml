@@ -1,0 +1,16 @@
+Docker compose · YML
+# Root compose file — brings up ALL services (shared + 5 students) together
+# in one command, while each service's own docker-compose.yml still works
+# fine standalone (e.g. a student running just their own project).
+#
+# No "version:" key needed — the Compose Spec doesn't require one anymore,
+# and "include" requires a reasonably recent Docker Compose (v2.20+).
+ 
+include:
+  - shared/docker-compose.yml
+  - destination-service/docker-compose.yml
+  - accomodation-service/docker-compose.yml
+  - activity-service/docker-compose.yml
+  - budget-service/docker-compose.yml
+  - itinerary-service/docker-compose.yml
+

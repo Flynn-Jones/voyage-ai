@@ -2,7 +2,7 @@
 import os
 import sqlite3
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "shared.db")
+DB_PATH = os.path.join(os.path.dirname(__file__), "shared-db.sqlite")
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (

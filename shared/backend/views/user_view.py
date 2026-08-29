@@ -1,4 +1,4 @@
-"""Shapes user data into the access-service's public response contract."""
+"""Shapes user data into the access's public response contract."""
 
 
 def format_user(user):

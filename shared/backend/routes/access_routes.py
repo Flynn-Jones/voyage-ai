@@ -1,4 +1,4 @@
-"""Public access-service API: gateway to the internal database-service, plus shared nav/config data."""
+"""Public access API: gateway to the internal database, plus shared nav/config data."""
 from flask import Blueprint, jsonify
 
 from services import db_client, nav_service
@@ -9,7 +9,7 @@ access_api = Blueprint("access_api", __name__)
 
 @access_api.route("/health")
 def health():
-    return jsonify({"status": "ok", "service": "access-service"})
+    return jsonify({"status": "ok", "service": "access"})
 
 
 @access_api.route("/nav")
