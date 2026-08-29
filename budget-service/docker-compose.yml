@@ -1,14 +1,14 @@
 version: "3.9"
 
-# STUDENT 2 MICROSERVICE — its own independent project.
-# Internal ports fixed (3000/5000/6000). External ports = 3002/ 5002 / 6002.
+# STUDENT 4 MICROSERVICE — its own independent project.
+# Internal ports fixed (3000/5000/6000). External ports = 3004 / 5004 / 6004.
 
 services:
   frontend:
     build: ./frontend
-    container_name: accomodation-fe
+    container_name: budget-fe
     ports:
-      - "3002:3000"          # external:internal
+      - "3004:3000"          # external:internal
     depends_on:
       - backend
     networks:
@@ -16,9 +16,9 @@ services:
 
   backend:
     build: ./backend
-    container_name: accomodation-be
+    container_name: budget-be
     ports:
-      - "5002:5000"
+      - "5004:5000"
     environment:
       - PORT=5000
     depends_on:
@@ -28,16 +28,16 @@ services:
 
   database:
     build: ./database
-    container_name: accomodation-db
+    container_name: budget-db
     ports:
-      - "6002:6000"
+      - "6004:6000"
     environment:
-      - DB_FILE=/data/accomodation-db.sqlite
+      - DB_FILE=/data/budget-db.sqlite
     volumes:
-      - accomodation-db-data:/data
+      - budget-db-data:/data
     networks:
       - internal
-      - microservices-net       # reachable by other projects as http://student2-db:6000
+      - microservices-net       # reachable by other projects as http://student4-db:6000
 
 networks:
   internal:
@@ -46,4 +46,4 @@ networks:
     external: true
 
 volumes:
-  accomodation-db-data:
+  budget-db-data:
