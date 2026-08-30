@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>VoyageAI Budget Manager</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<main class="app-shell">
+    <header class="app-header">
+        <h1>VoyageAI Budget Manager</h1>
+        <p>Track trip expenses and get AI-assisted spending insights.</p>
+    </header>
+
+    <section class="tab-shell card">
+        <nav class="tab-nav" aria-label="Application tabs">
+            <button class="tab-btn is-active" data-tab="normal" type="button">Normal UI</button>
+            <button class="tab-btn" data-tab="ai-mode" type="button">AI Mode</button>
+        </nav>
+
+        <div class="tab-content">
+            <iframe id="tab-frame-normal" class="tab-frame is-active" src="tabs/normal.html" title="Normal UI tab"></iframe>
+            <iframe id="tab-frame-ai-mode" class="tab-frame" src="tabs/ai-mode.html" title="AI Mode tab"></iframe>
+        </div>
+    </section>
+</main>
+
+<script>
+const tabButtons = Array.from(document.querySelectorAll(".tab-btn"));
+const tabFrames = {
+    normal: document.getElementById("tab-frame-normal"),
+    "ai-mode": document.getElementById("tab-frame-ai-mode"),
+};
+
+function activateTab(tabName) {
+    tabButtons.forEach((button) => {
+        button.classList.toggle("is-active", button.dataset.tab === tabName);
+    });
+
+    Object.entries(tabFrames).forEach(([name, frame]) => {
+        frame.classList.toggle("is-active", name === tabName);
+    });
+
+    window.location.hash = tabName;
+}
+
+tabButtons.forEach((button) => {
+    if (button.disabled) {
+        return;
+    }
+
+    button.addEventListener("click", () => {
+        activateTab(button.dataset.tab);
+    });
+});
+
+const hashTab = window.location.hash.replace("#", "");
+if (hashTab && tabFrames[hashTab]) {
+    activateTab(hashTab);
+} else {
+    activateTab("normal");
+}
+</script>
+
+</body>
+</html>

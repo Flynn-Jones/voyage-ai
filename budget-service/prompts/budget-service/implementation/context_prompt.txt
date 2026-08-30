@@ -1,0 +1,31 @@
+Application Name:
+VoyageAI Budget Manager
+
+Database Schema (expenses table):
+- id (integer, primary key)
+- trip_reference (text, required) - opaque trip identifier, not owned by this service
+- expense (text, required)
+- category (text, required)
+- estimated_cost (real, required)
+- actual_cost (real, optional)
+- destination_id (integer, required) - opaque destination identifier, not owned by this service
+- status (text: Planned, Paid, or Cancelled)
+- created_at / updated_at (text, ISO timestamps)
+
+Endpoints (ONLY these exist):
+
+GET Endpoints:
+- GET /expenses
+- GET /expenses/{id}
+
+POST Endpoints:
+- POST /expenses
+- POST /budget/ai-analyse
+- POST /budget/ai-add-expense
+
+Other Endpoints:
+- PUT /expenses/{id}
+- DELETE /expenses/{id}
+
+Forbidden Operations:
+Do not suggest adding fields, endpoints, or functionality that are not listed above.

@@ -1,0 +1,18 @@
+For EACH expense in the evidence, compare actual_cost to estimated_cost:
+- If actual_cost is null, skip it (not yet paid).
+- If actual_cost > estimated_cost, report it as an overspend: name the expense,
+  the estimated cost, the actual cost, and the dollar difference.
+- Do not report an expense as "matching" or "no savings" unless you have checked
+  its actual_cost against its estimated_cost and confirmed actual_cost <=
+  estimated_cost.
+
+Work through this in order:
+Step 1: List every expense's id, estimated_cost, and actual_cost.
+Step 2: For each one, state whether actual_cost > estimated_cost.
+Step 3: Only after completing steps 1-2 for every expense, write your final answer.
+
+After checking every expense, if you found one or more overspends, list them.
+If you checked every expense and found none, respond with exactly:
+"No evidence-backed savings identified."
+
+Do not skip any expense in the evidence. Do not guess.

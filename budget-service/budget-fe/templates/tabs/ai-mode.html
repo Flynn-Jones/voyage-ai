@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>AI Mode</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <style>
+        body { margin: 0; min-height: auto; background: transparent; }
+        .app-shell { max-width: none; padding: 0; }
+        .ai-response { white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+<main class="app-shell">
+    <section class="card">
+        <h2>Analyse Trip Spending</h2>
+        <p class="rag-helper">Sends every current expense to the local AI agent and asks for evidence-backed ways to reduce spending.</p>
+
+        <form id="analyse-form">
+            <button type="submit">Analyse My Trip Spending</button>
+        </form>
+
+        <div id="analyse-result" class="panel"></div>
+    </section>
+
+    <section class="card">
+        <h2>Add Expense from Prompt</h2>
+        <p class="rag-helper">Describe the expense in plain language (mention the destination) and the agent will look up matching accommodation data and log it.</p>
+
+        <form id="add-expense-form">
+            <label for="expense-prompt">Prompt</label>
+            <textarea id="expense-prompt" name="prompt" rows="3" placeholder="I just booked a hotel in Rome, add it to my budget" required></textarea>
+            <button type="submit">Add Expense</button>
+        </form>
+
+        <div id="add-expense-result" class="panel"></div>
+    </section>
+</main>
+
+<script>
+const API_BASE = "http://localhost:5004";
+
+const analyseForm = document.getElementById("analyse-form");
+const addExpenseForm = document.getElementById("add-expense-form");
+
+function escapeHtml(value) {
+    const div = document.createElement("div");
+    div.textContent = value;
+    return div.innerHTML;
+}
+
+async function postJson(panel, url, payload) {
+    panel.innerHTML = '<p>Thinking... this can take up to a minute on the first request while the model loads.</p>';
+    try {
+        const response = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload || {}),
+        });
+        const data = await response.json();
+        return { ok: response.ok, data };
+    } catch (error) {
+        panel.innerHTML = `<p class="error">Request failed: ${escapeHtml(String(error))}</p>`;
+        return null;
+    }
+}
+
+analyseForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const panel = document.getElementById("analyse-result");
+    const result = await postJson(panel, `${API_BASE}/budget/ai-analyse`, {});
+    if (!result) return;
+
+    if (result.data.error) {
+        panel.innerHTML = `<p class="error">${escapeHtml(result.data.error)}</p>`;
+        return;
+    }
+    panel.innerHTML = `<div class="ai-response">${escapeHtml(result.data.analysis)}</div>`;
+});
+
+addExpenseForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const prompt = document.getElementById("expense-prompt").value.trim();
+    const panel = document.getElementById("add-expense-result");
+    const result = await postJson(panel, `${API_BASE}/budget/ai-add-expense`, { prompt });
+    if (!result) return;
+
+    const { data } = result;
+
+    if (data.error) {
+        panel.innerHTML = `<p class="error">${escapeHtml(data.error)}</p>`;
+        return;
+    }
+
+    if (data.clarification) {
+        panel.innerHTML = `<p class="clarification">${escapeHtml(data.clarification)}</p>`;
+        return;
+    }
+
+    if (data.created) {
+        const expense = data.created;
+        let html = `
+            <dl class="expense-detail">
+                <dt>ID</dt><dd>${expense.id}</dd>
+                <dt>Trip</dt><dd>${escapeHtml(expense.trip_reference)}</dd>
+                <dt>Expense</dt><dd>${escapeHtml(expense.expense)}</dd>
+                <dt>Category</dt><dd>${escapeHtml(expense.category)}</dd>
+                <dt>Estimated Cost</dt><dd>$${Number(expense.estimated_cost).toFixed(2)}</dd>
+                <dt>Destination ID</dt><dd>${expense.destination_id}</dd>
+                <dt>Status</dt><dd>${escapeHtml(expense.status)}</dd>
+            </dl>
+        `;
+        if (data.note) {
+            html += `<p class="clarification">${escapeHtml(data.note)}</p>`;
+        }
+        panel.innerHTML = html;
+        addExpenseForm.reset();
+        return;
+    }
+
+    panel.innerHTML = "<p class=\"error\">Unexpected response from the AI service.</p>";
+});
+</script>
+</body>
+</html>

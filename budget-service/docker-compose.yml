@@ -1,43 +1,48 @@
-version: "3.9"
-
 # STUDENT 4 MICROSERVICE — its own independent project.
-# Internal ports fixed (3000/5000/6000). External ports = 3004 / 5004 / 6004.
+# Ports: frontend 3004, backend 5004, database 6004 (external == internal, per-feature numbered).
 
 services:
   frontend:
-    build: ./frontend
+    build: ./budget-fe
     container_name: budget-fe
     ports:
-      - "3004:3000"          # external:internal
+      - "3004:80"            # nginx:alpine's default listen port
     depends_on:
       - backend
     networks:
       - internal
 
   backend:
-    build: ./backend
+    build:
+      context: .
+      dockerfile: budget-be/Dockerfile
     container_name: budget-be
     ports:
-      - "5004:5000"
+      - "5004:5004"
     environment:
-      - PORT=5000
+      - PORT=5004
+      - DATABASE_SERVICE_URL=http://database:6004
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - OLLAMA_MODEL=qwen2.5:7b
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       - database
     networks:
       - internal               # backends never talk to each other
 
   database:
-    build: ./database
+    build: ./budget-db
     container_name: budget-db
     ports:
-      - "6004:6000"
+      - "6004:6004"
     environment:
       - DB_FILE=/data/budget-db.sqlite
     volumes:
       - budget-db-data:/data
     networks:
       - internal
-      - microservices-net       # reachable by other projects as http://student4-db:6000
+      - microservices-net       # reachable by other projects as http://budget-db:6004
 
 networks:
   internal:
