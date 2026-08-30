@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VoyageAI — Register an Activity</title>
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+  <nav class="act-nav">
+    <span class="act-nav__brand">VoyageAI</span>
+    <div class="act-nav__links">
+      <a href="../index.html" class="act-nav__link--active">Activities</a>
+      <a href="http://localhost:3002">Accommodation</a>
+      <a href="http://localhost:3004">Budget</a>
+      <a href="http://localhost:3005">Itinerary</a>
+      <a href="#" class="act-nav__link--disabled" title="Coming soon">Register / Login</a>
+    </div>
+  </nav>
+
+  <main class="act-main">
+    <h1 class="act-section-title">Register a New Activity</h1>
+
+    <div id="feedback" class="act-banner"></div>
+
+    <form id="activity-form" class="act-form">
+      <div class="act-field">
+        <label for="activity_name">Activity Name</label>
+        <input type="text" id="activity_name" name="activity_name" required>
+      </div>
+
+      <div class="act-field">
+        <label for="activity_type">Activity Type</label>
+        <input type="text" id="activity_type" name="activity_type" placeholder="e.g. Sightseeing, Adventure, Food" required>
+      </div>
+
+      <div class="act-field">
+        <label for="activity_cost">Cost (USD)</label>
+        <input type="number" id="activity_cost" name="activity_cost" min="0" step="0.01" required>
+      </div>
+
+      <div class="act-field">
+        <label for="duration">Duration</label>
+        <input type="text" id="duration" name="duration" placeholder="e.g. 2 hours" required>
+      </div>
+
+      <div class="act-field">
+        <label for="assignment_time">Recommended / Assigned Time</label>
+        <input type="datetime-local" id="assignment_time" name="assignment_time" required>
+        <small>Schedules this activity into a time slot.</small>
+      </div>
+
+      <button type="submit" class="act-btn">Register Activity</button>
+    </form>
+  </main>
+
+  <footer class="act-footer">
+    VoyageAI — Activity Manager
+  </footer>
+
+  <script src="../js/api.js"></script>
+  <script>
+    const form = document.getElementById("activity-form");
+    const feedback = document.getElementById("feedback");
+
+    function showFeedback(message, type) {
+      feedback.textContent = message;
+      feedback.className = `act-banner act-banner--visible act-banner--${type}`;
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      feedback.className = "act-banner";
+
+      const formData = new FormData(form);
+      const payload = {
+        activity_name: formData.get("activity_name").trim(),
+        activity_type: formData.get("activity_type").trim(),
+        activity_cost: parseFloat(formData.get("activity_cost")),
+        duration: formData.get("duration").trim(),
+        assignment_time: formData.get("assignment_time"),
+      };
+
+      const submitButton = form.querySelector("button[type=submit]");
+      submitButton.disabled = true;
+
+      try {
+        await addActivity(payload);
+        showFeedback("Activity registered successfully.", "success");
+        form.reset();
+      } catch (error) {
+        showFeedback(`Could not register activity: ${error.message}`, "error");
+      } finally {
+        submitButton.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
