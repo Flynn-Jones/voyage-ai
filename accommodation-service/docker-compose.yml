@@ -35,7 +35,7 @@ services:
       - "6002:6002"
     environment:
       - PORT=6002
-      - DB_FILE=/data/accomodation-db.sqlite
+      - DB_FILE=/data/accommodation-db.sqlite
     volumes:
       - accomodation-db-data:/data
     networks:
