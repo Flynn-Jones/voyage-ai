@@ -6,7 +6,6 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY database ./database
-COPY init_db.py .
 COPY expected_shared_data.json .
 
 EXPOSE 6000

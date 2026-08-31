@@ -22,6 +22,7 @@ services:
     environment:
       - PORT=5004
       - DATABASE_SERVICE_URL=http://database:6004
+      - ACCOMMODATION_SERVICE_URL=http://accomodation-db:6002
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
       - OLLAMA_MODEL=qwen2.5:7b
     extra_hosts:
@@ -29,7 +30,8 @@ services:
     depends_on:
       - database
     networks:
-      - internal               # backends never talk to each other
+      - internal
+      - microservices-net
 
   database:
     build: ./budget-db
@@ -42,7 +44,7 @@ services:
       - budget-db-data:/data
     networks:
       - internal
-      - microservices-net       # reachable by other projects as http://budget-db:6004
+      - microservices-net
 
 networks:
   internal:

@@ -3,10 +3,10 @@
 
 services:
   frontend:
+    container_name: shared-fe
     build:
       context: .
       dockerfile: frontend/Dockerfile
-    container_name: shared-fe
     ports:
       - "3000:3000"
     depends_on:
@@ -17,10 +17,10 @@ services:
       - internal
 
   backend:
+    container_name: shared-be
     build:
       context: .
       dockerfile: backend/Dockerfile
-    # container_name: shared-be
     ports:
       - "5000:5000"
     environment:
@@ -31,6 +31,7 @@ services:
       - internal
 
   database:
+    container_name: shared-db
     build:
       context: .
       dockerfile: database/Dockerfile
