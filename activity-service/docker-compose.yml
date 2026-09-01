@@ -1,0 +1,54 @@
+# STUDENT 4 MICROSERVICE — its own independent project.
+# Ports: frontend 3004, backend 5003, database 6003 (external == internal, per-feature numbered).
+
+services:
+  frontend:
+    build: ./frontend
+    container_name: frontend
+    ports:
+      - "3004:80"            # nginx:alpine's default listen port
+    depends_on:
+      - backend
+    networks:
+      - internal
+
+  backend:
+    build:
+      context: ./backend
+    container_name: backend
+    ports:
+      - "5003:5003"
+    environment:
+      - DATABASE_SERVICE_URL=http://database:6003
+      - ACCOMMODATION_SERVICE_URL=http://accomodation-db:6002
+      - OLLAMA_URL=http://host.docker.internal:11434
+      - OLLAMA_MODEL=qwen2.5:7b
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - database
+    networks:
+      - internal
+      - microservices-net
+
+  database:
+    build: ./database-service
+    container_name: database-service
+    ports:
+      - "6003:6003"
+    environment:
+      - DB_FILE=/data/database-service.sqlite
+    volumes:
+      - database-service-data:/data
+    networks:
+      - internal
+      - microservices-net
+
+networks:
+  internal:
+    driver: bridge
+  microservices-net:
+    external: true
+
+volumes:
+  database-service-data:
