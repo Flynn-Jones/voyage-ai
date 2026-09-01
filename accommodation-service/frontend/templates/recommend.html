@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}AI recommendation{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <div class="page-header">
+    <div>
+      <h1>AI Recommendation</h1>
+      <p>Ask the accommodation agent for a recommended stay based on your city, budget, and interests.</p>
+    </div>
+  </div>
+
+  <form method="post" action="{{ url_for('recommend') }}" class="stacked-form">
+    <div class="field-grid">
+      <label>
+        <span>Destination city</span>
+        <input name="destination_city" placeholder="Tokyo" required>
+      </label>
+      <label>
+        <span>Max price</span>
+        <input name="max_price" type="number" step="0.01" placeholder="150.0" required>
+      </label>
+      <label class="full-width">
+        <span>Interests</span>
+        <input name="interests" placeholder="nightlife, food, shopping">
+      </label>
+    </div>
+
+    <div class="form-actions">
+      <button class="button button--primary" type="submit">Generate recommendation</button>
+    </div>
+  </form>
+</section>
+
+{% include "recommend_result.html" %}
+{% endblock %}

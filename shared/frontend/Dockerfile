@@ -9,4 +9,4 @@ COPY frontend ./frontend
 
 EXPOSE 3000
 
-CMD ["python", "frontend/app.py"]
+CMD ["python", "frontend/src/app.py"]

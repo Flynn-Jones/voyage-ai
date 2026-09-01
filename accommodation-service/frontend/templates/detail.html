@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}Accommodation detail{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <div class="page-header">
+    <div>
+      <h1>{{ accommodation.name if accommodation else 'Accommodation not found' }}</h1>
+    </div>
+    <div class="inline-actions">
+      {% if accommodation %}
+      <a class="button button--secondary" href="{{ url_for('edit_accommodation_form', accommodation_id=accommodation.id) }}">Edit</a>
+      {% endif %}
+      <a class="button button--secondary" href="{{ url_for('index') }}">Back to list</a>
+    </div>
+  </div>
+
+  {% if error %}
+    <div class="alert alert--error">{{ error }}</div>
+  {% endif %}
+
+  {% if accommodation %}
+  <div class="detail-grid">
+    <div>
+      <p><strong>City:</strong> {{ accommodation.destination_city or '—' }}</p>
+      <p><strong>Type:</strong> {{ accommodation.type or '—' }}</p>
+      <p><strong>Price per night:</strong> ${{ '%.2f'|format(accommodation.price_per_night or 0) }}</p>
+      <p><strong>Rating:</strong> {{ accommodation.rating if accommodation.rating is not none else '—' }}</p>
+      <p><strong>Location:</strong> {{ accommodation.location or '—' }}</p>
+    </div>
+    <div>
+      <p><strong>Destination ID:</strong> {{ accommodation.destination_id or '—' }}</p>
+      <p><strong>Latitude:</strong> {{ accommodation.latitude if accommodation.latitude is not none else '—' }}</p>
+      <p><strong>Longitude:</strong> {{ accommodation.longitude if accommodation.longitude is not none else '—' }}</p>
+      <p><strong>Amenities:</strong> {{ ', '.join(accommodation.amenities) if accommodation.amenities else '—' }}</p>
+    </div>
+  </div>
+
+  {% if accommodation.latitude is not none and accommodation.longitude is not none %}
+  <div class="map-card">
+    <div class="map-card__header">
+      <h3>Location map</h3>
+      <span>{{ accommodation.location or accommodation.destination_city or 'Map location' }}</span>
+    </div>
+    <div id="accommodation-map"
+         class="location-map"
+         data-lat="{{ accommodation.latitude }}"
+         data-lng="{{ accommodation.longitude }}">
+    </div>
+    <div class="map-attribution">Map data © OpenFreeMap, OpenMapTiles, and OpenStreetMap contributors</div>
+  </div>
+  {% endif %}
+
+  <div class="description-box">
+    <h3>Description</h3>
+    <p>{{ accommodation.description or 'No description provided.' }}</p>
+  </div>
+  {% endif %}
+</section>
+
+{% if accommodation and accommodation.latitude is not none and accommodation.longitude is not none %}
+<script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js" defer></script>
+<link href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css" rel="stylesheet" defer/>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const mapElement = document.getElementById('accommodation-map');
+    if (!mapElement) {
+      return;
+    }
+
+    const latitude = parseFloat(mapElement.dataset.lat);
+    const longitude = parseFloat(mapElement.dataset.lng);
+
+    if (Number.isNaN(latitude) || Number.isNaN(longitude)) {
+      return;
+    }
+
+    const map = new maplibregl.Map({
+      container: 'accommodation-map',
+      style: 'https://tiles.openfreemap.org/styles/liberty',
+      center: [longitude, latitude],
+      zoom: 13,
+      pitch: 0,
+      interactive: false,
+      attributionControl: true,
+    });
+
+    map.on('load', function () {
+      new maplibregl.Marker({
+        color: '#45c9ff',
+        scale: 0.9,
+      })
+        .setLngLat([longitude, latitude])
+        .addTo(map);
+    });
+  });
+</script>
+{% endif %}
+{% endblock %}

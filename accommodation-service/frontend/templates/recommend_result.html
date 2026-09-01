@@ -1,0 +1,112 @@
+{% if recommendation or error %}
+<section class="panel recommendation-panel">
+  {% if error %}
+    <div class="alert alert--error">
+      <strong>Recommendation failed</strong>
+      <p>{{ error }}</p>
+    </div>
+  {% elif recommendation and (recommendation.recommendation or recommendation.recommendations) %}
+    <!-- <div class="recommendation-workflow"> -->
+    <!--   <h2>AI Agent Workflow</h2> -->
+    <!--   <div class="workflow-steps"> -->
+    <!--     <div class="step"> -->
+    <!--       <div class="step-content"> -->
+    <!--         <div class="step-label">1. Plan</div> -->
+    <!--         <div class="step-detail">{{ recommendation.plan | safe }}</div> -->
+    <!--       </div> -->
+    <!--     </div> -->
+    <!--     <div class="step-arrow">→</div> -->
+    <!--     <div class="step"> -->
+    <!--       <div class="step-content"> -->
+    <!--         <div class="step-label">2. Act</div> -->
+    <!--         <div class="step-detail">Found {{ recommendation.act_result_count }} accommodation(s)</div> -->
+    <!--       </div> -->
+    <!--     </div> -->
+    <!--     <div class="step-arrow">→</div> -->
+    <!--     <div class="step"> -->
+    <!--       <div class="step-content"> -->
+    <!--         <div class="step-label">3. Observe</div> -->
+    <!--         <div class="step-detail">{{ recommendation.observation }}</div> -->
+    <!--       </div> -->
+    <!--     </div> -->
+    <!--     <div class="step-arrow">→</div> -->
+    <!--     <div class="step"> -->
+    <!--       <div class="step-content"> -->
+    <!--         <div class="step-label">4. Adapt</div> -->
+    <!--         <div class="step-detail">Generated recommendation{% if recommendation.recommendations and recommendation.recommendations|length > 1 %}s{% endif %}</div> -->
+    <!--       </div> -->
+    <!--     </div> -->
+    <!--   </div> -->
+    <!-- </div> -->
+
+    {% set items = recommendation.recommendations if recommendation.recommendations is defined and recommendation.recommendations else [recommendation.recommendation] %}
+    {% set primary = items[0] if items else None %}
+
+    {% if items|length > 1 %}
+      <div class="recommendation-card-main">
+        <div class="recommendation-header">
+          <h2>Top recommendations</h2>
+          {% if primary and primary.response_time_seconds %}
+          <div class="recommendation-meta">
+            <span class="badge badge--secondary">Generated in {{ primary.response_time_seconds | round(1) }}s</span>
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="recommendation-list">
+          {% for item in items %}
+            {% set item_name = item.name or 'Accommodation option' %}
+            {% set item_reason = item.reason or 'No reason provided.' %}
+            <div class="recommendation-list__item">
+              <div class="recommendation-list__header">
+                <span class="badge {% if loop.index == 1 %}badge--secondary{% else %}badge{% endif %}">#{{ loop.index }}</span>
+                <h3>{{ item_name }}</h3>
+              </div>
+              <div class="reason-text">
+                {{ item_reason | replace('```json', '') | replace('```', '') | safe }}
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+
+        <div class="recommendation-actions">
+          <a class="button button--primary" href="{{ url_for('index') }}">Find Similar Stays</a>
+          <a class="button button--secondary" href="{{ url_for('recommend_page') }}">New Search</a>
+        </div>
+      </div>
+    {% elif primary %}
+      {% set reason_text = (primary.reason or '') | string %}
+      <div class="recommendation-card-main">
+        <div class="recommendation-header">
+          <h2>Recommended: {{ primary.name or 'Accommodation' }}</h2>
+          <div class="recommendation-meta">
+            {% if primary.response_time_seconds %}
+            <span class="badge badge--secondary">Generated in {{ primary.response_time_seconds | round(1) }}s</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="recommendation-reason">
+          <h3>Why we recommend this</h3>
+          <div class="reason-text">
+            {{ reason_text | replace('```json', '') | replace('```', '') | safe }}
+          </div>
+        </div>
+        <div class="recommendation-actions">
+          <a class="button button--primary" href="{{ url_for('index') }}">Find Similar Stays</a>
+          <a class="button button--secondary" href="{{ url_for('recommend_page') }}">New Search</a>
+        </div>
+      </div>
+    {% else %}
+      <div class="alert alert--warning">
+        <strong>Recommendation generated</strong>
+        <p>{{ recommendation.observation }}</p>
+      </div>
+    {% endif %}
+  {% else %}
+    <div class="alert alert--warning">
+      <strong>No recommendation available</strong>
+      <p>{{ recommendation.observation or 'No accommodations matched your criteria.' }}</p>
+    </div>
+  {% endif %}
+</section>
+{% endif %}

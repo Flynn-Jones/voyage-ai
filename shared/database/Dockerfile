@@ -10,4 +10,4 @@ COPY expected_shared_data.json .
 
 EXPOSE 6000
 
-CMD ["sh", "-c", "python init_db.py && python database/app.py"]
+CMD ["sh", "-c", "python init_db.py && python database/src/app.py"]
