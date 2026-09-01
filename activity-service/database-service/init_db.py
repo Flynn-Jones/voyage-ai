@@ -2,7 +2,9 @@
 import os
 import sqlite3
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "activity-db.sqlite")
+DB_PATH = os.environ.get(
+    "ACTIVITY_DB_PATH", os.path.join(os.path.dirname(__file__), "activity-db.sqlite")
+)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS activities (

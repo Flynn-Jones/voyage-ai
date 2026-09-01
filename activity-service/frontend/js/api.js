@@ -26,7 +26,7 @@ async function addActivity(payload) {
   });
   if (!response.ok) {
     const errorBody = await response.json().catch(() => ({}));
-    throw new Error(errorBody.message || `Failed to add activity (${response.status})`);
+    throw new Error(errorBody.error || `Failed to add activity (${response.status})`);
   }
   return response.json();
 }

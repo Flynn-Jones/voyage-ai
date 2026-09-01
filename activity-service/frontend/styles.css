@@ -1,5 +1,6 @@
 :root {
   /* Activity Manager palette — red/white, varied shades */
+
   --act-maroon: #7A1F2B;
   --act-red: #C4172C;
   --act-red-bright: #E63946;
@@ -38,15 +39,20 @@ a:hover {
   text-decoration: underline;
 }
 
+
 /* Nav bar */
+
 .act-nav {
   height: var(--act-nav-height);
   background: var(--act-maroon);
   color: #fff;
+
   display: flex;
   align-items: center;
   justify-content: space-between;
+
   padding: 0 24px;
+
   flex-wrap: wrap;
   gap: 8px;
 }
@@ -91,23 +97,31 @@ a:hover {
   border-bottom-color: transparent;
 }
 
+
 /* Layout shell */
+
 .act-main {
   max-width: var(--act-max-width);
   margin: 0 auto;
   padding: 32px 24px;
 }
 
+
 /* Footer */
+
 .act-footer {
   border-top: 1px solid var(--act-border);
   padding: 20px 24px;
+
   text-align: center;
+
   color: var(--act-text-muted);
   font-size: 0.875rem;
 }
 
+
 /* Hero */
+
 .act-hero {
   text-align: center;
   padding: 24px 0 40px;
@@ -125,14 +139,31 @@ a:hover {
   margin: 0;
 }
 
+.act-hero__actions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.act-back-link {
+  margin-bottom: 20px;
+  display: inline-block;
+}
+
+
 /* Section headings */
+
 .act-section-title {
   font-size: 1.4rem;
   color: var(--act-maroon);
   margin: 0 0 16px;
 }
 
+
 /* Card grid */
+
 .act-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -144,10 +175,13 @@ a:hover {
   border: 1px solid var(--act-border);
   border-radius: var(--act-radius);
   box-shadow: var(--act-shadow);
+
   padding: 20px;
+
   display: flex;
   flex-direction: column;
   gap: 8px;
+
   transition: background 0.15s ease, transform 0.15s ease;
 }
 
@@ -176,13 +210,18 @@ a:hover {
 
 .act-card__link {
   display: inline-block;
+
   margin-top: 8px;
   padding: 8px 16px;
+
   background: var(--act-red);
   color: #fff;
+
   border-radius: var(--act-radius);
+
   font-size: 0.9rem;
   font-weight: 600;
+
   text-align: center;
 }
 
@@ -192,22 +231,31 @@ a:hover {
   text-decoration: none;
 }
 
+
 /* Buttons */
+
 .act-btn {
   display: inline-block;
+
   padding: 10px 20px;
+
   background: var(--act-red);
   color: #fff;
+
   border: none;
   border-radius: var(--act-radius);
+
   font-size: 0.95rem;
   font-weight: 600;
+
   cursor: pointer;
   font-family: inherit;
 }
 
 .act-btn:hover {
   background: var(--act-red-bright);
+  color: #fff;
+  text-decoration: none;
 }
 
 .act-btn--secondary {
@@ -221,14 +269,18 @@ a:hover {
   color: var(--act-red-bright);
 }
 
+
 /* Forms */
+
 .act-form {
   background: var(--act-white);
   border: 1px solid var(--act-border);
   border-radius: var(--act-radius);
   box-shadow: var(--act-shadow);
+
   padding: 24px;
   max-width: 560px;
+
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -251,9 +303,12 @@ a:hover {
 .act-field select {
   font-family: inherit;
   font-size: 0.95rem;
+
   padding: 10px 12px;
+
   border: 1px solid var(--act-border);
   border-radius: var(--act-radius);
+
   background: var(--act-offwhite);
   color: var(--act-text);
 }
@@ -262,6 +317,7 @@ a:hover {
 .act-field textarea:focus,
 .act-field select:focus {
   outline: none;
+
   border-color: var(--act-red);
   background: var(--act-white);
 }
@@ -271,12 +327,16 @@ a:hover {
   font-size: 0.8rem;
 }
 
-/* Feedback banners (stay within the red/white family) */
+
+/* Feedback banners */
+
 .act-banner {
   border-radius: var(--act-radius);
   padding: 12px 16px;
+
   font-size: 0.9rem;
   font-weight: 600;
+
   display: none;
 }
 
@@ -298,8 +358,10 @@ a:hover {
 
 .act-note {
   margin-top: 24px;
+
   font-size: 0.85rem;
   color: var(--act-text-muted);
+
   text-align: center;
 }
 
@@ -308,6 +370,9 @@ a:hover {
   color: var(--act-text-muted);
   font-style: italic;
 }
+
+
+/* Activity detail */
 
 .act-detail__meta {
   display: flex;
@@ -319,8 +384,11 @@ a:hover {
 .act-detail__meta span {
   background: var(--act-rose);
   color: var(--act-maroon);
+
   padding: 6px 12px;
+
   border-radius: 999px;
+
   font-size: 0.85rem;
   font-weight: 600;
 }
@@ -328,7 +396,9 @@ a:hover {
 .act-summary {
   background: var(--act-offwhite);
   border: 1px dashed var(--act-border);
+
   border-radius: var(--act-radius);
+
   padding: 16px;
   margin-top: 16px;
 }

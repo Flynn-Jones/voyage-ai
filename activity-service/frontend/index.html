@@ -6,30 +6,50 @@
   <title>VoyageAI — Activities</title>
   <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
+
   <nav class="act-nav">
     <span class="act-nav__brand">VoyageAI</span>
+
     <div class="act-nav__links">
       <a href="index.html" class="act-nav__link--active">Activities</a>
+      <a href="pages/ai-mode.html">AI Mode</a>
       <a href="http://localhost:3002">Accommodation</a>
       <a href="http://localhost:3004">Budget</a>
       <a href="http://localhost:3005">Itinerary</a>
-      <a href="#" class="act-nav__link--disabled" title="Coming soon">Register / Login</a>
+      <a href="#" class="act-nav__link--disabled" title="Coming soon">
+        Register / Login
+      </a>
     </div>
   </nav>
 
   <main class="act-main">
+
     <section class="act-hero">
       <h1>Find Activities for Your Trip</h1>
-      <p>Browse activities, check costs and durations, and see AI-generated summaries.</p>
-      <a class="act-btn" href="pages/register-activity.html" style="margin-top: 16px; display: inline-block;">Register an Activity</a>
+
+      <p>
+        Browse activities, check costs and durations, and see AI-generated summaries.
+      </p>
+
+      <div class="act-hero__actions">
+        <a class="act-btn" href="pages/activities.html">Browse Activities</a>
+        <a class="act-btn" href="pages/register-activity.html">Register Activity</a>
+        <a class="act-btn" href="pages/ai-mode.html">AI Mode</a>
+      </div>
     </section>
 
     <section>
       <h2 class="act-section-title">Featured Activities</h2>
-      <p id="hub-status" class="act-loading">Loading activities…</p>
+
+      <p id="hub-status" class="act-loading">
+        Loading activities…
+      </p>
+
       <div id="hub-grid" class="act-grid"></div>
     </section>
+
   </main>
 
   <footer class="act-footer">
@@ -37,6 +57,7 @@
   </footer>
 
   <script src="js/api.js"></script>
+
   <script>
     function escapeHtml(value) {
       const div = document.createElement("div");
@@ -55,12 +76,21 @@
       }
 
       status.remove();
+
       grid.innerHTML = activities.map((activity) => `
         <article class="act-card">
           <h2>${escapeHtml(activity.activity_name)}</h2>
           <p>${escapeHtml(activity.activity_type)}</p>
-          <p class="act-card__cost">$${escapeHtml(activity.activity_cost)} · ${escapeHtml(activity.duration)}</p>
-          <a class="act-card__link" href="pages/activities.html?id=${encodeURIComponent(activity.activity_id)}">View Details</a>
+          <p class="act-card__cost">
+            $${escapeHtml(activity.activity_cost)} · ${escapeHtml(activity.duration)}
+          </p>
+
+          <a
+            class="act-card__link"
+            href="pages/activities.html?id=${encodeURIComponent(activity.activity_id)}"
+          >
+            View Details
+          </a>
         </article>
       `).join("");
     }
@@ -71,6 +101,7 @@
         renderActivities(activities);
       } catch (error) {
         const status = document.getElementById("hub-status");
+
         status.textContent = `Could not load activities: ${error.message}`;
         status.className = "act-empty";
       }
@@ -78,5 +109,6 @@
 
     loadHub();
   </script>
+
 </body>
 </html>

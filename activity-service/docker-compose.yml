@@ -21,8 +21,16 @@ services:
     environment:
       - DATABASE_SERVICE_URL=http://database:6003
       - ACCOMMODATION_SERVICE_URL=http://accomodation-db:6002
+      # Required for activity_store.py's direct-SQLite writes to land in the
+      # same file database-service reads — must match the env var below and
+      # the shared volume mount (neither existed on this service before).
+      - ACTIVITY_DB_PATH=/data/database-service.sqlite
       - OLLAMA_URL=http://host.docker.internal:11434
-      - OLLAMA_MODEL=qwen2.5:7b
+      # qwen2.5:7b (the original choice here) isn't pulled locally; using the
+      # smaller already-available qwen2.5:0.5b instead, per John's call.
+      - OLLAMA_MODEL=qwen2.5:0.5b
+    volumes:
+      - database-service-data:/data
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -33,11 +41,13 @@ services:
 
   database:
     build: ./database-service
-    container_name: database-service
+    container_name: activity-service-database  # renamed from "database-service": that name
+                                                # collides with an unrelated project's container
+                                                # on this machine (enrolment-app-open-ai)
     ports:
       - "6003:6003"
     environment:
-      - DB_FILE=/data/database-service.sqlite
+      - ACTIVITY_DB_PATH=/data/database-service.sqlite
     volumes:
       - database-service-data:/data
     networks:
