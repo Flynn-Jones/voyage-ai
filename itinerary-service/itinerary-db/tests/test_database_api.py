@@ -1,4 +1,5 @@
 import copy
+import importlib
 import sys
 from pathlib import Path
 
@@ -8,6 +9,15 @@ import pytest
 DB_ROOT = Path(__file__).resolve().parents[1]
 if str(DB_ROOT) not in sys.path:
     sys.path.insert(0, str(DB_ROOT))
+
+# The backend and database are separate containers but both intentionally use
+# top-level module names such as ``app`` and ``validation``. A combined local
+# pytest process must discard the backend versions before importing this
+# service, mirroring the isolation the containers provide at runtime.
+for module_name in ("app", "database", "init_db", "validation"):
+    sys.modules.pop(module_name, None)
+importlib.invalidate_caches()
+from app import create_app as create_database_app
 
 
 VALID_ITEM = {
@@ -24,9 +34,7 @@ VALID_ITEM = {
 
 @pytest.fixture()
 def client(tmp_path):
-    from app import create_app
-
-    application = create_app(str(tmp_path / "test-itinerary.sqlite"))
+    application = create_database_app(str(tmp_path / "test-itinerary.sqlite"))
     application.config.update(TESTING=True)
     return application.test_client()
 

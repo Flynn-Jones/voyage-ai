@@ -1,10 +1,16 @@
 # VoyageAI Itinerary Manager
 
-Student 5's Itinerary Manager is scaffolded as three separately containerised layers:
+Student 5's Itinerary Manager provides a day-by-day trip schedule with a
+three-layer, separately containerised architecture:
 
 ```text
 Browser -> itinerary-fe -> itinerary-be -> itinerary-db -> SQLite
 ```
+
+The frontend calls only the public backend API. The backend applies validation
+and communicates with the database API over HTTP; it never opens SQLite. The
+database container exclusively owns the SQLite file, which is persisted in the
+`itinerary-db-data` Docker volume.
 
 ## Ports
 
@@ -14,28 +20,95 @@ Browser -> itinerary-fe -> itinerary-be -> itinerary-db -> SQLite
 | Backend | `itinerary-be` | 5005 |
 | Database API | `itinerary-db` | 6005 |
 
-The backend reaches its database API over the private Compose network at
-`http://itinerary-db:6005`. The SQLite file is owned only by the database
-container and is persisted in the `itinerary-db-data` named volume.
+Inside Docker, the backend reaches the database API at
+`http://itinerary-db:6005` through `DATABASE_SERVICE_URL`.
 
-## Start standalone
+## Current functionality
 
-From the repository root, create the shared external network once and start
-the service:
+- View the complete itinerary grouped by day and ordered by start time.
+- Filter the itinerary to a specific day and move between available days.
+- Create, edit, and delete itinerary items without a manual page refresh.
+- Display times, destination and activity identifiers, estimated cost, and notes.
+- Validate required values, positive identifiers, costs, and same-day time ranges.
+- Show loading, empty, success, validation, and service-error states.
+- Preserve itinerary records in a named Docker volume across container restarts.
+- Seed 12 deterministic records only when the itinerary table is empty.
+
+Destination and Activity names are not enriched yet; their identifiers are
+displayed directly. Cross-service enrichment and Ollama-powered itinerary review
+are planned for later stages.
+
+## Public backend API
+
+Base URL from the host: `http://localhost:5005`
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| GET | `/health` | Backend health check |
+| GET | `/api/itinerary` | List all itinerary items |
+| GET | `/api/itinerary/<item_id>` | Retrieve one itinerary item |
+| POST | `/api/itinerary` | Create an itinerary item |
+| PUT | `/api/itinerary/<item_id>` | Replace an itinerary item |
+| DELETE | `/api/itinerary/<item_id>` | Delete an itinerary item |
+| GET | `/api/itinerary/day/<day>` | List items for one day |
+
+The browser uses the same `/api/itinerary` paths through the frontend's Nginx
+proxy on port 3005.
+
+## Internal database API
+
+The database routes are an internal persistence boundary used by the itinerary
+backend. From the host their base URL is `http://localhost:6005`.
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| GET | `/health` | Database API health check |
+| GET | `/itinerary-items` | List all stored items |
+| GET | `/itinerary-items/<item_id>` | Retrieve one stored item |
+| POST | `/itinerary-items` | Create a stored item |
+| PUT | `/itinerary-items/<item_id>` | Replace a stored item |
+| DELETE | `/itinerary-items/<item_id>` | Delete a stored item |
+| GET | `/itinerary-items/day/<day>` | List stored items for one day |
+
+## Run standalone
+
+From the repository root, create the shared external network once:
 
 ```bash
 docker network inspect microservices-net >/dev/null 2>&1 || docker network create microservices-net
-docker compose -f itinerary-service/docker-compose.yml up --build
 ```
 
-Then open <http://localhost:3005>. Health endpoints are available at
+Build and start the Itinerary service:
+
+```bash
+docker compose -f itinerary-service/docker-compose.yml up -d --build
+```
+
+Open <http://localhost:3005>. Check the backend and database health endpoints at
 <http://localhost:5005/health> and <http://localhost:6005/health>.
 
-Stop the service with:
+Stop the containers while preserving database data:
 
 ```bash
 docker compose -f itinerary-service/docker-compose.yml down
 ```
 
-This is the Stage 1 scaffold only. Itinerary CRUD, day views, reference-service
-integration, and Ollama-powered AI review will be added in later stages.
+Use `down --volumes` only when intentionally resetting the development database.
+
+## Tests
+
+From the repository root, run both Student 5 suites together:
+
+```bash
+python -m pytest itinerary-service/itinerary-be/tests itinerary-service/itinerary-db/tests -q
+```
+
+Run either layer independently:
+
+```bash
+python -m pytest itinerary-service/itinerary-be/tests -q
+python -m pytest itinerary-service/itinerary-db/tests -q
+```
+
+Backend tests mock the database HTTP service. Database tests use isolated
+temporary SQLite files and do not modify the Docker development database.
