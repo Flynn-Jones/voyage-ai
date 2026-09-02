@@ -314,3 +314,29 @@ textarea {
   font-size: 0.8rem;
   color: var(--voyage-text-muted);
 }
+
+/* AI comparison page */
+.htmx-indicator {
+  opacity: 0;
+  transition: opacity 200ms ease-in;
+}
+
+.htmx-request.htmx-indicator,
+.htmx-request .htmx-indicator {
+  opacity: 1;
+}
+
+.spinner {
+  color: var(--voyage-text-muted);
+  font-size: 0.9rem;
+}
+
+.comparison-text {
+  white-space: pre-wrap;
+}
+
+.comparison-meta {
+  color: var(--voyage-text-muted);
+  font-size: 0.8rem;
+  margin: 0;
+}

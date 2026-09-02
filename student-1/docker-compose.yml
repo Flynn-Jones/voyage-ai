@@ -25,8 +25,15 @@ services:
     ports:
       - "5001:5001"
     environment:
-      - PORT=5001
-      - DATABASE_SERVICE_URL=http://destination-database:6001
+      PORT: "5001"
+      DATABASE_SERVICE_URL: http://destination-database:6001
+      # Ollama config: overridable from the shell or an uncommitted local
+      # .env (see .env.example) without editing this file.
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:0.5b}
+      OLLAMA_TIMEOUT_SECONDS: ${OLLAMA_TIMEOUT_SECONDS:-60}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       - destination-database
     networks:

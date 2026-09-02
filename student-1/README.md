@@ -102,6 +102,45 @@ Invalid numeric input (e.g. a non-numeric `average_daily_cost`) is forwarded
 to the backend as-is rather than rejected locally, so the backend's own
 validation message is what the user sees.
 
+## AI comparison (Session 4, backend `POST /api/destinations/ai-compare`)
+
+Retrieves the two named destinations through the database API (never invents
+data), builds one grounded prompt, and makes a single Ollama chat completion
+call. Logs `[PLAN]`/`[ACT]`/`[OBSERVE]`/`[ADAPT]` stages at `INFO` level.
+
+| Method | Route | Notes |
+| ------ | ----- | ----- |
+| POST | `/api/destinations/ai-compare` | Body: `{"city_a", "city_b", "preferences"}`. 400 if either city is missing or they're the same; 404 if a city isn't in the database; 503 if the database is unreachable; 502 if Ollama is unreachable or returns something unexpected. |
+
+```bash
+curl -X POST http://localhost:5001/api/destinations/ai-compare \
+  -H "Content-Type: application/json" \
+  -d '{"city_a":"Tokyo","city_b":"Kyoto","preferences":"nightlife and food"}'
+```
+
+Frontend: `/compare` (GET/POST) — two dropdowns populated from the live
+destination list plus a preferences field, submitted via an HTMX `hx-post`
+that swaps in the result (with a spinner) without a full page reload; also
+works as a plain form POST with no JavaScript.
+
+### Configuration
+
+Ollama's base URL and model are read from environment variables, not
+hardcoded — see `student-1/.env.example` for the names and defaults.
+`docker-compose.yml` interpolates them as `${OLLAMA_BASE_URL:-...}` /
+`${OLLAMA_MODEL:-...}` so they can be overridden from the shell or a local
+`.env` (never committed) without editing the compose file.
+
+**Prerequisite:** the model tag must already be pulled on the machine running
+Ollama — `ollama pull qwen2.5:0.5b` (or whichever tag `OLLAMA_MODEL` names).
+Run `ollama list` to check what's installed before demoing; the default here
+(`qwen2.5:0.5b`) was chosen because it's small and fast, not because it's the
+best available — swap `OLLAMA_MODEL` to `llama3.1:8b` for higher-quality
+(slower) output if the demo machine has it pulled.
+
+If Ollama is unreachable, `/api/destinations/ai-compare` returns 502 with
+`{"error": "AI comparison service is unavailable."}` — CRUD is unaffected.
+
 ## Test
 
 ```bash

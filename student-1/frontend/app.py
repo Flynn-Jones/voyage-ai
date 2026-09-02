@@ -14,6 +14,11 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PORT = int(os.environ.get("PORT", "3001"))
 BACKEND_SERVICE_URL = os.environ.get("BACKEND_SERVICE_URL", "http://localhost:5001")
 REQUEST_TIMEOUT = (3, 10)  # (connect, read) seconds
+# The AI comparison call chains through to a single Ollama request, which
+# takes far longer than any CRUD round trip — give it its own read timeout.
+AI_REQUEST_TIMEOUT = (3, 120)
+
+DEFAULT_COMPARE_PREFERENCES = "nightlife and food"
 
 TEXT_FIELDS = ("city", "country", "description", "travel_style")
 NUMERIC_FIELDS = {
@@ -52,13 +57,13 @@ def _read_error_message(response):
     return response.text or "invalid request"
 
 
-def backend_request(method, path, *, json_body=None, params=None):
+def backend_request(method, path, *, json_body=None, params=None, timeout=None):
     """Single exit point to the backend. Raises the typed errors above."""
     try:
         response = requests.request(
             method,
             f"{BACKEND_SERVICE_URL}{path}",
-            timeout=REQUEST_TIMEOUT,
+            timeout=timeout or REQUEST_TIMEOUT,
             json=json_body,
             params=params,
         )
@@ -271,6 +276,56 @@ def create_app():
         except BackendError:
             return render_template("error.html", message=UNAVAILABLE_MESSAGE), 503
         return redirect(url_for("index"))
+
+    @app.route("/compare", methods=["GET", "POST"])
+    def compare():
+        try:
+            rows = fetch_all()
+        except BackendError:
+            rows = []
+
+        if request.method == "GET":
+            return render_template(
+                "compare.html",
+                rows=rows,
+                city_a="Tokyo",
+                city_b="Kyoto",
+                preferences=DEFAULT_COMPARE_PREFERENCES,
+                result=None,
+                error=None,
+            )
+
+        city_a = (request.form.get("city_a") or "").strip()
+        city_b = (request.form.get("city_b") or "").strip()
+        preferences = (request.form.get("preferences") or "").strip() or DEFAULT_COMPARE_PREFERENCES
+
+        result = None
+        error = None
+        try:
+            result = backend_request(
+                "POST",
+                "/api/destinations/ai-compare",
+                json_body={"city_a": city_a, "city_b": city_b, "preferences": preferences},
+                timeout=AI_REQUEST_TIMEOUT,
+            ).json()
+        except BackendValidationError as exc:
+            error = exc.message
+        except BackendNotFound as exc:
+            error = str(exc)
+        except BackendError:
+            error = UNAVAILABLE_MESSAGE
+
+        context = dict(
+            rows=rows,
+            city_a=city_a,
+            city_b=city_b,
+            preferences=preferences,
+            result=result,
+            error=error,
+        )
+        if request.headers.get("HX-Request") == "true":
+            return render_template("_comparison.html", **context)
+        return render_template("compare.html", **context)
 
     @app.route("/health")
     def health():

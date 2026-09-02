@@ -14,6 +14,12 @@ os.environ["DATABASE_SERVICE_URL"] = "http://127.0.0.1:9"
 MODULE_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backend", "app.py"
 )
+BACKEND_DIR = os.path.dirname(MODULE_PATH)
+if BACKEND_DIR not in sys.path:
+    # backend/app.py imports llm_client (a sibling module, not a package);
+    # loading app.py by path doesn't add its own directory to sys.path the
+    # way running it as __main__ would, so this needs to be explicit.
+    sys.path.insert(0, BACKEND_DIR)
 
 
 def _load_backend_app():
