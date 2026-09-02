@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Destinations{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="page-header">
+    <div>
+      <h1>Destinations</h1>
+      <p>Browse, search and manage travel destinations.</p>
+    </div>
+    <a class="button button--primary" href="{{ url_for('new_destination') }}">Add destination</a>
+  </div>
+
+  <form class="filter-form"
+        action="{{ url_for('index') }}" method="get"
+        hx-get="{{ url_for('index') }}"
+        hx-target="#results" hx-swap="innerHTML"
+        hx-trigger="submit, keyup changed delay:300ms from:input[name='q'], change from:select[name='country']">
+    <div class="field-grid">
+      <label>
+        <span>Search</span>
+        <input type="search" name="q" value="{{ q }}" placeholder="Search city, country, description…">
+      </label>
+      <label>
+        <span>Country</span>
+        <select name="country">
+          <option value="">All countries</option>
+          {% for c in countries %}
+          <option value="{{ c }}" {% if c == country %}selected{% endif %}>{{ c }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+    <div class="form-actions">
+      <button class="button button--primary" type="submit">Search</button>
+      <a class="button button--secondary" href="{{ url_for('index') }}">Clear</a>
+    </div>
+  </form>
+
+  <div id="results">
+    {% include "_results.html" %}
+  </div>
+</section>
+{% endblock %}

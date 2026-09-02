@@ -1,0 +1,191 @@
+name: student-1
+
+on:
+  push:
+    paths:
+      - 'student-1/**'
+      - '.github/workflows/student-1.yml'
+  pull_request:
+    paths:
+      - 'student-1/**'
+      - '.github/workflows/student-1.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: student-1-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  offline-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install test dependencies
+        run: pip install -r student-1/tests/requirements.txt
+
+      - name: Run offline tests (no Docker, no Ollama)
+        run: |
+          mkdir -p student-1/reports
+          pytest student-1/tests -m "not live" -v --junitxml=student-1/reports/offline-tests.xml
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: student-1-offline-test-results
+          path: student-1/reports/offline-tests.xml
+
+  compose-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate Student 1 Compose config
+        run: docker compose -f student-1/docker-compose.yml config --quiet
+
+      - name: Confirm the three expected services are declared
+        run: |
+          services=$(docker compose -f student-1/docker-compose.yml config --services | sort)
+          expected=$'destination-backend\ndestination-database\ndestination-frontend'
+          if [ "$services" != "$expected" ]; then
+            echo "Unexpected service list:"
+            echo "$services"
+            exit 1
+          fi
+
+  build-and-smoke:
+    runs-on: ubuntu-latest
+    needs: [offline-tests, compose-validate]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install test dependencies
+        run: pip install -r student-1/tests/requirements.txt
+
+      - name: Create shared external network
+        run: docker network inspect microservices-net >/dev/null 2>&1 || docker network create microservices-net
+
+      - name: Build all three Student 1 images
+        working-directory: student-1
+        run: docker compose --project-name student-1 build
+
+      - name: List built images
+        working-directory: student-1
+        run: docker compose --project-name student-1 images
+
+      - name: Start the Student 1 stack
+        working-directory: student-1
+        run: docker compose --project-name student-1 up -d
+
+      - name: Wait for services to become healthy
+        run: |
+          wait_for() {
+            for i in $(seq 1 30); do
+              code=$(curl -sS -o /dev/null -w "%{http_code}" --connect-timeout 5 --max-time 20 "$1" || true)
+              if [ "$code" = "200" ]; then
+                echo "PASS $1 -> $code"
+                return 0
+              fi
+              echo "Retry $i/30 for $1 (got: ${code:-none})"
+              sleep 2
+            done
+            echo "FAIL $1 after 30 attempts"
+            return 1
+          }
+          wait_for "http://localhost:6001/health"
+          # A 200 here IS the assertion that the backend reached the
+          # database service over HTTP (backend/app.py returns 502 on
+          # database-unreachable), so no need to also parse the JSON body.
+          wait_for "http://localhost:5001/health"
+          wait_for "http://localhost:3001/health"
+
+      # No Ollama in CI: test_ai_compare_live.py's own
+      # _ollama_available() guard detects the unreachable localhost:11434
+      # here and self-skips — nothing is downloaded or pulled. The AI path
+      # itself is already proven by test_ai_compare.py and
+      # test_llm_client.py, which mock Ollama entirely.
+      - name: Run live-stack tests
+        run: |
+          mkdir -p student-1/reports
+          pytest student-1/tests -m live -v --junitxml=student-1/reports/live-tests.xml
+
+      - name: Smoke check public routes
+        if: always()
+        run: |
+          curl -sS -o /dev/null -w "frontend / -> %{http_code}\n" http://localhost:3001/
+          curl -sS -o /dev/null -w "backend /api/destinations -> %{http_code}\n" http://localhost:5001/api/destinations
+          curl -sS -o /dev/null -w "database /destinations -> %{http_code}\n" http://localhost:6001/destinations
+
+      - name: Dump container logs on failure
+        if: failure()
+        working-directory: student-1
+        run: docker compose --project-name student-1 logs --no-color
+
+      - name: Stop the stack
+        if: always()
+        working-directory: student-1
+        run: docker compose --project-name student-1 down -v
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: student-1-live-test-results
+          path: student-1/reports/live-tests.xml
+
+  evidence-pack:
+    runs-on: ubuntu-latest
+    needs: [build-and-smoke]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create reports directory
+        working-directory: student-1
+        run: mkdir -p reports
+
+      - name: Generate report.json
+        working-directory: student-1
+        run: |
+          TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          cat > reports/report.json << EOF
+          {
+            "workflow_name": "student-1",
+            "run_id": "${{ github.run_id }}",
+            "commit_sha": "${{ github.sha }}",
+            "branch": "${{ github.ref_name }}",
+            "generated_timestamp": "$TIMESTAMP"
+          }
+          EOF
+
+      - name: Generate report.md
+        working-directory: student-1
+        run: |
+          cat > reports/report.md << EOF
+          ## Student 1 (Destination Manager) Workflow Report
+
+          - Workflow: student-1
+          - Run ID: ${{ github.run_id }}
+          - Commit SHA: ${{ github.sha }}
+          - Branch: ${{ github.ref_name }}
+          EOF
+
+      - name: Generate run-view.md
+        working-directory: student-1
+        run: |
+          cat > reports/run-view.md << EOF
+          Run URL:
+          https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          EOF
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: student-1-report
+          path: student-1/reports

@@ -1,0 +1,14 @@
+=== SESSION 5 POST-BUILD EVIDENCE ===
+captured 2026-09-02T05:27:34Z
+
+=== docker compose config --services ===
+COMPOSE VALID (exit 0)
+destination-database
+destination-backend
+destination-frontend
+
+=== docker compose --project-name student-1 images ===
+CONTAINER                          REPOSITORY                       TAG                 PLATFORM            IMAGE ID            SIZE                CREATED
+student-1-destination-backend-1    student-1-destination-backend    latest              linux/arm64         76b83a79d78b        51.9MB              About an hour ago
+student-1-destination-database-1   student-1-destination-database   latest              linux/arm64         222f004f63e0        51.9MB              4 hours ago
+student-1-destination-frontend-1   student-1-destination-frontend   latest              linux/arm64         d97fa4d03d32        51.9MB              About an hour ago

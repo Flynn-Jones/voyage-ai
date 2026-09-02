@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit destination' if mode == 'edit' else 'Add destination' }}{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="page-header">
+    <h1>{{ 'Edit destination' if mode == 'edit' else 'Add destination' }}</h1>
+  </div>
+
+  {% if error %}
+  <div class="alert alert--error">{{ error }}</div>
+  {% endif %}
+
+  <form class="stacked-form" method="post"
+        action="{{ url_for('edit_destination', destination_id=destination.destination_id) if mode == 'edit' else url_for('new_destination') }}">
+    <div class="field-grid">
+      <label>
+        <span>City *</span>
+        <input type="text" name="city" value="{{ destination.get('city', '') }}" required>
+      </label>
+      <label>
+        <span>Country *</span>
+        <input type="text" name="country" value="{{ destination.get('country', '') }}" required>
+      </label>
+      <label class="full-width">
+        <span>Description</span>
+        <textarea name="description" rows="3">{{ destination.get('description', '') }}</textarea>
+      </label>
+      <label>
+        <span>Average daily cost</span>
+        <input type="text" name="average_daily_cost" value="{{ destination.get('average_daily_cost', '') }}" placeholder="e.g. 150">
+      </label>
+      <label>
+        <span>Recommended trip length (days)</span>
+        <input type="text" name="recommended_trip_length" value="{{ destination.get('recommended_trip_length', '') }}" placeholder="e.g. 5">
+      </label>
+      <label>
+        <span>Travel style</span>
+        <input type="text" name="travel_style" value="{{ destination.get('travel_style', '') }}" placeholder="e.g. City break">
+      </label>
+      <label class="full-width">
+        <span>Categories (comma-separated)</span>
+        <input type="text" name="categories" value="{{ categories_text }}" placeholder="food, culture, nightlife">
+      </label>
+    </div>
+    <div class="form-actions">
+      <button class="button button--primary" type="submit">{{ 'Save changes' if mode == 'edit' else 'Create destination' }}</button>
+      {% if mode == 'edit' %}
+      <a class="button button--secondary" href="{{ url_for('destination_detail', destination_id=destination.destination_id) }}">Cancel</a>
+      {% else %}
+      <a class="button button--secondary" href="{{ url_for('index') }}">Cancel</a>
+      {% endif %}
+    </div>
+  </form>
+</section>
+{% endblock %}

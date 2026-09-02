@@ -1,0 +1,342 @@
+/* Copied from shared/frontend/src/css/theme.css so the Destination Manager
+   frontend renders with the shared VoyageAI look without a shared build
+   context. Keep the token values in sync if the shared theme changes. */
+:root {
+  /* Brand palette */
+  --voyage-primary: #0B6E99;
+  --voyage-primary-dark: #084F6E;
+  --voyage-secondary: #F2A65A;
+  --voyage-accent: #2EC4B6;
+
+  /* Surfaces & text */
+  --voyage-bg: #F7F9FB;
+  --voyage-surface: #FFFFFF;
+  --voyage-text: #1B2733;
+  --voyage-text-muted: #5B6B79;
+  --voyage-border: #E1E7EC;
+
+  /* Status */
+  --voyage-success: #2E9E5B;
+  --voyage-danger: #D64545;
+
+  /* Layout & type */
+  --voyage-font-base: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --voyage-radius: 8px;
+  --voyage-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --voyage-nav-height: 64px;
+  --voyage-max-width: 1100px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--voyage-font-base);
+  background: var(--voyage-bg);
+  color: var(--voyage-text);
+}
+
+a {
+  color: var(--voyage-primary);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--voyage-primary-dark);
+  text-decoration: underline;
+}
+
+/* Nav bar */
+.voyage-nav {
+  min-height: var(--voyage-nav-height);
+  background: var(--voyage-primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+}
+
+.voyage-nav__container {
+  max-width: var(--voyage-max-width);
+  margin: 0 auto;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 0;
+}
+
+.voyage-nav__brand {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.02em;
+}
+
+.voyage-nav__links {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.voyage-nav__links a {
+  color: #fff;
+}
+
+.voyage-nav__links a:hover {
+  color: var(--voyage-secondary);
+}
+
+/* Layout shell */
+.voyage-main {
+  max-width: var(--voyage-max-width);
+  margin: 0 auto;
+  padding: 32px 24px;
+}
+
+/* Footer */
+.voyage-footer {
+  border-top: 1px solid var(--voyage-border);
+  padding: 20px 24px;
+  text-align: center;
+  color: var(--voyage-text-muted);
+  font-size: 0.875rem;
+}
+
+/* Panels and page headers */
+.panel {
+  background: var(--voyage-surface);
+  border: 1px solid var(--voyage-border);
+  border-radius: var(--voyage-radius);
+  box-shadow: var(--voyage-shadow);
+  padding: 24px;
+}
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.page-header h1 {
+  margin: 0 0 4px;
+}
+
+.page-header p {
+  margin: 0;
+  color: var(--voyage-text-muted);
+}
+
+/* Forms */
+.filter-form,
+.stacked-form {
+  margin-bottom: 24px;
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.field-grid .full-width {
+  grid-column: 1 / -1;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.9rem;
+  color: var(--voyage-text-muted);
+}
+
+input[type="text"],
+input[type="search"],
+input[type="number"],
+select,
+textarea {
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid var(--voyage-border);
+  border-radius: var(--voyage-radius);
+  background: var(--voyage-surface);
+  color: var(--voyage-text);
+}
+
+textarea {
+  resize: vertical;
+}
+
+.form-actions,
+.inline-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* Buttons */
+.button {
+  display: inline-block;
+  padding: 8px 16px;
+  border-radius: var(--voyage-radius);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: center;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.button--primary {
+  background: var(--voyage-primary);
+  color: #fff;
+}
+
+.button--primary:hover {
+  background: var(--voyage-primary-dark);
+  color: #fff;
+  text-decoration: none;
+}
+
+.button--secondary {
+  background: var(--voyage-surface);
+  color: var(--voyage-text);
+  border-color: var(--voyage-border);
+}
+
+.button--secondary:hover {
+  text-decoration: none;
+  border-color: var(--voyage-primary);
+}
+
+.button--danger {
+  background: var(--voyage-danger);
+  color: #fff;
+}
+
+.button--danger:hover {
+  background: #b83a3a;
+  color: #fff;
+  text-decoration: none;
+}
+
+.button--small {
+  padding: 4px 10px;
+  font-size: 0.8rem;
+}
+
+/* Data table */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--voyage-border);
+}
+
+.data-table th {
+  color: var(--voyage-text-muted);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.actions {
+  white-space: nowrap;
+}
+
+/* Alerts and empty state */
+.alert {
+  padding: 12px 16px;
+  border-radius: var(--voyage-radius);
+  margin-bottom: 16px;
+}
+
+.alert--error {
+  background: #FBEAEA;
+  color: var(--voyage-danger);
+  border: 1px solid var(--voyage-danger);
+}
+
+.empty-state {
+  padding: 24px;
+  text-align: center;
+  color: var(--voyage-text-muted);
+}
+
+/* Detail page */
+.description-box {
+  color: var(--voyage-text);
+  margin: 16px 0;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin: 16px 0;
+}
+
+.detail-label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--voyage-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 4px;
+}
+
+.badges {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 16px 0;
+}
+
+.badge {
+  background: var(--voyage-bg);
+  border: 1px solid var(--voyage-border);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 0.8rem;
+  color: var(--voyage-text-muted);
+}
+
+/* AI comparison page */
+.htmx-indicator {
+  opacity: 0;
+  transition: opacity 200ms ease-in;
+}
+
+.htmx-request.htmx-indicator,
+.htmx-request .htmx-indicator {
+  opacity: 1;
+}
+
+.spinner {
+  color: var(--voyage-text-muted);
+  font-size: 0.9rem;
+}
+
+.comparison-text {
+  white-space: pre-wrap;
+}
+
+.comparison-meta {
+  color: var(--voyage-text-muted);
+  font-size: 0.8rem;
+  margin: 0;
+}
