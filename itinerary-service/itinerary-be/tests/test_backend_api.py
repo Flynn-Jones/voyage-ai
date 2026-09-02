@@ -12,7 +12,7 @@ if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
 from app import create_app
-from services import database_api
+from services import database_api, enrichment
 
 
 VALID_ITEM = {
@@ -33,6 +33,13 @@ def client():
     application = create_app()
     application.config.update(TESTING=True)
     return application.test_client()
+
+
+@pytest.fixture(autouse=True)
+def isolate_existing_route_tests_from_enrichment(monkeypatch):
+    """These CRUD adapter tests predate and are independent of enrichment."""
+    monkeypatch.setattr(enrichment, "enrich_items", lambda items: items)
+    monkeypatch.setattr(enrichment, "enrich_item", lambda item: item)
 
 
 def response(status, body=None, json_error=None):

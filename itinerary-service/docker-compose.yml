@@ -18,6 +18,8 @@ services:
     environment:
       PORT: "5005"
       DATABASE_SERVICE_URL: http://itinerary-db:6005
+      DESTINATION_SERVICE_URL: ${DESTINATION_SERVICE_URL:-http://destination-db:6001}
+      ACTIVITY_SERVICE_URL: ${ACTIVITY_SERVICE_URL:-http://activity-service-database:6003}
       OLLAMA_BASE_URL: http://host.docker.internal:11434
       OLLAMA_MODEL: qwen2.5:7b
       OLLAMA_TIMEOUT_SECONDS: "60"
@@ -38,6 +40,7 @@ services:
       start_period: 5s
     networks:
       - internal
+      - microservices-net
 
   itinerary-db:
     build: ./itinerary-db

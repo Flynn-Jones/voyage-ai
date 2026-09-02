@@ -22,6 +22,9 @@ database container exclusively owns the SQLite file, which is persisted in the
 
 Inside Docker, the backend reaches the database API at
 `http://itinerary-db:6005` through `DATABASE_SERVICE_URL`.
+Provisional cross-service reads use `DESTINATION_SERVICE_URL` (default
+`http://destination-db:6001`) and `ACTIVITY_SERVICE_URL` (default
+`http://activity-service-database:6003`) over `microservices-net`.
 It reaches the host's local Ollama service at
 `http://host.docker.internal:11434` through `OLLAMA_BASE_URL`. The default
 `OLLAMA_MODEL` follows the team convention, `qwen2.5:7b`.
@@ -37,10 +40,10 @@ It reaches the host's local Ollama service at
 - Preserve itinerary records in a named Docker volume across container restarts.
 - Seed 12 deterministic records only when the itinerary table is empty.
 - Review one day with an Ollama-powered, advisory Plan -> Act -> Observe -> Adapt workflow.
+- Enrich itinerary reads with provisional Destination and Activity details when available.
 
-Destination and Activity names are not enriched yet; their identifiers are
-displayed directly. Cross-service Destination and Activity enrichment is planned
-for a later stage.
+Destination and Activity contracts remain provisional. Failed enrichment never
+prevents stored itinerary data from being read, created, or updated.
 
 ## Public backend API
 

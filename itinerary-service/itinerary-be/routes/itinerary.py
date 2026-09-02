@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request
 
-from services import database_api
+from services import database_api, enrichment
 from validation import ValidationError, validate_itinerary_item
 
 
@@ -22,7 +22,7 @@ def _validated_request_body():
 @itinerary_bp.get("")
 def list_items():
     try:
-        return jsonify(database_api.get_items())
+        return jsonify(enrichment.enrich_items(database_api.get_items()))
     except database_api.DatabaseServiceError:
         return _database_error()
 
@@ -30,7 +30,7 @@ def list_items():
 @itinerary_bp.get("/<int:item_id>")
 def get_item(item_id):
     try:
-        return jsonify(database_api.get_item(item_id))
+        return jsonify(enrichment.enrich_item(database_api.get_item(item_id)))
     except database_api.NotFoundError:
         return _not_found()
     except database_api.DatabaseServiceError:
@@ -85,6 +85,6 @@ def list_items_by_day(day):
     if day < 1:
         return jsonify({"error": "day must be a positive integer"}), 400
     try:
-        return jsonify(database_api.get_items_by_day(day))
+        return jsonify(enrichment.enrich_items(database_api.get_items_by_day(day)))
     except database_api.DatabaseServiceError:
         return _database_error()

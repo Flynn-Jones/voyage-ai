@@ -64,9 +64,15 @@ function createItemCard(item) {
   const time = makeElement("div", "item-time", `${item.start_time}–${item.end_time}`);
   const details = makeElement("div", "item-details");
   const meta = makeElement("div", "item-meta");
+  const destinationLabel = item.destination
+    ? `${item.destination.city}, ${item.destination.country} (Destination #${item.destination_id})`
+    : `Destination #${item.destination_id}`;
+  const activityLabel = item.activity
+    ? `${item.activity.name} · ${item.activity.type} (Activity #${item.activity_id})`
+    : `Activity #${item.activity_id}`;
   meta.append(
-    makeElement("span", "tag", `Destination ${item.destination_id}`),
-    makeElement("span", "tag", `Activity ${item.activity_id}`),
+    makeElement("span", "tag", destinationLabel),
+    makeElement("span", "tag", activityLabel),
     makeElement("span", "tag item-cost", formatCost(item.estimated_cost)),
   );
   details.append(meta, makeElement("p", "item-notes", item.notes || "No notes added."));
