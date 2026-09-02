@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}Accommodation Manager{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <div class="page-header">
+    <div>
+      <h1>Accommodation Search</h1>
+      <p>Browse stays and filter by city, type, price, rating, and sorting.</p>
+    </div>
+    <a class="button button--primary" href="{{ url_for('new_accommodation_form') }}">+ New stay</a>
+  </div>
+
+  <form class="filter-form" hx-get="/" hx-target="#results" hx-swap="innerHTML">
+    <div class="field-grid">
+      <label>
+        <span>Search</span>
+        <input type="text" name="q" value="{{ filters.get('q','') }}" placeholder="Name, location, description">
+      </label>
+      <label>
+        <span>City</span>
+        <input type="text" name="destination_city" value="{{ filters.get('destination_city','') }}" placeholder="Tokyo">
+      </label>
+      <label>
+        <span>Type</span>
+        <select name="type">
+          <option value="">Any</option>
+          <option value="hotel" {% if filters.get('type') == 'hotel' %}selected{% endif %}>Hotel</option>
+          <option value="hostel" {% if filters.get('type') == 'hostel' %}selected{% endif %}>Hostel</option>
+          <option value="guesthouse" {% if filters.get('type') == 'guesthouse' %}selected{% endif %}>Guesthouse</option>
+          <option value="apartment" {% if filters.get('type') == 'apartment' %}selected{% endif %}>Apartment</option>
+        </select>
+      </label>
+      <label>
+        <span>Min price</span>
+        <input type="number" step="0.01" min="0" name="min_price" value="{{ filters.get('min_price','') }}">
+      </label>
+      <label>
+        <span>Max price</span>
+        <input type="number" step="0.01" min="0" name="max_price" value="{{ filters.get('max_price','') }}">
+      </label>
+      <label>
+        <span>Min rating</span>
+        <input type="number" step="0.1" min="0" max="5" name="min_rating" value="{{ filters.get('min_rating','') }}">
+      </label>
+      <label>
+        <span>Sort by</span>
+        <select name="sort_by">
+          <option value="">Default</option>
+          <option value="price_asc" {% if filters.get('sort_by') == 'price_asc' %}selected{% endif %}>Price: low to high</option>
+          <option value="price_desc" {% if filters.get('sort_by') == 'price_desc' %}selected{% endif %}>Price: high to low</option>
+          <option value="rating_desc" {% if filters.get('sort_by') == 'rating_desc' %}selected{% endif %}>Rating: high to low</option>
+          <option value="name_asc" {% if filters.get('sort_by') == 'name_asc' %}selected{% endif %}>Name</option>
+        </select>
+      </label>
+    </div>
+    <div class="form-actions">
+      <button class="button button--secondary" type="submit">Apply filters</button>
+    </div>
+  </form>
+</section>
+
+{% if error %}
+  <div class="alert alert--error">{{ error }}</div>
+{% endif %}
+
+<div id="results">
+  {% include "_list_table.html" %}
+</div>
+{% endblock %}
