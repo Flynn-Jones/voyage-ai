@@ -1,0 +1,29 @@
+<!--
+  VoyageAI shared navbar — plain HTML/JS drop-in (no template engine).
+
+  Usage: paste this block right after <body> on every page, then set
+  data-active-service on the <nav> to one of: destinations, accommodation,
+  activities, budget, itinerary. Requires navbar.css (and tokens.css) to be
+  loaded on the page. Ports match
+  shared/backend/src/services/nav_service.py, the canonical port list.
+-->
+<nav class="voyage-nav" data-active-service="activities">
+  <div class="voyage-nav__container">
+    <span class="voyage-nav__brand">VoyageAI</span>
+    <div class="voyage-nav__switcher">
+      <a href="http://localhost:3001" data-service="destinations">Destinations</a>
+      <a href="http://localhost:3002" data-service="accommodation">Accommodation</a>
+      <a href="http://localhost:3003" data-service="activities">Activities</a>
+      <a href="http://localhost:3004" data-service="budget">Budget</a>
+      <a href="http://localhost:3005" data-service="itinerary">Itinerary</a>
+    </div>
+  </div>
+</nav>
+<script>
+(function () {
+  var nav = document.currentScript.previousElementSibling;
+  var active = nav.dataset.activeService;
+  var link = nav.querySelector('[data-service="' + active + '"]');
+  if (link) link.classList.add("is-active");
+})();
+</script>

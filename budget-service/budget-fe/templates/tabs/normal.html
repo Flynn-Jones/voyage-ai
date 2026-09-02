@@ -14,7 +14,7 @@
     <section class="card">
         <h2>Budget Dashboard</h2>
         <div id="dashboard-stats" class="dashboard-stats"></div>
-        <ul id="category-breakdown" class="category-breakdown"></ul>
+        <div id="category-chart" class="category-chart"></div>
     </section>
 
     <section class="card">
@@ -148,7 +148,19 @@ const API_BASE = "http://localhost:5004";
 
 const expenseListPanel = document.getElementById("expense-list-panel");
 const dashboardStats = document.getElementById("dashboard-stats");
-const categoryBreakdown = document.getElementById("category-breakdown");
+const categoryChart = document.getElementById("category-chart");
+
+// VoyageAI categorical palette, fixed hue order (see shared/design-system).
+// Assigned by position in the sorted category list, not by name — the pie's
+// slices only touch their immediate neighbours, and this order is the one
+// validated as safe for every adjacent pair. Past 8 categories, colors repeat.
+const CATEGORY_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"];
+
+function escapeHtml(value) {
+    const div = document.createElement("div");
+    div.textContent = value;
+    return div.innerHTML;
+}
 
 const filterCategory = document.getElementById("filter-category");
 const filterStatus = document.getElementById("filter-status");
@@ -191,27 +203,75 @@ function updateDashboard() {
         categories[category].estimated += estimated;
     });
 
+    const ratio = totalEstimated > 0 ? totalActual / totalEstimated : 0;
+    const severity = ratio > 1 ? "danger" : ratio >= 0.9 ? "warning" : "";
+    const trackClass = severity ? ` budget-meter__track--${severity}` : "";
+    const fillClass = severity ? ` budget-meter__fill--${severity}` : "";
+    const fillWidth = Math.min(ratio, 1) * 100;
+    const overNote = ratio > 1
+        ? `<span class="budget-meter__note">${formatCurrency(totalActual - totalEstimated)} over estimate</span>`
+        : "";
+
     dashboardStats.innerHTML = `
         <div class="stat-card">
             <span class="stat-label">Expenses</span>
             <span class="stat-value">${rows.length}</span>
         </div>
-        <div class="stat-card">
-            <span class="stat-label">Total Estimated</span>
-            <span class="stat-value">${formatCurrency(totalEstimated)}</span>
-        </div>
-        <div class="stat-card">
-            <span class="stat-label">Total Actual</span>
-            <span class="stat-value">${formatCurrency(totalActual)}</span>
+        <div class="stat-card stat-card--meter">
+            <span class="stat-label">Actual vs Estimated</span>
+            <div class="budget-meter__values">
+                <span class="budget-meter__value">${formatCurrency(totalActual)}</span>
+                <span class="budget-meter__of">of ${formatCurrency(totalEstimated)}</span>
+            </div>
+            <div class="budget-meter__track${trackClass}" role="img" aria-label="${formatCurrency(totalActual)} spent of ${formatCurrency(totalEstimated)} estimated">
+                <div class="budget-meter__fill${fillClass}" style="width: ${fillWidth}%"></div>
+            </div>
+            ${overNote}
         </div>
     `;
 
-    const categoryEntries = Object.entries(categories);
-    categoryBreakdown.innerHTML = categoryEntries.length
-        ? categoryEntries
-              .map(([name, data]) => `<li><span>${name} (${data.count})</span><span>${formatCurrency(data.estimated)}</span></li>`)
-              .join("")
-        : '<li class="empty">No expenses to break down.</li>';
+    renderCategoryChart(categories, totalEstimated);
+}
+
+function renderCategoryChart(categories, totalEstimated) {
+    const entries = Object.entries(categories).sort((a, b) => b[1].estimated - a[1].estimated);
+
+    if (!entries.length || totalEstimated <= 0) {
+        categoryChart.innerHTML = '<p class="empty">No expenses to break down.</p>';
+        return;
+    }
+
+    const radius = 15.9155;
+    const gap = entries.length > 1 ? 1.2 : 0;
+    let offset = 25;
+
+    const arcs = entries.map(([name, data], index) => {
+        const percent = (data.estimated / totalEstimated) * 100;
+        const dash = Math.max(percent - gap, 0);
+        const color = CATEGORY_COLORS[index % CATEGORY_COLORS.length];
+        const circle = `<circle class="category-chart__arc" cx="18" cy="18" r="${radius}" fill="none"
+            stroke="${color}" stroke-width="4"
+            stroke-dasharray="${dash} ${100 - dash}" stroke-dashoffset="${offset}"><title>${escapeHtml(name)}: ${formatCurrency(data.estimated)} (${percent.toFixed(1)}%)</title></circle>`;
+        offset -= percent;
+        return circle;
+    }).join("");
+
+    const legend = entries.map(([name, data], index) => {
+        const percent = (data.estimated / totalEstimated) * 100;
+        const color = CATEGORY_COLORS[index % CATEGORY_COLORS.length];
+        return `<li>
+            <span class="category-legend__name">
+                <span class="category-legend__swatch" style="background: ${color}"></span>
+                <span class="category-legend__label">${escapeHtml(name)} (${data.count})</span>
+            </span>
+            <span class="category-legend__value">${formatCurrency(data.estimated)} &middot; ${percent.toFixed(0)}%</span>
+        </li>`;
+    }).join("");
+
+    categoryChart.innerHTML = `
+        <svg class="category-chart__pie" viewBox="0 0 36 36" role="img" aria-label="Estimated spend by category">${arcs}</svg>
+        <ul class="category-legend">${legend}</ul>
+    `;
 }
 
 async function refreshList() {

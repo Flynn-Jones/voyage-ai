@@ -1,19 +1,30 @@
 :root {
-    --bg-0: #0b1020;
-    --bg-1: #111a31;
-    --bg-2: #1a2645;
-    --surface: #0f172b;
-    --surface-alt: #15213d;
-    --text: #e8edf8;
-    --muted: #9eb0d3;
-    --accent: #45c9ff;
-    --accent-strong: #1eb1ee;
-    --border: #2b3a63;
+    /* VoyageAI shared design tokens — see shared/design-system/tokens.css */
+    --bg-0: #F2E9D7;
+    --bg-1: #F7F0E3;
+    --bg-2: #FBF5EA;
+    --surface: #FFFFFF;
+    --surface-alt: #F7F0E3;
+    --border: #CBB68C;
     --radius: 12px;
-    --state-on-bg: #0f6a45;
-    --state-on-fg: #d7ffee;
-    --state-off-bg: #6a2031;
-    --state-off-fg: #ffe2e8;
+    --text: #2B2118;
+    --muted: #6B5B48;
+    --accent: #DA7757;
+    --accent-strong: #D06E4C;
+    --accent-soft: #F5DED2;
+    --accent-text: #A24B29;
+    --danger: #B3452E;
+    --danger-text: #7A2A1D;
+    --danger-soft: #F8E1DB;
+    --warning: #B8842B;
+    --warning-text: #6B4A14;
+    --warning-soft: #F3E4C7;
+    --state-on-bg: #DCEFDD;
+    --state-on-fg: #1F6B3D;
+    --state-off-bg: #F8E1DB;
+    --state-off-fg: #7A2A1D;
+    --disabled-bg: #E4D9C4;
+    --disabled-text: #A99A84;
 }
 
 * {
@@ -27,9 +38,19 @@ body {
     line-height: 1.5;
     color: var(--text);
     background:
-        radial-gradient(1100px 540px at 10% -10%, #1e3263 0%, transparent 60%),
-        radial-gradient(900px 480px at 100% 0%, #1a4e74 0%, transparent 58%),
-        linear-gradient(160deg, var(--bg-0) 0%, var(--bg-1) 46%, var(--bg-2) 100%);
+        radial-gradient(1200px 600px at 10% -10%, #FBF1DE 0%, transparent 55%),
+        radial-gradient(900px 480px at 100% 0%, #F7E4CE 0%, transparent 55%),
+        var(--bg-0);
+}
+
+a {
+    color: var(--accent-text);
+    text-decoration: none;
+}
+
+a:hover {
+    color: var(--text);
+    text-decoration: underline;
 }
 
 .app-shell {
@@ -57,11 +78,11 @@ body {
 }
 
 .card {
-    background: linear-gradient(180deg, rgba(20, 31, 56, 0.95), rgba(13, 22, 41, 0.95));
+    background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 1rem;
-    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+    box-shadow: 0 8px 24px rgba(43, 33, 24, 0.08);
 }
 
 h2 {
@@ -81,13 +102,19 @@ button {
     border: 1px solid transparent;
     border-radius: 10px;
     font-weight: 600;
-    color: #06202c;
+    color: var(--text);
     background: var(--accent);
     cursor: pointer;
 }
 
 button:hover {
     background: var(--accent-strong);
+}
+
+button:disabled {
+    background: var(--disabled-bg);
+    color: var(--disabled-text);
+    cursor: not-allowed;
 }
 
 input,
@@ -110,7 +137,7 @@ textarea {
 }
 
 .panel-mcp {
-    border-color: #2d5b7b;
+    border-color: var(--accent);
 }
 
 .feature-toggle-row {
@@ -122,7 +149,7 @@ textarea {
     padding: 0.65rem 0.75rem;
     border: 1px solid var(--border);
     border-radius: 10px;
-    background: rgba(15, 23, 43, 0.65);
+    background: var(--surface-alt);
 }
 
 .toggle-switch {
@@ -190,9 +217,9 @@ textarea {
 .result-box {
     margin-top: 1rem;
     padding: 0.75rem;
-    border: 1px solid #d5dbe3;
+    border: 1px solid var(--border);
     border-radius: 8px;
-    background: #f9fbfd;
+    background: var(--surface-alt);
 }
 
 .tab-shell {
@@ -209,16 +236,17 @@ textarea {
 .tab-btn {
     margin-top: 0;
     color: var(--text);
-    background: #1a2b4f;
+    background: var(--surface-alt);
     border: 1px solid var(--border);
 }
 
 .tab-btn:hover {
-    background: #223766;
+    background: var(--accent-soft);
+    border-color: var(--accent);
 }
 
 .tab-btn.is-active {
-    color: #06202c;
+    color: var(--text);
     background: var(--accent);
     border-color: transparent;
 }
@@ -257,19 +285,19 @@ textarea {
 .error {
     margin: 0;
     padding: 0.5rem 0.75rem;
-    border: 1px solid var(--state-off-bg);
+    border: 1px solid var(--danger);
     border-radius: 8px;
-    background: rgba(106, 32, 49, 0.35);
-    color: var(--state-off-fg);
+    background: var(--danger-soft);
+    color: var(--danger-text);
 }
 
 .clarification {
     margin: 0;
     padding: 0.5rem 0.75rem;
-    border: 1px solid #7a5c0f;
+    border: 1px solid var(--warning);
     border-radius: 8px;
-    background: rgba(122, 92, 15, 0.25);
-    color: #ffe9a8;
+    background: var(--warning-soft);
+    color: var(--warning-text);
 }
 
 .empty {
@@ -340,21 +368,129 @@ textarea {
     margin-top: 0.15rem;
 }
 
-.category-breakdown {
+.stat-card--meter {
+    flex: 2 1 260px;
+}
+
+.budget-meter__values {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-top: 0.15rem;
+}
+
+.budget-meter__value {
+    font-size: 1.4rem;
+    font-weight: 700;
+}
+
+.budget-meter__of {
+    font-size: 0.85rem;
+    font-weight: 400;
+    color: var(--muted);
+}
+
+.budget-meter__track {
+    position: relative;
+    height: 14px;
+    margin-top: 0.5rem;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    overflow: hidden;
+}
+
+.budget-meter__fill {
+    height: 100%;
+    border-radius: inherit;
+    background: var(--accent);
+    transition: width 0.2s ease;
+}
+
+.budget-meter__track--warning {
+    background: var(--warning-soft);
+}
+
+.budget-meter__fill--warning {
+    background: var(--warning);
+}
+
+.budget-meter__track--danger {
+    background: var(--danger-soft);
+}
+
+.budget-meter__fill--danger {
+    background: var(--danger);
+}
+
+.budget-meter__note {
+    display: block;
+    margin-top: 0.3rem;
+    font-size: 0.8rem;
+    color: var(--danger-text);
+}
+
+.category-chart {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1.25rem;
+}
+
+.category-chart__pie {
+    flex: 0 0 auto;
+    width: 140px;
+    height: 140px;
+}
+
+.category-chart__pie circle {
+    transition: stroke-dasharray 0.2s ease;
+}
+
+.category-legend {
     list-style: none;
     margin: 0;
     padding: 0;
+    flex: 1 1 220px;
     display: grid;
     gap: 0.35rem;
 }
 
-.category-breakdown li {
+.category-legend li {
     display: flex;
+    align-items: center;
     justify-content: space-between;
+    gap: 0.6rem;
     padding: 0.35rem 0.6rem;
     border: 1px solid var(--border);
     border-radius: 8px;
     background: var(--surface-alt);
+}
+
+.category-legend__name {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.category-legend__swatch {
+    flex: 0 0 auto;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.category-legend__label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.category-legend__value {
+    flex: 0 0 auto;
+    color: var(--muted);
+    font-size: 0.85rem;
 }
 
 .filter-row {
@@ -374,4 +510,87 @@ textarea {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
     gap: 0.5rem;
+}
+
+/* VoyageAI shared navbar — see shared/design-system/navbar.css */
+
+.voyage-nav {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    min-height: 64px;
+    margin: 0 0 1.25rem;
+}
+
+.voyage-nav__container {
+    max-width: 1200px;
+    width: 100%;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.voyage-nav__brand {
+    font-weight: 700;
+    font-size: 1.25rem;
+    letter-spacing: 0.02em;
+    color: var(--text);
+}
+
+.voyage-nav__switcher {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 4px;
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+}
+
+.voyage-nav__switcher a {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    border-radius: calc(var(--radius) - 4px);
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--muted);
+    text-decoration: none;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.voyage-nav__switcher a:hover {
+    background: var(--accent-soft);
+    color: var(--accent-text);
+}
+
+.voyage-nav__switcher a.is-active {
+    background: var(--accent);
+    color: var(--text);
+}
+
+.voyage-nav__switcher a.is-active:hover {
+    background: var(--accent-strong);
+}
+
+@media (max-width: 720px) {
+    .voyage-nav {
+        padding: 12px 16px;
+    }
+
+    .voyage-nav__container {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .voyage-nav__switcher {
+        width: 100%;
+    }
 }

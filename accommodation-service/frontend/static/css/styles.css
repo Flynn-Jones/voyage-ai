@@ -1,19 +1,30 @@
 :root {
-    --bg-0: #0b1020;
-    --bg-1: #111a31;
-    --bg-2: #1a2645;
-    --surface: #0f172b;
-    --surface-alt: #15213d;
-    --text: #e8edf8;
-    --muted: #9eb0d3;
-    --accent: #45c9ff;
-    --accent-strong: #1eb1ee;
-    --border: #2b3a63;
+    /* VoyageAI shared design tokens — see shared/design-system/tokens.css */
+    --bg-0: #F2E9D7;
+    --bg-1: #F7F0E3;
+    --bg-2: #FBF5EA;
+    --surface: #FFFFFF;
+    --surface-alt: #F7F0E3;
+    --border: #CBB68C;
     --radius: 12px;
-    --state-on-bg: #0f6a45;
-    --state-on-fg: #d7ffee;
-    --state-off-bg: #6a2031;
-    --state-off-fg: #ffe2e8;
+    --text: #2B2118;
+    --muted: #6B5B48;
+    --accent: #DA7757;
+    --accent-strong: #D06E4C;
+    --accent-soft: #F5DED2;
+    --accent-text: #A24B29;
+    --danger: #B3452E;
+    --danger-text: #7A2A1D;
+    --danger-soft: #F8E1DB;
+    --warning: #B8842B;
+    --warning-text: #6B4A14;
+    --warning-soft: #F3E4C7;
+    --state-on-bg: #DCEFDD;
+    --state-on-fg: #1F6B3D;
+    --state-off-bg: #F8E1DB;
+    --state-off-fg: #7A2A1D;
+    --disabled-bg: #E4D9C4;
+    --disabled-text: #A99A84;
 }
 
 * {
@@ -27,22 +38,25 @@ body {
     line-height: 1.5;
     color: var(--text);
     background:
-        radial-gradient(1100px 540px at 10% -10%, #1e3263 0%, transparent 60%),
-        radial-gradient(900px 480px at 100% 0%, #1a4e74 0%, transparent 58%),
-        linear-gradient(160deg, var(--bg-0) 0%, var(--bg-1) 46%, var(--bg-2) 100%);
+        radial-gradient(1200px 600px at 10% -10%, #FBF1DE 0%, transparent 55%),
+        radial-gradient(900px 480px at 100% 0%, #F7E4CE 0%, transparent 55%),
+        var(--bg-0);
 }
 
 a {
-    color: var(--accent);
+    color: var(--accent-text);
     text-decoration: none;
 }
 
 a:hover {
-    color: var(--accent-strong);
+    color: var(--text);
+    text-decoration: underline;
 }
 
+/* VoyageAI shared navbar — see shared/design-system/navbar.css */
+
 .voyage-nav {
-    background: linear-gradient(to bottom, rgba(15, 23, 43, 0.95), rgba(11, 16, 32, 0.95));
+    background: var(--surface);
     border-bottom: 1px solid var(--border);
     display: flex;
     align-items: center;
@@ -58,6 +72,7 @@ a:hover {
     align-items: center;
     justify-content: space-between;
     gap: 20px;
+    flex-wrap: wrap;
 }
 
 .voyage-nav__brand {
@@ -76,26 +91,80 @@ a:hover {
 .voyage-nav__links a {
     color: var(--text);
     font-size: 0.95rem;
-    transition: color 0.2s;
+    text-decoration: none;
+    transition: color 0.15s ease;
 }
 
 .voyage-nav__links a:hover {
-    color: var(--accent);
+    color: var(--accent-text);
+}
+
+.voyage-nav__switcher {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 4px;
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+}
+
+.voyage-nav__switcher a {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    border-radius: calc(var(--radius) - 4px);
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--muted);
+    text-decoration: none;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.voyage-nav__switcher a:hover {
+    background: var(--accent-soft);
+    color: var(--accent-text);
+}
+
+.voyage-nav__switcher a.is-active {
+    background: var(--accent);
+    color: var(--text);
+}
+
+.voyage-nav__switcher a.is-active:hover {
+    background: var(--accent-strong);
+}
+
+@media (max-width: 720px) {
+    .voyage-nav {
+        padding: 12px 16px;
+    }
+
+    .voyage-nav__container {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .voyage-nav__switcher {
+        width: 100%;
+    }
 }
 
 .voyage-main {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 28px 24px 56px;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 28px 24px 56px;
 }
 
 .panel {
-    background: linear-gradient(180deg, rgba(20, 31, 56, 0.95), rgba(13, 22, 41, 0.95));
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 24px;
-    margin-bottom: 20px;
-    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  margin-bottom: 20px;
+  box-shadow: 0 8px 24px rgba(43, 33, 24, 0.08);
 }
 
 .page-header {
@@ -145,6 +214,12 @@ input, select, textarea {
   background: var(--surface-alt);
 }
 
+input:disabled, select:disabled, textarea:disabled {
+  background: var(--disabled-bg);
+  color: var(--disabled-text);
+  cursor: not-allowed;
+}
+
 textarea {
   resize: vertical;
 }
@@ -177,7 +252,7 @@ textarea {
   cursor: pointer;
   transition: all 0.15s ease;
   background: var(--accent);
-  color: #06202c;
+  color: var(--text);
 }
 
 .button:hover {
@@ -185,14 +260,21 @@ textarea {
   text-decoration: none;
 }
 
+.button:disabled {
+  background: var(--disabled-bg);
+  color: var(--disabled-text);
+  cursor: not-allowed;
+}
+
 .button--secondary {
-  background: rgba(69, 201, 255, 0.2);
-  color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-text);
   border: 1px solid var(--accent);
 }
 
 .button--secondary:hover {
-  background: rgba(69, 201, 255, 0.3);
+  background: var(--accent);
+  color: var(--text);
 }
 
 .button--small {
@@ -202,7 +284,7 @@ textarea {
 }
 
 .button--danger {
-  background: #d64545;
+  background: var(--danger);
   color: #fff;
 }
 
@@ -220,7 +302,7 @@ textarea {
 }
 
 .data-table th {
-  background: rgba(20, 31, 56, 0.5);
+  background: var(--surface-alt);
   font-size: 0.8rem;
   letter-spacing: 0.03em;
   text-transform: uppercase;
@@ -250,9 +332,9 @@ textarea {
 }
 
 .alert--error {
-  background: rgba(212, 69, 69, 0.1);
-  color: #ff6b6b;
-  border: 1px solid rgba(212, 69, 69, 0.3);
+  background: var(--danger-soft);
+  color: var(--danger-text);
+  border: 1px solid var(--danger);
 }
 
 .detail-grid {
@@ -267,7 +349,7 @@ textarea {
 }
 
 .description-box, .recommendation-card {
-  background: rgba(20, 31, 56, 0.5);
+  background: var(--surface-alt);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 18px;
@@ -275,7 +357,7 @@ textarea {
 
 .map-card {
   margin: 20px 0;
-  background: rgba(20, 31, 56, 0.5);
+  background: var(--surface-alt);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
@@ -292,7 +374,7 @@ textarea {
 
 .map-card__header h3 {
   margin: 0;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .map-card__header span {
@@ -303,7 +385,7 @@ textarea {
 .location-map {
   width: 100%;
   height: 320px;
-  background: linear-gradient(180deg, rgba(18, 29, 52, 0.8), rgba(9, 15, 28, 0.95));
+  background: var(--bg-1);
 }
 
 .map-attribution {
@@ -324,7 +406,7 @@ textarea {
   text-align: center;
   color: var(--muted);
   font-size: 0.875rem;
-  background: rgba(11, 16, 32, 0.5);
+  background: var(--bg-1);
 }
 
 /* Recommendation Panel Styles */
@@ -334,7 +416,7 @@ textarea {
 
 .recommendation-workflow {
   margin-bottom: 32px;
-  background: rgba(20, 31, 56, 0.5);
+  background: var(--surface-alt);
   padding: 24px;
   border-radius: var(--radius);
   border: 1px solid var(--border);
@@ -343,7 +425,7 @@ textarea {
 .recommendation-workflow h2 {
   font-size: 1.1rem;
   margin: 0 0 20px;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .workflow-steps {
@@ -360,7 +442,7 @@ textarea {
   gap: 12px;
   flex: 1;
   min-width: 160px;
-  background: rgba(15, 23, 43, 0.8);
+  background: var(--surface);
   padding: 14px;
   border-radius: 10px;
   border: 1px solid var(--border);
@@ -375,7 +457,7 @@ textarea {
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.04em;
-  color: var(--accent);
+  color: var(--accent-text);
   text-transform: uppercase;
   margin-bottom: 4px;
 }
@@ -390,7 +472,7 @@ textarea {
 .step-arrow {
   display: none;
   font-size: 1.2rem;
-  color: var(--accent);
+  color: var(--accent-text);
   flex-shrink: 0;
 }
 
@@ -398,23 +480,23 @@ textarea {
   .workflow-steps {
     flex-wrap: nowrap;
   }
-  
+
   .step {
     min-width: auto;
     flex: 0 1 auto;
   }
-  
+
   .step-arrow {
     display: block;
   }
 }
 
 .recommendation-card-main {
-  background: rgba(20, 31, 56, 0.8);
+  background: var(--surface);
   border: 1px solid var(--accent);
   border-radius: var(--radius);
   padding: 28px;
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 8px 24px rgba(43, 33, 24, 0.08);
 }
 
 .recommendation-header {
@@ -426,7 +508,7 @@ textarea {
 .recommendation-header h2 {
   margin: 0 0 12px;
   font-size: 1.6rem;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .recommendation-meta {
@@ -442,7 +524,7 @@ textarea {
 }
 
 .recommendation-list__item {
-  background: rgba(15, 23, 43, 0.8);
+  background: var(--surface-alt);
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 18px;
@@ -463,8 +545,8 @@ textarea {
 
 .badge {
   display: inline-block;
-  background: rgba(69, 201, 255, 0.2);
-  color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-text);
   padding: 6px 12px;
   border-radius: 20px;
   font-size: 0.8rem;
@@ -474,7 +556,7 @@ textarea {
 
 .badge--secondary {
   background: var(--accent);
-  color: #06202c;
+  color: var(--text);
 }
 
 .recommendation-reason {
@@ -483,12 +565,12 @@ textarea {
 
 .recommendation-reason h3 {
   font-size: 1.1rem;
-  color: var(--accent);
+  color: var(--accent-text);
   margin: 0 0 14px;
 }
 
 .reason-text {
-  background: rgba(15, 23, 43, 0.8);
+  background: var(--surface-alt);
   border-left: 4px solid var(--accent);
   padding: 16px 18px;
   border-radius: 10px;
@@ -500,12 +582,12 @@ textarea {
 
 .reason-text code,
 .reason-text pre {
-  background: rgba(20, 31, 56, 0.8);
+  background: var(--bg-1);
   padding: 2px 6px;
   border-radius: 3px;
   font-family: 'Monaco', 'Courier New', monospace;
   font-size: 0.85rem;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .recommendation-actions {
@@ -518,8 +600,7 @@ textarea {
 }
 
 .alert--warning {
-  background: rgba(242, 166, 90, 0.1);
-  color: #f2a65a;
-  border: 1px solid rgba(242, 166, 90, 0.3);
+  background: var(--warning-soft);
+  color: var(--warning-text);
+  border: 1px solid var(--warning);
 }
-

@@ -1,0 +1,25 @@
+<!--
+  VoyageAI shared navbar — Jinja/Flask drop-in.
+
+  Usage: copy this file into your service's templates/ as `_nav.html`, then
+  in your base layout (the template every page extends) set `active_service`
+  and include it:
+
+    {% set active_service = 'budget' %}   {# one of: destinations, accommodation, activities, budget, itinerary #}
+    {% include "_nav.html" %}
+
+  Requires navbar.css (and tokens.css) to be loaded on the page. Ports match
+  shared/backend/src/services/nav_service.py, the canonical port list.
+-->
+<nav class="voyage-nav">
+  <div class="voyage-nav__container">
+    <span class="voyage-nav__brand">VoyageAI</span>
+    <div class="voyage-nav__switcher">
+      <a href="http://localhost:3001" class="{{ 'is-active' if active_service == 'destinations' }}">Destinations</a>
+      <a href="http://localhost:3002" class="{{ 'is-active' if active_service == 'accommodation' }}">Accommodation</a>
+      <a href="http://localhost:3003" class="{{ 'is-active' if active_service == 'activities' }}">Activities</a>
+      <a href="http://localhost:3004" class="{{ 'is-active' if active_service == 'budget' }}">Budget</a>
+      <a href="http://localhost:3005" class="{{ 'is-active' if active_service == 'itinerary' }}">Itinerary</a>
+    </div>
+  </div>
+</nav>

@@ -1,0 +1,107 @@
+/*
+ * VoyageAI shared navbar — canonical component styles.
+ *
+ * Requires the tokens in tokens.css to already be defined on :root.
+ * Pair this with navbar-jinja.html (Flask/Jinja services) or
+ * navbar-static.html (plain HTML/JS services) for the markup.
+ *
+ * Drop-in: append this file's contents to your service's stylesheet.
+ */
+
+.voyage-nav {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  min-height: 64px;
+}
+
+.voyage-nav__container {
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.voyage-nav__brand {
+  font-weight: 700;
+  font-size: 1.25rem;
+  letter-spacing: 0.02em;
+  color: var(--text);
+}
+
+.voyage-nav__links {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+}
+
+.voyage-nav__links a {
+  color: var(--text);
+  font-size: 0.95rem;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.voyage-nav__links a:hover {
+  color: var(--accent-text);
+}
+
+/* Cross-microservice switcher: the shared bit every service drops in as-is. */
+.voyage-nav__switcher {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 4px;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.voyage-nav__switcher a {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: calc(var(--radius) - 4px);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-decoration: none;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.voyage-nav__switcher a:hover {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.voyage-nav__switcher a.is-active {
+  background: var(--accent);
+  color: var(--text);
+}
+
+.voyage-nav__switcher a.is-active:hover {
+  background: var(--accent-strong);
+}
+
+@media (max-width: 720px) {
+  .voyage-nav {
+    padding: 12px 16px;
+  }
+
+  .voyage-nav__container {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .voyage-nav__switcher {
+    width: 100%;
+  }
+}

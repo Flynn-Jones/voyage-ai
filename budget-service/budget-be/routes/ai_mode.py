@@ -24,10 +24,11 @@ def ai_analyse():
 
     try:
         analysis = llm_client.call_budget_agent("system_prompt.txt", "task_prompt.txt", evidence)
+        summary = llm_client.summarise_analysis(analysis)
     except llm_client.LLMServiceError:
         return jsonify({"error": "AI service is unavailable."}), 502
 
-    return jsonify({"analysis": analysis})
+    return jsonify({"analysis": summary})
 
 
 @ai_mode_bp.route("/budget/ai-add-expense", methods=["POST"])
