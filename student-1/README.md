@@ -145,19 +145,50 @@ If Ollama is unreachable, `/api/destinations/ai-compare` returns 502 with
 
 ```bash
 pip install -r student-1/tests/requirements.txt
+
+# Offline only — no Docker, no Ollama required:
+pytest student-1/tests -m "not live" -v
+
+# Everything, including the live-stack tests (requires the stack running —
+# see Run above — and, for test_ai_compare_live.py only, a reachable Ollama;
+# that file self-skips if Ollama isn't running):
 pytest student-1/tests -v
 ```
 
-- `test_health.py` — Session 1 smoke tests (live stack required).
+Tests are marked `live` (see `student-1/pytest.ini`) when they require the stack to be
+up; everything else runs standalone against a monkeypatched backend/database.
+
+- `test_health.py` — **live**; Session 1 smoke tests.
 - `test_seed_idempotent.py` — offline; seeding fills an empty table once,
   never duplicates, never wipes user-created rows.
 - `test_service_failure.py` — offline; backend maps an unreachable database
   to a controlled 503.
-- `test_destinations_api.py` — live stack required; full CRUD lifecycle,
-  seed contents, and 404/400 error paths through the backend.
+- `test_database_api.py` — offline; the database service's own CRUD routes
+  and validation against a tmp_path SQLite file — no backend, no Docker.
+- `test_backend_forwarding.py` — offline; the backend's forwarding and
+  error-mapping to the database service, including the database-500 → 503
+  fold and the health-check's distinct 502.
+- `test_llm_client.py` — offline; Ollama prompt building and the
+  non-200/unexpected-shape failure paths.
+- `test_ai_compare.py` — offline; `/api/destinations/ai-compare` end to end
+  with both the database and Ollama mocked.
+- `test_ai_compare_live.py` — **live**, and self-skips if Ollama isn't
+  reachable; three consecutive real comparisons plus the 404 path.
+- `test_destinations_api.py` — **live**; full CRUD lifecycle, seed contents,
+  and 404/400 error paths through the backend.
 - `test_frontend_routes.py` — offline; frontend routes against a
   monkeypatched backend: search/filter, the HTMX partial-vs-full-page
   branch, create/edit/delete, and that invalid numeric input never raises.
-- `test_frontend_live.py` — live stack required; the same behaviours plus a
-  full create → edit → delete lifecycle driven through the frontend's own
+- `test_frontend_compare.py` — offline; the `/compare` route's HTMX and
+  no-JS paths, including the AI-unavailable error rendering.
+- `test_frontend_live.py` — **live**; the same behaviours plus a full
+  create → edit → delete lifecycle driven through the frontend's own
   routes, using the id the app returns rather than a hard-coded one.
+
+## CI
+
+`.github/workflows/student-1.yml` runs on every push/PR touching `student-1/**` (plus
+manual dispatch): offline tests → Compose config validation → build all three images,
+bring the stack up and run the live tests → an evidence artifact. It never pulls or runs
+Ollama — the AI path is proven by the mocked tests, and `test_ai_compare_live.py`
+self-skips on a runner with no Ollama reachable.

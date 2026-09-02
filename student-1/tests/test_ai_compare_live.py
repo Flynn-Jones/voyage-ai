@@ -22,9 +22,12 @@ def _ollama_available():
         return False
 
 
-pytestmark = pytest.mark.skipif(
-    not _ollama_available(), reason="Ollama is not reachable at http://localhost:11434"
-)
+pytestmark = [
+    pytest.mark.live,
+    pytest.mark.skipif(
+        not _ollama_available(), reason="Ollama is not reachable at http://localhost:11434"
+    ),
+]
 
 
 def test_ai_compare_tokyo_kyoto_returns_grounded_comparison():

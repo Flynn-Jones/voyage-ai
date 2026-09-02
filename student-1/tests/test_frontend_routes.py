@@ -319,3 +319,43 @@ def test_detail_missing_destination_returns_404_not_traceback(monkeypatch):
     response = client().get("/destinations/999999")
     assert response.status_code == 404
     assert "Destination not found" in response.get_data(as_text=True)
+
+
+# --- edit ------------------------------------------------------------------
+
+def test_edit_get_prefills_form_with_existing_values(monkeypatch):
+    def router(method, url, json_body, params):
+        assert method == "GET"
+        return DummyResponse(200, SEED_DESTINATIONS[0])
+
+    install_fake_backend(monkeypatch, router)
+    response = client().get("/destinations/1/edit")
+    assert response.status_code == 200
+    body = response.get_data(as_text=True)
+    assert 'value="Tokyo"' in body
+
+
+def test_edit_post_sends_partial_update_then_redirects_to_detail(monkeypatch):
+    def router(method, url, json_body, params):
+        if method == "PUT":
+            assert url == f"{frontend_app.BACKEND_SERVICE_URL}/api/destinations/1"
+            assert json_body["average_daily_cost"] == 275.0
+            return DummyResponse(200, {**SEED_DESTINATIONS[0], "average_daily_cost": 275.0})
+        return DummyResponse(200, SEED_DESTINATIONS[0])
+
+    install_fake_backend(monkeypatch, router)
+    response = client().post("/destinations/1/edit", data={"average_daily_cost": "275"})
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/destinations/1")
+
+
+def test_edit_post_validation_error_rerenders_form_with_message(monkeypatch):
+    def router(method, url, json_body, params):
+        if method == "PUT":
+            return DummyResponse(400, {"error": "average_daily_cost must be a number"})
+        return DummyResponse(200, SEED_DESTINATIONS[0])
+
+    install_fake_backend(monkeypatch, router)
+    response = client().post("/destinations/1/edit", data={"average_daily_cost": "not-a-number"})
+    assert response.status_code == 422
+    assert "average_daily_cost must be a number" in response.get_data(as_text=True)

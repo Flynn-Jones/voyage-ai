@@ -1,15 +1,13 @@
 """Offline unit tests for backend/app.py's database-unavailable handling.
 
 No Docker required: points DATABASE_SERVICE_URL at an unreachable address
-(a discard port on loopback) before importing the backend app, then drives
-it with Flask's test client to prove /api/destinations maps a connection
-failure to a controlled 503, not a crash or a passthrough error.
+(a discard port on loopback) then drives the app with Flask's test client to
+prove /api/destinations maps a connection failure to a controlled 503, not a
+crash or a passthrough error.
 """
 import importlib.util
 import os
 import sys
-
-os.environ["DATABASE_SERVICE_URL"] = "http://127.0.0.1:9"
 
 MODULE_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backend", "app.py"
@@ -31,6 +29,11 @@ def _load_backend_app():
 
 
 backend_app = _load_backend_app()
+# Set on the already-loaded module rather than os.environ before import, so
+# this file no longer mutates process-global env for every test module
+# imported after it — _request() reads this module attribute at call time
+# (backend/app.py), so coverage is unchanged.
+backend_app.DATABASE_SERVICE_URL = "http://127.0.0.1:9"
 
 
 def test_list_destinations_returns_503_when_database_unreachable():

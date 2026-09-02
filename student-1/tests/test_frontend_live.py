@@ -11,7 +11,10 @@ through the frontend's own routes (never a hard-coded destination id).
 """
 import re
 
+import pytest
 import requests
+
+pytestmark = pytest.mark.live
 
 FRONTEND_URL = "http://localhost:3001"
 BACKEND_URL = "http://localhost:5001"

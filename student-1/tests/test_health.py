@@ -4,7 +4,10 @@ Run against a live stack:
     docker compose -f student-1/docker-compose.yml up -d --build
     pytest student-1/tests -v
 """
+import pytest
 import requests
+
+pytestmark = pytest.mark.live
 
 FRONTEND_URL = "http://localhost:3001"
 BACKEND_URL = "http://localhost:5001"

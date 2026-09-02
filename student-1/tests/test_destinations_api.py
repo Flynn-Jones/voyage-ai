@@ -4,7 +4,10 @@ Requires the stack to be running:
     docker compose -f student-1/docker-compose.yml up -d --build
     pytest student-1/tests/test_destinations_api.py -v
 """
+import pytest
 import requests
+
+pytestmark = pytest.mark.live
 
 BACKEND_URL = "http://localhost:5001"
 DATABASE_URL = "http://localhost:6001"
