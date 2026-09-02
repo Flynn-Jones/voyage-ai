@@ -10,6 +10,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app.py .
 COPY templates ./templates
+COPY static ./static
 
 EXPOSE 3001
 

@@ -1,9 +1,11 @@
 # Destination Manager (Student 1)
 
 Three containers implementing `frontend -> backend -> database API -> SQLite`.
-Session 1 proved the skeleton; Session 2 adds the destination CRUD pipeline
-and 10+ seed records. `destination-database` is the only service that opens
-SQLite — the backend talks to it exclusively over HTTP.
+Session 1 proved the skeleton; Session 2 added the destination CRUD pipeline
+and 10+ seed records; Session 3 adds a server-rendered Flask + HTMX frontend
+on top of it. `destination-database` is the only service that opens
+SQLite — the backend talks to it exclusively over HTTP, and the frontend
+talks only to the backend.
 
 ## Run
 
@@ -72,6 +74,34 @@ curl -X PUT http://localhost:5001/api/destinations/<id> \
 curl -X DELETE http://localhost:5001/api/destinations/<id>
 ```
 
+## Frontend (Session 3, port 3001)
+
+Server-rendered Flask + HTMX UI. All persistence goes through the backend at
+`BACKEND_SERVICE_URL` (compose sets `http://destination-backend:5001`) — the
+frontend never opens SQLite and never calls the database API directly.
+
+| Route | Methods | Purpose |
+| ----- | ------- | ------- |
+| `/` | GET | List destinations; `?q=` free-text search and `?country=` filter, both applied in the frontend since the backend only supports exact-match `city`/`country`/`travel_style` filters. Returns an HTMX partial when the request carries `HX-Request: true`. |
+| `/destinations/new` | GET, POST | Create form / submit. |
+| `/destinations/<id>` | GET | Detail page. |
+| `/destinations/<id>/edit` | GET, POST | Edit form / submit (partial update). |
+| `/destinations/<id>/delete` | GET, POST | Delete confirmation page / perform delete. |
+| `/health` | GET | Frontend's own liveness. |
+
+Search and filter run over one unfiltered `GET /api/destinations` fetch, so
+the search box catches city, country, description, travel style and
+categories, and the country dropdown always lists every country even while
+filtered. The search/filter form is progressively enhanced: it works as a
+plain GET form without JavaScript, and HTMX (loaded from `unpkg.com`, no
+local asset) swaps in just the `#results` fragment when available.
+
+Categories are entered as a comma-separated string
+(`food, culture, nightlife`) and converted to/from the backend's JSON array.
+Invalid numeric input (e.g. a non-numeric `average_daily_cost`) is forwarded
+to the backend as-is rather than rejected locally, so the backend's own
+validation message is what the user sees.
+
 ## Test
 
 ```bash
@@ -86,3 +116,9 @@ pytest student-1/tests -v
   to a controlled 503.
 - `test_destinations_api.py` — live stack required; full CRUD lifecycle,
   seed contents, and 404/400 error paths through the backend.
+- `test_frontend_routes.py` — offline; frontend routes against a
+  monkeypatched backend: search/filter, the HTMX partial-vs-full-page
+  branch, create/edit/delete, and that invalid numeric input never raises.
+- `test_frontend_live.py` — live stack required; the same behaviours plus a
+  full create → edit → delete lifecycle driven through the frontend's own
+  routes, using the id the app returns rather than a hard-coded one.
