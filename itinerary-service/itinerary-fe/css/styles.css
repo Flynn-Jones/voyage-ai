@@ -1,0 +1,117 @@
+:root {
+  --voyage-primary: #0b6e99;
+  --voyage-primary-dark: #084f6e;
+  --voyage-accent: #2ec4b6;
+  --voyage-bg: #f7f9fb;
+  --voyage-surface: #ffffff;
+  --voyage-text: #1b2733;
+  --voyage-text-muted: #5b6b79;
+  --voyage-border: #e1e7ec;
+  --voyage-font-base: "Segoe UI", system-ui, -apple-system, sans-serif;
+  --voyage-radius: 8px;
+  --voyage-shadow: 0 2px 8px rgb(0 0 0 / 8%);
+  --voyage-max-width: 1100px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--voyage-font-base);
+  color: var(--voyage-text);
+  background: var(--voyage-bg);
+}
+
+.voyage-nav {
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  color: #fff;
+  background: var(--voyage-primary);
+}
+
+.voyage-nav__brand {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.voyage-main {
+  width: 100%;
+  max-width: var(--voyage-max-width);
+  margin: 0 auto;
+  padding: 48px 24px;
+  flex: 1;
+}
+
+.voyage-hero {
+  padding: 24px 0 40px;
+  text-align: center;
+}
+
+.voyage-hero h1 {
+  margin: 4px 0 8px;
+  font-size: clamp(2rem, 5vw, 3rem);
+}
+
+.voyage-hero p:not(.eyebrow),
+.voyage-card p {
+  color: var(--voyage-text-muted);
+  line-height: 1.6;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--voyage-primary);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.voyage-card {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 28px;
+  border: 1px solid var(--voyage-border);
+  border-radius: var(--voyage-radius);
+  background: var(--voyage-surface);
+  box-shadow: var(--voyage-shadow);
+}
+
+.voyage-card h2 {
+  margin-top: 0;
+}
+
+.status {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  padding: 7px 12px;
+  border-radius: 999px;
+  color: var(--voyage-primary-dark);
+  background: #e8f7f5;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.status__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--voyage-accent);
+}
+
+.voyage-footer {
+  padding: 20px 24px;
+  border-top: 1px solid var(--voyage-border);
+  color: var(--voyage-text-muted);
+  text-align: center;
+  font-size: 0.875rem;
+}
