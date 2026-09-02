@@ -5,30 +5,59 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>VoyageAI Itinerary Manager</title>
   <link rel="stylesheet" href="/css/styles.css">
+  <script src="/js/app.js" defer></script>
 </head>
 <body>
   <nav class="voyage-nav">
-    <span class="voyage-nav__brand">VoyageAI</span>
+    <a class="voyage-nav__brand" href="/">VoyageAI</a>
+    <span class="voyage-nav__feature">Itinerary Manager</span>
   </nav>
-
   <main class="voyage-main">
-    <section class="voyage-hero">
-      <p class="eyebrow">Student 5</p>
-      <h1>Itinerary Manager</h1>
-      <p>Build and review a clear day-by-day travel plan.</p>
+    <header class="voyage-hero">
+      <div><p class="eyebrow">Student 5</p><h1>Your itinerary</h1><p>Organise each trip into a clear, day-by-day schedule.</p></div>
+      <button id="open-create-button" class="button button--primary" type="button">Add itinerary item</button>
+    </header>
+    <div id="message" class="message" role="status" aria-live="polite" hidden></div>
+
+    <section id="form-panel" class="panel form-panel" aria-labelledby="form-title" hidden>
+      <div class="section-heading">
+        <div><p class="eyebrow" id="form-mode">New schedule entry</p><h2 id="form-title">Add itinerary item</h2></div>
+        <button id="close-form-button" class="icon-button" type="button" aria-label="Close form">&times;</button>
+      </div>
+      <form id="itinerary-form">
+        <input id="item-id" type="hidden">
+        <div class="form-grid">
+          <label><span>Trip reference</span><input id="trip-reference" type="text" placeholder="TRIP-1001" required></label>
+          <label><span>Day</span><input id="day" type="number" min="1" step="1" required></label>
+          <label><span>Start time</span><input id="start-time" type="time" required></label>
+          <label><span>End time</span><input id="end-time" type="time" required></label>
+          <label><span>Destination ID</span><input id="destination-id" type="number" min="1" step="1" required></label>
+          <label><span>Activity ID</span><input id="activity-id" type="number" min="1" step="1" required></label>
+          <label><span>Estimated cost</span><input id="estimated-cost" type="number" min="0" step="0.01" required></label>
+          <label class="form-grid__wide"><span>Notes <small>(optional)</small></span><textarea id="notes" rows="3" placeholder="Booking details or reminders"></textarea></label>
+        </div>
+        <div id="form-error" class="field-error" role="alert" hidden></div>
+        <div class="form-actions">
+          <button id="submit-button" class="button button--primary" type="submit">Add item</button>
+          <button id="cancel-edit-button" class="button button--secondary" type="button">Cancel</button>
+        </div>
+      </form>
     </section>
 
-    <section class="voyage-card" aria-labelledby="service-status-title">
-      <h2 id="service-status-title">Service scaffold is ready</h2>
-      <p>
-        The frontend, backend, and itinerary database API are running as
-        separate services. Itinerary editing and AI review will arrive in a
-        later stage.
-      </p>
-      <span class="status"><span class="status__dot"></span> Stage 1</span>
+    <section class="panel" aria-labelledby="schedule-title">
+      <div class="schedule-header">
+        <div><p class="eyebrow">Schedule</p><h2 id="schedule-title">Full itinerary</h2></div>
+        <div class="day-controls" aria-label="Itinerary day filter">
+          <button id="previous-day" class="icon-button" type="button" aria-label="Previous day">&larr;</button>
+          <label><span class="sr-only">View itinerary day</span><select id="day-filter"><option value="all">All days</option></select></label>
+          <button id="next-day" class="icon-button" type="button" aria-label="Next day">&rarr;</button>
+        </div>
+      </div>
+      <div id="loading" class="loading" role="status" hidden>Loading itinerary&hellip;</div>
+      <div id="itinerary-list" class="itinerary-list"></div>
+      <div id="empty-state" class="empty-state" hidden><h3>No itinerary items found</h3><p>Add an item or choose another day to continue planning.</p></div>
     </section>
   </main>
-
   <footer class="voyage-footer">VoyageAI &mdash; ASD 2026 Group 50</footer>
 </body>
 </html>
