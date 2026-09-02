@@ -3,6 +3,7 @@ import os
 from flask import Flask
 
 from routes.health import health_bp
+from routes.itinerary import itinerary_bp
 
 
 def create_app():
@@ -12,6 +13,7 @@ def create_app():
         "http://localhost:6005",
     )
     app.register_blueprint(health_bp)
+    app.register_blueprint(itinerary_bp)
     return app
 
 
