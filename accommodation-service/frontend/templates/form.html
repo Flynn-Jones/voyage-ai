@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}{% if mode == 'edit' %}Edit accommodation{% else %}New accommodation{% endif %}{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <div class="page-header">
+    <div>
+      <h1>{% if mode == 'edit' %}Edit accommodation{% else %}New accommodation{% endif %}</h1>
+    </div>
+    <a class="button button--secondary" href="{{ url_for('index') }}">Back to list</a>
+  </div>
+
+  {% if error %}
+    <div class="alert alert--error">{{ error }}</div>
+  {% endif %}
+
+  <form method="post" action="{% if mode == 'edit' %}{{ url_for('update_accommodation', accommodation_id=accommodation.id) }}{% else %}{{ url_for('create_accommodation') }}{% endif %}" class="stacked-form">
+    <div class="field-grid">
+      <label>
+        <span>Name</span>
+        <input name="name" value="{{ accommodation.name if accommodation else '' }}" required>
+      </label>
+      <label>
+        <span>Destination ID</span>
+        <input name="destination_id" value="{{ accommodation.destination_id if accommodation else '' }}">
+      </label>
+      <label>
+        <span>City</span>
+        <input name="destination_city" value="{{ accommodation.destination_city if accommodation else '' }}">
+      </label>
+      <label>
+        <span>Type</span>
+        <input name="type" value="{{ accommodation.type if accommodation else '' }}" placeholder="hotel">
+      </label>
+      <label>
+        <span>Price per night</span>
+        <input name="price_per_night" type="number" step="0.01" value="{{ accommodation.price_per_night if accommodation else '' }}" required>
+      </label>
+      <label>
+        <span>Rating</span>
+        <input name="rating" type="number" step="0.1" min="0" max="5" value="{{ accommodation.rating if accommodation else '' }}">
+      </label>
+      <label>
+        <span>Location</span>
+        <input name="location" value="{{ accommodation.location if accommodation else '' }}">
+      </label>
+      <label>
+        <span>Latitude</span>
+        <input name="latitude" type="number" step="0.000001" value="{{ accommodation.latitude if accommodation else '' }}">
+      </label>
+      <label>
+        <span>Longitude</span>
+        <input name="longitude" type="number" step="0.000001" value="{{ accommodation.longitude if accommodation else '' }}">
+      </label>
+      <label class="full-width">
+        <span>Amenities</span>
+        <input name="amenities" value="{{ ', '.join(accommodation.amenities) if accommodation and accommodation.amenities else '' }}" placeholder="WiFi, Pool, Bar">
+      </label>
+      <label class="full-width">
+        <span>Description</span>
+        <textarea name="description" rows="4">{{ accommodation.description if accommodation else '' }}</textarea>
+      </label>
+    </div>
+
+    <div class="form-actions">
+      <button class="button button--primary" type="submit">{% if mode == 'edit' %}Save changes{% else %}Create accommodation{% endif %}</button>
+    </div>
+  </form>
+</section>
+{% endblock %}

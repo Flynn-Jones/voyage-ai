@@ -7,6 +7,9 @@ services:
   frontend:
     build: ./frontend
     container_name: accomodation-fe
+    environment:
+      - PORT=3002
+      - BACKEND_SERVICE_URL=http://accomodation-be:5002
     ports:
       - "3002:3002"
     depends_on:
@@ -22,6 +25,10 @@ services:
     environment:
       - PORT=5002
       - DATABASE_SERVICE_URL=http://database:6002
+      - OLLAMA_HOST=http://host.docker.internal:11434
+      - OLLAMA_MODEL=qwen2.5:7b
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       - database
     networks:
@@ -35,7 +42,7 @@ services:
       - "6002:6002"
     environment:
       - PORT=6002
-      - DB_FILE=/data/accomodation-db.sqlite
+      - DB_FILE=/data/accommodation-db.sqlite
     volumes:
       - accomodation-db-data:/data
     networks:

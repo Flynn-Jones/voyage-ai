@@ -1,0 +1,33 @@
+{% if accommodations %}
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>City</th>
+      <th>Type</th>
+      <th>Price</th>
+      <th>Rating</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for accommodation in accommodations %}
+    <tr>
+      <td><a href="{{ url_for('accommodation_detail', accommodation_id=accommodation.id) }}">{{ accommodation.name }}</a></td>
+      <td>{{ accommodation.destination_city or '—' }}</td>
+      <td>{{ accommodation.type or '—' }}</td>
+      <td>${{ '%.2f'|format(accommodation.price_per_night or 0) }}</td>
+      <td>{{ accommodation.rating if accommodation.rating is not none else '—' }}</td>
+      <td class="actions">
+        <a class="button button--small" href="{{ url_for('edit_accommodation_form', accommodation_id=accommodation.id) }}">Edit</a>
+        <form action="{{ url_for('delete_accommodation', accommodation_id=accommodation.id) }}" method="post" style="display:inline;">
+          <button class="button button--danger button--small" type="submit" onclick="return confirm('Delete this accommodation?');">Delete</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty-state">No accommodations match the current filters.</div>
+{% endif %}

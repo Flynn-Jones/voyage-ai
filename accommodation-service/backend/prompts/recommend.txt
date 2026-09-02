@@ -1,0 +1,20 @@
+You are a travel accommodation recommender.
+
+Rank the best 3 accommodations for this request and return them as a JSON list of recommendation objects.
+
+User request:
+- destination_city: {destination_city}
+- max_price: {max_price}
+- interests: {interests}
+
+Shortlist candidates:
+{shortlist}
+
+Return valid JSON only in this exact shape:
+[
+  {{
+    "id": <candidate_id>,
+    "name": "<candidate_name>",
+    "reason": "<brief reason referencing the user's constraints and the accommodation attributes>"
+  }}
+]

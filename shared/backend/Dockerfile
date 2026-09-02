@@ -9,4 +9,4 @@ COPY backend ./backend
 
 EXPOSE 5000
 
-CMD ["python", "backend/app.py"]
+CMD ["python", "backend/src/app.py"]
