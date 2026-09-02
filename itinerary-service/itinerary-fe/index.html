@@ -57,6 +57,18 @@
       <div id="itinerary-list" class="itinerary-list"></div>
       <div id="empty-state" class="empty-state" hidden><h3>No itinerary items found</h3><p>Add an item or choose another day to continue planning.</p></div>
     </section>
+    <section class="panel ai-review" aria-labelledby="ai-review-title">
+      <div class="section-heading"><div><p class="eyebrow">Plan &rarr; Act &rarr; Observe &rarr; Adapt</p><h2 id="ai-review-title">AI itinerary review</h2></div></div>
+      <p class="ai-intro">Ask the local VoyageAI assistant to review one day. Recommendations are advisory and never change your itinerary.</p>
+      <form id="ai-review-form" class="ai-form">
+        <label><span>Day</span><input id="ai-review-day" type="number" min="1" step="1" value="4" required></label>
+        <label class="ai-form__prompt"><span>What would you like reviewed?</span><textarea id="ai-review-prompt" rows="3" required>Review Day 4 of the itinerary and determine whether it is too busy.</textarea></label>
+        <button id="ai-review-button" class="button button--primary" type="submit">Review itinerary</button>
+      </form>
+      <div id="ai-review-loading" class="loading ai-loading" role="status" hidden>Reviewing your itinerary&hellip;</div>
+      <div id="ai-review-error" class="field-error" role="alert" hidden></div>
+      <div id="ai-review-results" class="workflow-grid" aria-live="polite" hidden></div>
+    </section>
   </main>
   <footer class="voyage-footer">VoyageAI &mdash; ASD 2026 Group 50</footer>
 </body>

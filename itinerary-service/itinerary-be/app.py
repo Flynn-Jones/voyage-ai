@@ -3,6 +3,7 @@ import os
 from flask import Flask
 
 from routes.health import health_bp
+from routes.ai_review import ai_review_bp
 from routes.itinerary import itinerary_bp
 
 
@@ -14,6 +15,7 @@ def create_app():
     )
     app.register_blueprint(health_bp)
     app.register_blueprint(itinerary_bp)
+    app.register_blueprint(ai_review_bp)
     return app
 
 

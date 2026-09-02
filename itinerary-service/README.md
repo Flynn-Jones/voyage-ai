@@ -22,6 +22,9 @@ database container exclusively owns the SQLite file, which is persisted in the
 
 Inside Docker, the backend reaches the database API at
 `http://itinerary-db:6005` through `DATABASE_SERVICE_URL`.
+It reaches the host's local Ollama service at
+`http://host.docker.internal:11434` through `OLLAMA_BASE_URL`. The default
+`OLLAMA_MODEL` follows the team convention, `qwen2.5:7b`.
 
 ## Current functionality
 
@@ -33,10 +36,11 @@ Inside Docker, the backend reaches the database API at
 - Show loading, empty, success, validation, and service-error states.
 - Preserve itinerary records in a named Docker volume across container restarts.
 - Seed 12 deterministic records only when the itinerary table is empty.
+- Review one day with an Ollama-powered, advisory Plan -> Act -> Observe -> Adapt workflow.
 
 Destination and Activity names are not enriched yet; their identifiers are
-displayed directly. Cross-service enrichment and Ollama-powered itinerary review
-are planned for later stages.
+displayed directly. Cross-service Destination and Activity enrichment is planned
+for a later stage.
 
 ## Public backend API
 
@@ -51,9 +55,14 @@ Base URL from the host: `http://localhost:5005`
 | PUT | `/api/itinerary/<item_id>` | Replace an itinerary item |
 | DELETE | `/api/itinerary/<item_id>` | Delete an itinerary item |
 | GET | `/api/itinerary/day/<day>` | List items for one day |
+| POST | `/api/itinerary/ai-review` | Review one day using deterministic observations and local Ollama |
 
 The browser uses the same `/api/itinerary` paths through the frontend's Nginx
 proxy on port 3005.
+
+The AI review request requires a non-empty `prompt` and a positive integer
+`day`; a simple phrase such as `Day 4` may supply the day through the prompt.
+Its response contains separate `plan`, `act`, `observe`, and `adapt` objects.
 
 ## Internal database API
 

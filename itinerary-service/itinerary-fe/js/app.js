@@ -27,6 +27,7 @@ const itineraryApi = {
   create: (item) => apiRequest("", { method: "POST", body: JSON.stringify(item) }),
   update: (id, item) => apiRequest(`/${id}`, { method: "PUT", body: JSON.stringify(item) }),
   remove: (id) => apiRequest(`/${id}`, { method: "DELETE" }),
+  review: (request) => apiRequest("/ai-review", { method: "POST", body: JSON.stringify(request) }),
 };
 
 function showMessage(text, type) {
@@ -258,8 +259,50 @@ function moveDay(offset) {
   }
 }
 
+function workflowStage(name, content) {
+  const stage = makeElement("section", `workflow-stage workflow-stage--${name.toLowerCase()}`);
+  stage.append(makeElement("h3", "workflow-stage__title", name), content);
+  return stage;
+}
+
+function renderReview(review) {
+  const plan = makeElement("div", "workflow-content");
+  plan.append(makeElement("p", "", `Day ${review.plan.requested_day}`));
+  const checks = makeElement("ul", "workflow-list");
+  review.plan.checks.forEach((check) => checks.append(makeElement("li", "", check)));
+  plan.append(checks);
+  const act = makeElement("div", "workflow-content");
+  act.append(makeElement("p", "", `${review.act.records_retrieved} record(s) retrieved via the database API.`));
+  const observe = makeElement("div", "workflow-content");
+  const facts = [`${review.observe.item_count} itinerary item(s)`, `${review.observe.total_scheduled_minutes} scheduled minutes`, `${review.observe.overlaps.length} overlap(s)`, `${review.observe.short_gaps.length} short gap(s)`, `${formatCost(review.observe.total_estimated_cost)} estimated cost`];
+  const factList = makeElement("ul", "workflow-list");
+  facts.forEach((fact) => factList.append(makeElement("li", "", fact)));
+  observe.append(factList);
+  const adapt = makeElement("div", "workflow-content");
+  adapt.append(makeElement("p", "ai-recommendation", review.adapt.recommendation), makeElement("p", "ai-disclaimer", `Advisory only — generated locally with ${review.adapt.model}.`));
+  elements.aiReviewResults.replaceChildren(workflowStage("Plan", plan), workflowStage("Act", act), workflowStage("Observe", observe), workflowStage("Adapt", adapt));
+  elements.aiReviewResults.hidden = false;
+}
+
+async function submitAiReview(event) {
+  event.preventDefault();
+  elements.aiReviewError.hidden = true;
+  elements.aiReviewResults.hidden = true;
+  elements.aiReviewLoading.hidden = false;
+  elements.aiReviewButton.disabled = true;
+  try {
+    renderReview(await itineraryApi.review({day: Number(elements.aiReviewDay.value), prompt: elements.aiReviewPrompt.value.trim()}));
+  } catch (error) {
+    elements.aiReviewError.textContent = error.message;
+    elements.aiReviewError.hidden = false;
+  } finally {
+    elements.aiReviewLoading.hidden = true;
+    elements.aiReviewButton.disabled = false;
+  }
+}
+
 function cacheElements() {
-  const ids = ["message", "form-panel", "form-mode", "form-title", "itinerary-form", "item-id", "trip-reference", "day", "start-time", "end-time", "destination-id", "activity-id", "estimated-cost", "notes", "form-error", "submit-button", "day-filter", "previous-day", "next-day", "loading", "itinerary-list", "empty-state"];
+  const ids = ["message", "form-panel", "form-mode", "form-title", "itinerary-form", "item-id", "trip-reference", "day", "start-time", "end-time", "destination-id", "activity-id", "estimated-cost", "notes", "form-error", "submit-button", "day-filter", "previous-day", "next-day", "loading", "itinerary-list", "empty-state", "ai-review-form", "ai-review-day", "ai-review-prompt", "ai-review-button", "ai-review-loading", "ai-review-error", "ai-review-results"];
   ids.forEach((id) => {
     const property = id.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
     elements[property] = document.getElementById(id);
@@ -281,5 +324,6 @@ document.addEventListener("DOMContentLoaded", () => {
   elements.dayFilter.addEventListener("change", changeDay);
   elements.previousDay.addEventListener("click", () => moveDay(-1));
   elements.nextDay.addEventListener("click", () => moveDay(1));
+  elements.aiReviewForm.addEventListener("submit", submitAiReview);
   loadItinerary();
 });

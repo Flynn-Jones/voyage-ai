@@ -18,6 +18,11 @@ services:
     environment:
       PORT: "5005"
       DATABASE_SERVICE_URL: http://itinerary-db:6005
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      OLLAMA_MODEL: qwen2.5:7b
+      OLLAMA_TIMEOUT_SECONDS: "60"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       itinerary-db:
         condition: service_healthy

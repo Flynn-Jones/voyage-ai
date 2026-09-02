@@ -1,0 +1,7 @@
+The traveller asked:
+{user_prompt}
+
+Review the requested day using only this JSON evidence:
+{context}
+
+Give a concise, practical review. Explain scheduling conflicts, pacing, breaks, and cost only when supported by the evidence. If there are no records, say that the day cannot yet be reviewed. Do not propose or imply any data mutation.
