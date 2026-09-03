@@ -31,6 +31,38 @@ async function addActivity(payload) {
   return response.json();
 }
 
+async function getActivityAssignments(id) {
+  const response = await fetch(`${API_BASE_URL}/activities/${encodeURIComponent(id)}/assignments`);
+  if (!response.ok) {
+    throw new Error(`Failed to load assignments for activity ${id} (${response.status})`);
+  }
+  return response.json();
+}
+
+async function editActivity(id, data) {
+  const response = await fetch(`${API_BASE_URL}/edit_activity/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}));
+    throw new Error(errorBody.error || `Failed to update activity ${id} (${response.status})`);
+  }
+  return response.json();
+}
+
+async function deleteActivity(id) {
+  const response = await fetch(`${API_BASE_URL}/delete_activity/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}));
+    throw new Error(errorBody.error || `Failed to delete activity ${id} (${response.status})`);
+  }
+  return response.json();
+}
+
 // ASSUMPTION (flagged, unconfirmed): no AI-summary route was given in the spec.
 // Mirrors the ai-compare pattern used by other features. Correct the path/method
 // here if the real backend differs.

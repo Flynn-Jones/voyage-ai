@@ -33,13 +33,17 @@
     <section id="list-view">
       <h1 class="act-section-title">Browse Activities</h1>
       <p id="list-status" class="act-loading">Loading activities…</p>
+      <div id="list-banner" class="act-banner"></div>
       <div id="list-grid" class="act-grid"></div>
     </section>
 
     <!-- Detail view (shown instead of the list when ?id= is present) -->
     <section id="detail-view" style="display: none;">
-      <a href="activities.html" class="act-btn act-btn--secondary" style="margin-bottom: 20px; display: inline-block;">&larr; Back to all activities</a>
+      <div id="detail-actions" style="display: flex; gap: 8px; margin-bottom: 20px;">
+        <a href="activities.html" class="act-btn act-btn--secondary">&larr; Back to all activities</a>
+      </div>
       <p id="detail-status" class="act-loading" style="display: none;"></p>
+      <div id="detail-banner" class="act-banner"></div>
       <article id="detail-card" class="act-card" style="display: none; max-width: 640px;"></article>
     </section>
   </main>
@@ -56,6 +60,15 @@
       return div.innerHTML;
     }
 
+    function showBanner(el, message, type) {
+      el.textContent = message;
+      el.className = `act-banner act-banner--visible act-banner--${type}`;
+    }
+
+    function hideBanner(el) {
+      el.className = "act-banner";
+    }
+
     function renderList(activities) {
       const grid = document.getElementById("list-grid");
       const status = document.getElementById("list-status");
@@ -68,11 +81,17 @@
 
       status.remove();
       grid.innerHTML = activities.map((activity) => `
-        <article class="act-card">
+        <article class="act-card" data-activity-id="${escapeHtml(activity.activity_id)}">
           <h2>${escapeHtml(activity.activity_name)}</h2>
           <p>${escapeHtml(activity.activity_type)}</p>
           <p class="act-card__cost">$${escapeHtml(activity.activity_cost)} · ${escapeHtml(activity.duration)}</p>
           <a class="act-card__link" href="activities.html?id=${encodeURIComponent(activity.activity_id)}">View Details</a>
+          <div style="display: flex; gap: 8px; margin-top: 4px;">
+            <a class="act-btn act-btn--secondary" style="flex: 1; text-align: center; padding: 8px 12px; font-size: 0.85rem;"
+               href="register-activity.html?id=${encodeURIComponent(activity.activity_id)}">Edit</a>
+            <button type="button" class="act-btn act-btn--delete" style="flex: 1; padding: 8px 12px; font-size: 0.85rem; background: var(--danger); color: #fff;"
+                    data-delete-id="${escapeHtml(activity.activity_id)}">Delete</button>
+          </div>
         </article>
       `).join("");
     }
@@ -87,6 +106,33 @@
         status.className = "act-empty";
       }
     }
+
+    async function handleDelete(id, card, banner) {
+      if (!window.confirm("Delete this activity? This cannot be undone.")) {
+        return;
+      }
+      hideBanner(banner);
+      try {
+        await deleteActivity(id);
+        if (card) {
+          card.remove();
+          const grid = document.getElementById("list-grid");
+          if (grid && grid.children.length === 0) {
+            grid.innerHTML = '<p class="act-empty">No activities found yet.</p>';
+          }
+        }
+        showBanner(banner, "Activity deleted.", "success");
+      } catch (error) {
+        showBanner(banner, `Could not delete activity: ${error.message}`, "error");
+      }
+    }
+
+    document.getElementById("list-grid").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-delete-id]");
+      if (!button) return;
+      const card = button.closest(".act-card");
+      handleDelete(button.dataset.deleteId, card, document.getElementById("list-banner"));
+    });
 
     function renderDetail(activity) {
       const card = document.getElementById("detail-card");
@@ -104,6 +150,28 @@
           <p id="summary-text" class="act-loading">Generating summary…</p>
         </div>
       `;
+
+      const actions = document.getElementById("detail-actions");
+      actions.innerHTML = `
+        <a href="activities.html" class="act-btn act-btn--secondary">&larr; Back to all activities</a>
+        <a class="act-btn act-btn--secondary" href="register-activity.html?id=${encodeURIComponent(activity.activity_id)}">Edit</a>
+        <button type="button" class="act-btn" style="background: var(--danger); color: #fff;"
+                data-delete-id="${escapeHtml(activity.activity_id)}">Delete</button>
+      `;
+
+      const banner = document.getElementById("detail-banner");
+      actions.querySelector("[data-delete-id]").addEventListener("click", async (event) => {
+        const id = event.target.dataset.deleteId;
+        if (!window.confirm(`Delete "${activity.activity_name}"? This cannot be undone.`)) return;
+        hideBanner(banner);
+        try {
+          await deleteActivity(id);
+          showBanner(banner, "Activity deleted. Returning to the activity list…", "success");
+          setTimeout(() => { window.location.href = "activities.html"; }, 1200);
+        } catch (error) {
+          showBanner(banner, `Could not delete activity: ${error.message}`, "error");
+        }
+      });
     }
 
     async function loadSummary(id) {
