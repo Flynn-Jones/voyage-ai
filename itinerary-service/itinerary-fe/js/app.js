@@ -265,28 +265,33 @@ function moveDay(offset) {
   }
 }
 
-function workflowStage(name, content) {
-  const stage = makeElement("section", `workflow-stage workflow-stage--${name.toLowerCase()}`);
-  stage.append(makeElement("h3", "workflow-stage__title", name), content);
-  return stage;
+function reviewSection(title, content, modifier = "") {
+  const section = makeElement("section", `workflow-stage${modifier ? ` workflow-stage--${modifier}` : ""}`);
+  section.append(makeElement("h3", "workflow-stage__title", title), content);
+  return section;
 }
 
 function renderReview(review) {
-  const plan = makeElement("div", "workflow-content");
-  plan.append(makeElement("p", "", `Day ${review.plan.requested_day}`));
+  const summary = makeElement("div", "workflow-content");
+  summary.append(
+    makeElement("p", "", `Day ${review.plan.requested_day}`),
+    makeElement("p", "", `${review.act.records_retrieved} itinerary item(s) reviewed.`),
+  );
   const checks = makeElement("ul", "workflow-list");
   review.plan.checks.forEach((check) => checks.append(makeElement("li", "", check)));
-  plan.append(checks);
-  const act = makeElement("div", "workflow-content");
-  act.append(makeElement("p", "", `${review.act.records_retrieved} record(s) retrieved via the database API.`));
-  const observe = makeElement("div", "workflow-content");
+  summary.append(checks);
+  const analysis = makeElement("div", "workflow-content");
   const facts = [`${review.observe.item_count} itinerary item(s)`, `${review.observe.total_scheduled_minutes} scheduled minutes`, `${review.observe.overlaps.length} overlap(s)`, `${review.observe.short_gaps.length} short gap(s)`, `${formatCost(review.observe.total_estimated_cost)} estimated cost`];
   const factList = makeElement("ul", "workflow-list");
   facts.forEach((fact) => factList.append(makeElement("li", "", fact)));
-  observe.append(factList);
-  const adapt = makeElement("div", "workflow-content");
-  adapt.append(makeElement("p", "ai-recommendation", review.adapt.recommendation), makeElement("p", "ai-disclaimer", `Advisory only — generated locally with ${review.adapt.model}.`));
-  elements.aiReviewResults.replaceChildren(workflowStage("Plan", plan), workflowStage("Act", act), workflowStage("Observe", observe), workflowStage("Adapt", adapt));
+  analysis.append(factList);
+  const recommendation = makeElement("div", "workflow-content");
+  recommendation.append(makeElement("p", "ai-recommendation", review.adapt.recommendation), makeElement("p", "ai-disclaimer", `Advisory only — generated locally with ${review.adapt.model}.`));
+  elements.aiReviewResults.replaceChildren(
+    reviewSection("Review Summary", summary),
+    reviewSection("Schedule Analysis", analysis),
+    reviewSection("AI Recommendation", recommendation, "recommendation"),
+  );
   elements.aiReviewResults.hidden = false;
 }
 
