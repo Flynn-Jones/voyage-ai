@@ -64,7 +64,7 @@
     .act-chat__bubble--user {
       align-self: flex-end;
       background: var(--act-red);
-      color: #fff;
+      color: var(--act-text);
     }
 
     .act-chat__bubble--assistant {
@@ -118,15 +118,22 @@
   </style>
 </head>
 <body>
-  <nav class="act-nav">
-    <span class="act-nav__brand">VoyageAI</span>
-    <div class="act-nav__links">
-      <a href="../index.html">Activities</a>
-      <a href="ai-mode.html" class="act-nav__link--active">AI Mode</a>
-      <a href="http://localhost:3002">Accommodation</a>
-      <a href="http://localhost:3004">Budget</a>
-      <a href="http://localhost:3005">Itinerary</a>
-      <a href="#" class="act-nav__link--disabled" title="Coming soon">Register / Login</a>
+  <nav class="voyage-nav">
+    <div class="voyage-nav__container">
+      <span class="voyage-nav__brand">VoyageAI &mdash; Activities</span>
+      <div class="voyage-nav__links">
+        <a href="../index.html">Activities</a>
+        <a href="ai-mode.html" class="is-active">AI Mode</a>
+        <a href="register-activity.html">Register Activity</a>
+      </div>
+      <div class="voyage-nav__switcher">
+        <a href="http://localhost:3000">Home</a>
+        <a href="http://localhost:3001">Destinations</a>
+        <a href="http://localhost:3002">Accommodation</a>
+        <a href="http://localhost:3003" class="is-active">Activities</a>
+        <a href="http://localhost:3004">Budget</a>
+        <a href="http://localhost:3005">Itinerary</a>
+      </div>
     </div>
   </nav>
 

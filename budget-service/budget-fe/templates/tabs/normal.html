@@ -1,12 +1,13 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Normal UI</title>
     <link rel="stylesheet" href="/css/styles.css">
     <style>
         body { margin: 0; min-height: auto; background: transparent; }
-        .app-shell { max-width: none; padding: 0; }
+        .app-shell, .voyage-main { max-width: none; padding: 0; }
     </style>
 </head>
 <body>
@@ -29,8 +30,8 @@
                 <option value="Cancelled">Cancelled</option>
             </select>
             <input id="filter-destination-id" type="number" min="1" placeholder="Destination ID">
-            <button id="apply-filters-btn" type="button">Apply Filters</button>
-            <button id="clear-filters-btn" type="button">Clear</button>
+            <button id="apply-filters-btn" class="button button--primary" type="button">Apply Filters</button>
+            <button id="clear-filters-btn" class="button button--secondary" type="button">Clear</button>
         </div>
 
         <div id="expense-list-panel" class="panel"></div>
@@ -74,7 +75,7 @@
                     </select>
                 </div>
             </div>
-            <button type="submit">Create Expense</button>
+            <button type="submit" class="button button--primary">Create Expense</button>
         </form>
 
         <div id="create-result" class="panel"></div>
@@ -124,7 +125,7 @@
                     </select>
                 </div>
             </div>
-            <button type="submit">Update Expense</button>
+            <button type="submit" class="button button--primary">Update Expense</button>
         </form>
 
         <div id="edit-result" class="panel"></div>
@@ -136,7 +137,7 @@
         <form id="delete-form">
             <label for="delete_id">Expense ID</label>
             <input id="delete_id" name="id" type="number" min="1" required>
-            <button type="submit">Delete Expense</button>
+            <button type="submit" class="button button--danger">Delete Expense</button>
         </form>
 
         <div id="delete-result" class="panel"></div>

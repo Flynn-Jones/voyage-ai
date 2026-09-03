@@ -1,12 +1,13 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Mode</title>
     <link rel="stylesheet" href="/css/styles.css">
     <style>
         body { margin: 0; min-height: auto; background: transparent; }
-        .app-shell { max-width: none; padding: 0; }
+        .app-shell, .voyage-main { max-width: none; padding: 0; }
         .ai-response { white-space: pre-wrap; }
     </style>
 </head>
@@ -17,7 +18,7 @@
         <p class="rag-helper">Sends every current expense to the local AI agent and asks for evidence-backed ways to reduce spending.</p>
 
         <form id="analyse-form">
-            <button type="submit">Analyse My Trip Spending</button>
+            <button type="submit" class="button button--primary">Analyse My Trip Spending</button>
         </form>
 
         <div id="analyse-result" class="panel"></div>
@@ -30,7 +31,7 @@
         <form id="add-expense-form">
             <label for="expense-prompt">Prompt</label>
             <textarea id="expense-prompt" name="prompt" rows="3" placeholder="I just booked a hotel in Rome, add it to my budget" required></textarea>
-            <button type="submit">Add Expense</button>
+            <button type="submit" class="button button--primary">Add Expense</button>
         </form>
 
         <div id="add-expense-result" class="panel"></div>
