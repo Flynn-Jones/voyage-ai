@@ -49,6 +49,30 @@ def call_budget_agent(system_prompt_file, task_prompt_file, user_input):
     return create_chat_completion(messages, temperature=0.0)
 
 
+SUMMARY_SYSTEM_PROMPT = (
+    "You rewrite a detailed budget analysis as a short natural-language summary "
+    "for a traveller. Use only facts already present in the analysis you are given; "
+    "do not invent expenses, amounts, or destinations."
+)
+
+
+def summarise_analysis(analysis_text):
+    messages = [
+        {"role": "system", "content": SUMMARY_SYSTEM_PROMPT},
+        {
+            "role": "user",
+            "content": (
+                "Rewrite the budget analysis below as 2-4 plain sentences: no headings, "
+                "no per-expense list, no markdown, no bullet points. Name each overspending "
+                "expense and how much it went over its estimate by. If the analysis found no "
+                "overspends, reply with exactly: \"No evidence-backed savings identified.\"\n\n"
+                f"Analysis:\n{analysis_text}"
+            ),
+        },
+    ]
+    return create_chat_completion(messages, temperature=0.0)
+
+
 INTENT_SYSTEM_PROMPT = (
     "Extract structured intent from a traveller's request to log a trip expense. "
     "Respond with ONLY a JSON object with keys: destination (string or null), "

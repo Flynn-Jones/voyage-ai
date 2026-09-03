@@ -1,25 +1,25 @@
 :root {
-  /* Brand palette */
-  --voyage-primary: #0B6E99;
-  --voyage-primary-dark: #084F6E;
-  --voyage-secondary: #F2A65A;
-  --voyage-accent: #2EC4B6;
+  /* Brand palette — see shared/design-system/tokens.css for the canonical values */
+  --voyage-primary: #DA7757;
+  --voyage-primary-dark: #A24B29;
+  --voyage-secondary: #D06E4C;
+  --voyage-accent: #DA7757;
 
   /* Surfaces & text */
-  --voyage-bg: #F7F9FB;
+  --voyage-bg: #F2E9D7;
   --voyage-surface: #FFFFFF;
-  --voyage-text: #1B2733;
-  --voyage-text-muted: #5B6B79;
-  --voyage-border: #E1E7EC;
+  --voyage-text: #2B2118;
+  --voyage-text-muted: #6B5B48;
+  --voyage-border: #CBB68C;
 
   /* Status */
-  --voyage-success: #2E9E5B;
-  --voyage-danger: #D64545;
+  --voyage-success: #1F6B3D;
+  --voyage-danger: #B3452E;
 
   /* Layout & type */
   --voyage-font-base: 'Segoe UI', system-ui, -apple-system, sans-serif;
   --voyage-radius: 8px;
-  --voyage-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --voyage-shadow: 0 8px 24px rgba(43, 33, 24, 0.08);
   --voyage-nav-height: 64px;
   --voyage-max-width: 1100px;
 }
@@ -36,20 +36,21 @@ body {
 }
 
 a {
-  color: var(--voyage-primary);
+  color: var(--voyage-primary-dark);
   text-decoration: none;
 }
 
 a:hover {
-  color: var(--voyage-primary-dark);
+  color: #8A3F22;
   text-decoration: underline;
 }
 
 /* Nav bar */
 .voyage-nav {
   height: var(--voyage-nav-height);
-  background: var(--voyage-primary);
-  color: #fff;
+  background: var(--voyage-surface);
+  border-bottom: 1px solid var(--voyage-border);
+  color: var(--voyage-text);
   display: flex;
   align-items: center;
   padding: 0 24px;
@@ -58,7 +59,7 @@ a:hover {
 .voyage-nav__brand {
   font-size: 1.25rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--voyage-text);
   letter-spacing: 0.02em;
 }
 
@@ -129,7 +130,7 @@ a:hover {
   display: inline-block;
   margin-top: 8px;
   padding: 8px 16px;
-  background: var(--voyage-primary);
+  background: var(--voyage-primary-dark);
   color: #fff;
   border-radius: var(--voyage-radius);
   font-size: 0.9rem;
@@ -138,7 +139,7 @@ a:hover {
 }
 
 .voyage-card__link:hover {
-  background: var(--voyage-primary-dark);
+  background: #8A3F22;
   color: #fff;
   text-decoration: none;
 }

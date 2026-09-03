@@ -10,12 +10,18 @@
 <body>
   <nav class="voyage-nav">
     <div class="voyage-nav__container">
-      <span class="voyage-nav__brand">VoyageAI — Accommodations</span>
+      <span class="voyage-nav__brand">VoyageAI - Accommodations</span>
       <div class="voyage-nav__links">
-        <a href="http://localhost:3000">Home</a>
         <a href="{{ url_for('index') }}">List</a>
         <a href="{{ url_for('recommend_page') }}">Recommend</a>
         <a href="{{ url_for('new_accommodation_form') }}">New</a>
+      </div>
+      <div class="voyage-nav__switcher">
+        <a href="http://localhost:3001">Destinations</a>
+        <a href="http://localhost:3002" class="is-active">Accommodation</a>
+        <a href="http://localhost:3003">Activities</a>
+        <a href="http://localhost:3004">Budget</a>
+        <a href="http://localhost:3005">Itinerary</a>
       </div>
     </div>
   </nav>
