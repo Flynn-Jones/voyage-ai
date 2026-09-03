@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Destination Manager{% endblock %} &middot; VoyageAI</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='theme.css') }}">
+  <script src="https://unpkg.com/htmx.org@1.9.12" defer></script>
+</head>
+<body>
+  <nav class="voyage-nav">
+    <div class="voyage-nav__container">
+      <span class="voyage-nav__brand">VoyageAI &mdash; Destinations</span>
+      <div class="voyage-nav__links">
+        <a href="http://localhost:3000">Home</a>
+        <a href="{{ url_for('index') }}">Destinations</a>
+        <a href="{{ url_for('new_destination') }}">Add destination</a>
+        <a href="{{ url_for('compare') }}">Compare</a>
+      </div>
+    </div>
+  </nav>
+  <main class="voyage-main">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="voyage-footer">
+    VoyageAI &mdash; Destination Manager
+  </footer>
+</body>
+</html>

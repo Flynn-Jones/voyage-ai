@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}{{ destination.city }}{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="page-header">
+    <div>
+      <h1>{{ destination.city }}, {{ destination.country }}</h1>
+      <p>{{ destination.travel_style or '—' }}</p>
+    </div>
+    <div class="inline-actions">
+      <a class="button button--secondary" href="{{ url_for('edit_destination', destination_id=destination.destination_id) }}">Edit</a>
+      <a class="button button--danger" href="{{ url_for('delete_destination', destination_id=destination.destination_id) }}">Delete</a>
+    </div>
+  </div>
+
+  <p class="description-box">{{ destination.description or 'No description yet.' }}</p>
+
+  <div class="detail-grid">
+    <div>
+      <span class="detail-label">Average daily cost</span>
+      <span>{{ '$%.2f'|format(destination.average_daily_cost) if destination.average_daily_cost is not none else '—' }}</span>
+    </div>
+    <div>
+      <span class="detail-label">Recommended trip length</span>
+      <span>{{ (destination.recommended_trip_length ~ ' days') if destination.recommended_trip_length is not none else '—' }}</span>
+    </div>
+    <div>
+      <span class="detail-label">Travel style</span>
+      <span>{{ destination.travel_style or '—' }}</span>
+    </div>
+  </div>
+
+  {% if destination.categories %}
+  <div class="badges">
+    {% for category in destination.categories %}
+    <span class="badge">{{ category }}</span>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <p><a href="{{ url_for('index') }}">&larr; Back to list</a></p>
+</section>
+{% endblock %}
