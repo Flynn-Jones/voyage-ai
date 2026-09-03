@@ -75,9 +75,13 @@ def summarise_analysis(analysis_text):
 
 INTENT_SYSTEM_PROMPT = (
     "Extract structured intent from a traveller's request to log a trip expense. "
-    "Respond with ONLY a JSON object with keys: destination (string or null), "
-    "category (string or null), expense (short string or null), "
-    "trip_reference (string or null). No prose, no markdown fences."
+    "Respond with ONLY a JSON object with keys: "
+    "trip_reference (string or null, e.g. 'TRIP-1001'), "
+    "expense (short string or null, e.g. 'Dinner', 'Museum tickets'), "
+    "category (string or null, e.g. Transport, Accommodation, Activities, Food, Shopping), "
+    "estimated_cost (number or null — the dollar amount mentioned, digits only), "
+    "destination (string or null — a city or place name mentioned, if any). "
+    "No prose, no markdown fences."
 )
 
 

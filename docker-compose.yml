@@ -70,12 +70,16 @@ services:
   destination-backend:
     build: ./student-1/backend
     ports:
-      - "5001:5001"
+      # Host-side only — remapped because something else on this machine
+      # ("GT3 mobile service") already owns 5001. Container-to-container
+      # traffic still uses 5001 (BACKEND_SERVICE_URL below), so nothing
+      # internal is affected.
+      - "5011:5001"
     environment:
       PORT: "5001"
       DATABASE_SERVICE_URL: http://destination-database:6001
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:0.5b}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:7b}
       OLLAMA_TIMEOUT_SECONDS: ${OLLAMA_TIMEOUT_SECONDS:-60}
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -117,10 +121,9 @@ services:
       PORT: "5002"
       DATABASE_SERVICE_URL: http://accommodation-database:6002
       OLLAMA_HOST: http://host.docker.internal:11434
-      # qwen2.5:7b (the standalone default) is not pulled on this host;
-      # override to the smaller model that IS available locally so the AI
-      # path is actually reachable. Root-only env override, no source edit.
-      OLLAMA_MODEL: qwen2.5:0.5b
+      # Pinned to qwen2.5:7b — the model actually pulled on this host
+      # (checked via `ollama list`). Root-only env override, no source edit.
+      OLLAMA_MODEL: qwen2.5:7b
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -161,7 +164,7 @@ services:
       ACCOMMODATION_SERVICE_URL: http://accommodation-database:6002
       ACTIVITY_DB_PATH: /data/database-service.sqlite
       OLLAMA_URL: http://host.docker.internal:11434
-      OLLAMA_MODEL: qwen2.5:0.5b
+      OLLAMA_MODEL: qwen2.5:7b
     volumes:
       - activity-db-data:/data
     extra_hosts:
@@ -221,10 +224,9 @@ services:
       DATABASE_SERVICE_URL: http://budget-database:6004
       ACCOMMODATION_SERVICE_URL: http://accommodation-database:6002
       OLLAMA_BASE_URL: http://host.docker.internal:11434
-      # qwen2.5:7b (the standalone default) is not pulled on this host;
-      # override to the smaller model that IS available locally so the AI
-      # path is actually reachable. Root-only env override, no source edit.
-      OLLAMA_MODEL: qwen2.5:0.5b
+      # Pinned to qwen2.5:7b — the model actually pulled on this host
+      # (checked via `ollama list`). Root-only env override, no source edit.
+      OLLAMA_MODEL: qwen2.5:7b
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -264,10 +266,9 @@ services:
       DESTINATION_SERVICE_URL: http://destination-database:6001
       ACTIVITY_SERVICE_URL: http://activity-database:6003
       OLLAMA_BASE_URL: http://host.docker.internal:11434
-      # qwen2.5:7b (the standalone default) is not pulled on this host;
-      # override to the smaller model that IS available locally so the AI
-      # path is actually reachable. Root-only env override, no source edit.
-      OLLAMA_MODEL: qwen2.5:0.5b
+      # Pinned to qwen2.5:7b — the model actually pulled on this host
+      # (checked via `ollama list`). Root-only env override, no source edit.
+      OLLAMA_MODEL: qwen2.5:7b
       OLLAMA_TIMEOUT_SECONDS: "60"
     extra_hosts:
       - "host.docker.internal:host-gateway"
