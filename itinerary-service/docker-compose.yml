@@ -1,0 +1,76 @@
+services:
+  itinerary-fe:
+    build: ./itinerary-fe
+    container_name: itinerary-fe
+    ports:
+      - "3005:80"
+    depends_on:
+      itinerary-be:
+        condition: service_healthy
+    networks:
+      - internal
+
+  itinerary-be:
+    build: ./itinerary-be
+    container_name: itinerary-be
+    ports:
+      - "5005:5005"
+    environment:
+      PORT: "5005"
+      DATABASE_SERVICE_URL: http://itinerary-db:6005
+      DESTINATION_SERVICE_URL: ${DESTINATION_SERVICE_URL:-http://destination-db:6001}
+      ACTIVITY_SERVICE_URL: ${ACTIVITY_SERVICE_URL:-http://activity-service-database:6003}
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      OLLAMA_MODEL: qwen2.5:7b
+      OLLAMA_TIMEOUT_SECONDS: "60"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      itinerary-db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:5005/health', timeout=2)"
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    networks:
+      - internal
+      - microservices-net
+
+  itinerary-db:
+    build: ./itinerary-db
+    container_name: itinerary-db
+    ports:
+      - "6005:6005"
+    environment:
+      PORT: "6005"
+      DB_FILE: /data/itinerary-db.sqlite
+    volumes:
+      - itinerary-db-data:/data
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:6005/health', timeout=2)"
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    networks:
+      - internal
+      - microservices-net
+
+networks:
+  internal:
+    driver: bridge
+  microservices-net:
+    external: true
+
+volumes:
+  itinerary-db-data:
