@@ -17,8 +17,8 @@ class NotFoundError(Exception):
 def get_accommodation(destination):
     try:
         response = requests.get(
-            f"{ACCOMMODATION_SERVICE_URL}/accommodation",
-            params={"destination": destination},
+            f"{ACCOMMODATION_SERVICE_URL}/accommodations",
+            params={"q": destination},
             timeout=5,
         )
     except requests.exceptions.RequestException as exc:
@@ -29,4 +29,4 @@ def get_accommodation(destination):
     if response.status_code != 200:
         raise ReferenceServiceError(f"accommodation service returned {response.status_code}")
 
-    return response.json()
+    return response.json().get("data", [])

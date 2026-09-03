@@ -1,0 +1,59 @@
+/*
+ * VoyageAI shared design tokens — canonical source.
+ *
+ * Every microservice frontend (budget-fe, accommodation-fe, activity-fe, ...)
+ * already used this same variable set for its own dark theme, just with
+ * different values per service. This file is the single palette all of them
+ * should paste into their own :root block, so the product reads as one app.
+ *
+ * Drop-in: copy this whole :root block over the existing one in your
+ * service's stylesheet. Variable NAMES are unchanged from what was already
+ * there, so none of your component CSS (which references var(--accent) etc.)
+ * needs to change — only the values do.
+ *
+ * Colors were picked to meet WCAG AA contrast:
+ *   --text        on --bg / --surface   >= 13:1
+ *   --muted       on --bg / --surface   >= 5.4:1
+ *   --text        on --accent           5.1:1   (button labels: dark text on the fill)
+ *   --accent-text on --bg / --surface   >= 4.9:1 (accent used AS text, e.g. links/headings)
+ *   --danger-text / --warning-text on --bg  >= 6.6:1
+ * --disabled-* intentionally low-contrast — WCAG exempts disabled controls,
+ * and the low contrast is what signals "not interactive".
+ */
+
+:root {
+  /* Surfaces */
+  --bg-0: #F2E9D7;
+  --bg-1: #F7F0E3;
+  --bg-2: #FBF5EA;
+  --surface: #FFFFFF;
+  --surface-alt: #F7F0E3;
+  --border: #CBB68C;
+  --radius: 12px;
+
+  /* Text */
+  --text: #2B2118;
+  --muted: #6B5B48;
+
+  /* Accent (primary action) — fills pair with --text, not white */
+  --accent: #DA7757;
+  --accent-strong: #D06E4C;
+  --accent-soft: #F5DED2;
+  --accent-text: #A24B29;
+
+  /* Status */
+  --danger: #B3452E;
+  --danger-text: #7A2A1D;
+  --danger-soft: #F8E1DB;
+  --warning: #B8842B;
+  --warning-text: #6B4A14;
+  --warning-soft: #F3E4C7;
+  --state-on-bg: #DCEFDD;
+  --state-on-fg: #1F6B3D;
+  --state-off-bg: #F8E1DB;
+  --state-off-fg: #7A2A1D;
+
+  /* Disabled — deliberately low contrast */
+  --disabled-bg: #E4D9C4;
+  --disabled-text: #A99A84;
+}
