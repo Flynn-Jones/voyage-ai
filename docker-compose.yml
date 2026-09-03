@@ -132,7 +132,10 @@ services:
       PORT: "5002"
       DATABASE_SERVICE_URL: http://accommodation-database:6002
       OLLAMA_HOST: http://host.docker.internal:11434
-      OLLAMA_MODEL: qwen2.5:7b
+      # qwen2.5:7b (the standalone default) is not pulled on this host;
+      # override to the smaller model that IS available locally so the AI
+      # path is actually reachable. Root-only env override, no source edit.
+      OLLAMA_MODEL: qwen2.5:0.5b
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -179,7 +182,8 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
-      - activity-database
+      activity-database:
+        condition: service_healthy
     networks:
       - voyage-net
 
@@ -191,6 +195,23 @@ services:
       ACTIVITY_DB_PATH: /data/database-service.sqlite
     volumes:
       - activity-db-data:/data
+    # activity-backend writes SQLite directly to the same shared volume
+    # (root cause: activity-service/backend/services/activity_store.py — a
+    # student-owned data-path violation, not something root can fix). If the
+    # backend's sqlite3.connect() touches the file before this container has
+    # run init_schema(), it creates an empty, table-less database and every
+    # activity write 500s afterward. A plain depends_on only orders startup,
+    # not readiness, so gate on this healthcheck instead. No curl in the
+    # image, so probe with Python; /health is dependency-free (db_routes.py)
+    # but init_schema() runs in the app factory before app.run(), so a 200
+    # here proves the schema already exists.
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:6003/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
     networks:
       - voyage-net
 
@@ -215,7 +236,10 @@ services:
       DATABASE_SERVICE_URL: http://budget-database:6004
       ACCOMMODATION_SERVICE_URL: http://accommodation-database:6002
       OLLAMA_BASE_URL: http://host.docker.internal:11434
-      OLLAMA_MODEL: qwen2.5:7b
+      # qwen2.5:7b (the standalone default) is not pulled on this host;
+      # override to the smaller model that IS available locally so the AI
+      # path is actually reachable. Root-only env override, no source edit.
+      OLLAMA_MODEL: qwen2.5:0.5b
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
