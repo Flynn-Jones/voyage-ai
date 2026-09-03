@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VoyageAI — Browse Activities</title>
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+  <nav class="act-nav">
+    <span class="act-nav__brand">VoyageAI</span>
+    <div class="act-nav__links">
+      <a href="../index.html" class="act-nav__link--active">Activities</a>
+      <a href="ai-mode.html">AI Mode</a>
+      <a href="http://localhost:3002">Accommodation</a>
+      <a href="http://localhost:3004">Budget</a>
+      <a href="http://localhost:3005">Itinerary</a>
+      <a href="#" class="act-nav__link--disabled" title="Coming soon">Register / Login</a>
+    </div>
+  </nav>
+
+  <main class="act-main">
+    <a href="../index.html" class="act-btn act-btn--secondary act-back-link">&larr; Back to Home</a>
+
+    <!-- List view -->
+    <section id="list-view">
+      <h1 class="act-section-title">Browse Activities</h1>
+      <p id="list-status" class="act-loading">Loading activities…</p>
+      <div id="list-grid" class="act-grid"></div>
+    </section>
+
+    <!-- Detail view (shown instead of the list when ?id= is present) -->
+    <section id="detail-view" style="display: none;">
+      <a href="activities.html" class="act-btn act-btn--secondary" style="margin-bottom: 20px; display: inline-block;">&larr; Back to all activities</a>
+      <p id="detail-status" class="act-loading" style="display: none;"></p>
+      <article id="detail-card" class="act-card" style="display: none; max-width: 640px;"></article>
+    </section>
+  </main>
+
+  <footer class="act-footer">
+    VoyageAI — Activity Manager
+  </footer>
+
+  <script src="../js/api.js"></script>
+  <script>
+    function escapeHtml(value) {
+      const div = document.createElement("div");
+      div.textContent = value ?? "";
+      return div.innerHTML;
+    }
+
+    function renderList(activities) {
+      const grid = document.getElementById("list-grid");
+      const status = document.getElementById("list-status");
+
+      if (!activities || activities.length === 0) {
+        status.textContent = "No activities found yet.";
+        status.className = "act-empty";
+        return;
+      }
+
+      status.remove();
+      grid.innerHTML = activities.map((activity) => `
+        <article class="act-card">
+          <h2>${escapeHtml(activity.activity_name)}</h2>
+          <p>${escapeHtml(activity.activity_type)}</p>
+          <p class="act-card__cost">$${escapeHtml(activity.activity_cost)} · ${escapeHtml(activity.duration)}</p>
+          <a class="act-card__link" href="activities.html?id=${encodeURIComponent(activity.activity_id)}">View Details</a>
+        </article>
+      `).join("");
+    }
+
+    async function loadList() {
+      try {
+        const activities = await getActivities();
+        renderList(activities);
+      } catch (error) {
+        const status = document.getElementById("list-status");
+        status.textContent = `Could not load activities: ${error.message}`;
+        status.className = "act-empty";
+      }
+    }
+
+    function renderDetail(activity) {
+      const card = document.getElementById("detail-card");
+      card.style.display = "flex";
+      card.innerHTML = `
+        <h2>${escapeHtml(activity.activity_name)}</h2>
+        <p>${escapeHtml(activity.activity_type)}</p>
+        <div class="act-detail__meta">
+          <span>$${escapeHtml(activity.activity_cost)}</span>
+          <span>${escapeHtml(activity.duration)}</span>
+          <span>Assigned time: ${escapeHtml(activity.assignment_time) || "Not scheduled"}</span>
+        </div>
+        <div id="summary-section" class="act-summary">
+          <h3>AI-Generated Summary</h3>
+          <p id="summary-text" class="act-loading">Generating summary…</p>
+        </div>
+      `;
+    }
+
+    async function loadSummary(id) {
+      const summaryText = document.getElementById("summary-text");
+      try {
+        const result = await getActivitySummary(id);
+        summaryText.textContent = result.summary || "No summary available.";
+        summaryText.className = "";
+      } catch (error) {
+        summaryText.textContent = `Could not generate a summary: ${error.message}`;
+        summaryText.className = "act-empty";
+      }
+    }
+
+    async function loadDetail(id) {
+      const status = document.getElementById("detail-status");
+      status.style.display = "block";
+      status.textContent = "Loading activity…";
+      status.className = "act-loading";
+      try {
+        const activity = await getActivity(id);
+        status.style.display = "none";
+        renderDetail(activity);
+        loadSummary(id);
+      } catch (error) {
+        status.textContent = `Could not load this activity: ${error.message}`;
+        status.className = "act-empty";
+      }
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const requestedId = params.get("id");
+
+    if (requestedId) {
+      document.getElementById("list-view").style.display = "none";
+      document.getElementById("detail-view").style.display = "block";
+      loadDetail(requestedId);
+    } else {
+      loadList();
+    }
+  </script>
+</body>
+</html>
