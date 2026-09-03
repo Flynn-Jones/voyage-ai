@@ -22,6 +22,9 @@
         <h2>Expenses</h2>
 
         <div class="filter-row">
+            <select id="filter-trip">
+                <option value="">Any trip</option>
+            </select>
             <input id="filter-category" type="text" placeholder="Category">
             <select id="filter-status">
                 <option value="">Any status</option>
@@ -29,7 +32,7 @@
                 <option value="Paid">Paid</option>
                 <option value="Cancelled">Cancelled</option>
             </select>
-            <input id="filter-destination-id" type="number" min="1" placeholder="Destination ID">
+            <input id="filter-destination-id" type="text" placeholder="Destination ID (e.g. dest-tokyo)">
             <button id="apply-filters-btn" class="button button--primary" type="button">Apply Filters</button>
             <button id="clear-filters-btn" class="button button--secondary" type="button">Clear</button>
         </div>
@@ -64,7 +67,7 @@
                 </div>
                 <div>
                     <label for="create_destination_id">Destination ID</label>
-                    <input id="create_destination_id" name="destination_id" type="number" min="1" required>
+                    <input id="create_destination_id" name="destination_id" type="text" placeholder="dest-tokyo" required>
                 </div>
                 <div>
                     <label for="create_status">Status</label>
@@ -93,7 +96,9 @@
                 </div>
                 <div>
                     <label for="edit_trip_reference">Trip Reference</label>
-                    <input id="edit_trip_reference" name="trip_reference" type="text">
+                    <select id="edit_trip_reference" name="trip_reference">
+                        <option value="">-- no change --</option>
+                    </select>
                 </div>
                 <div>
                     <label for="edit_expense">Expense</label>
@@ -113,7 +118,7 @@
                 </div>
                 <div>
                     <label for="edit_destination_id">Destination ID</label>
-                    <input id="edit_destination_id" name="destination_id" type="number" min="1">
+                    <input id="edit_destination_id" name="destination_id" type="text" placeholder="dest-tokyo">
                 </div>
                 <div>
                     <label for="edit_status">Status</label>
@@ -163,6 +168,7 @@ function escapeHtml(value) {
     return div.innerHTML;
 }
 
+const filterTrip = document.getElementById("filter-trip");
 const filterCategory = document.getElementById("filter-category");
 const filterStatus = document.getElementById("filter-status");
 const filterDestinationId = document.getElementById("filter-destination-id");
@@ -170,9 +176,42 @@ const filterDestinationId = document.getElementById("filter-destination-id");
 const createForm = document.getElementById("create-form");
 const editForm = document.getElementById("edit-form");
 const deleteForm = document.getElementById("delete-form");
+const editTripReference = document.getElementById("edit_trip_reference");
+
+async function loadTripOptions(selectEl) {
+    try {
+        const response = await fetch(`${API_BASE}/budget/trips`);
+        const data = await response.json();
+        const previousValue = selectEl.value;
+
+        selectEl.querySelectorAll("option[data-dynamic]").forEach((option) => option.remove());
+        (data.trips || []).forEach((trip) => {
+            const option = document.createElement("option");
+            option.value = trip;
+            option.textContent = trip;
+            option.dataset.dynamic = "true";
+            selectEl.appendChild(option);
+        });
+
+        if ([...selectEl.options].some((option) => option.value === previousValue)) {
+            selectEl.value = previousValue;
+        }
+    } catch (error) {
+        // Trip list is a convenience filter; leave existing options as-is on failure.
+    }
+}
+
+function refreshTripOptions() {
+    loadTripOptions(filterTrip);
+    loadTripOptions(editTripReference);
+}
+refreshTripOptions();
+filterTrip.addEventListener("focus", () => loadTripOptions(filterTrip));
+editTripReference.addEventListener("focus", () => loadTripOptions(editTripReference));
 
 function buildFilterQuery() {
     const params = new URLSearchParams();
+    if (filterTrip.value) params.set("trip_reference", filterTrip.value);
     if (filterCategory.value.trim()) params.set("category", filterCategory.value.trim());
     if (filterStatus.value) params.set("status", filterStatus.value);
     if (filterDestinationId.value) params.set("destination_id", filterDestinationId.value);
@@ -287,6 +326,7 @@ async function refreshList() {
 
 document.getElementById("apply-filters-btn").addEventListener("click", refreshList);
 document.getElementById("clear-filters-btn").addEventListener("click", () => {
+    filterTrip.value = "";
     filterCategory.value = "";
     filterStatus.value = "";
     filterDestinationId.value = "";
@@ -301,7 +341,7 @@ createForm.addEventListener("submit", async (event) => {
         expense: formData.get("expense"),
         category: formData.get("category"),
         estimated_cost: Number(formData.get("estimated_cost")),
-        destination_id: Number(formData.get("destination_id")),
+        destination_id: formData.get("destination_id"),
         status: formData.get("status"),
     };
     const actualCost = formData.get("actual_cost");
@@ -318,6 +358,7 @@ createForm.addEventListener("submit", async (event) => {
         if (response.ok) {
             createForm.reset();
             refreshList();
+            refreshTripOptions();
         }
     } catch (error) {
         panel.innerHTML = `<p class="error">Request failed: ${error}</p>`;
@@ -330,11 +371,11 @@ editForm.addEventListener("submit", async (event) => {
     const id = formData.get("id");
     const payload = {};
 
-    ["trip_reference", "expense", "category", "status"].forEach((field) => {
+    ["trip_reference", "expense", "category", "status", "destination_id"].forEach((field) => {
         const value = formData.get(field);
         if (value) payload[field] = value;
     });
-    ["estimated_cost", "actual_cost", "destination_id"].forEach((field) => {
+    ["estimated_cost", "actual_cost"].forEach((field) => {
         const value = formData.get(field);
         if (value) payload[field] = Number(value);
     });
@@ -347,7 +388,10 @@ editForm.addEventListener("submit", async (event) => {
             body: JSON.stringify(payload),
         });
         panel.innerHTML = await response.text();
-        if (response.ok) refreshList();
+        if (response.ok) {
+            refreshList();
+            refreshTripOptions();
+        }
     } catch (error) {
         panel.innerHTML = `<p class="error">Request failed: ${error}</p>`;
     }
@@ -365,6 +409,7 @@ deleteForm.addEventListener("submit", async (event) => {
             panel.innerHTML = `<p>Expense ${id} deleted.</p>`;
             deleteForm.reset();
             refreshList();
+            refreshTripOptions();
         } else {
             panel.innerHTML = await response.text();
         }

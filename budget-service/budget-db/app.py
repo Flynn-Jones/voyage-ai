@@ -20,7 +20,7 @@ def create_app():
         filters = []
         params = []
 
-        for field in ("category", "destination_id", "status"):
+        for field in ("category", "destination_id", "status", "trip_reference"):
             value = request.args.get(field)
             if value is not None:
                 filters.append(f"{field} = ?")
