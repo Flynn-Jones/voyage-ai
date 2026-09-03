@@ -7,10 +7,8 @@
 # is a parallel definition of build contexts, ports, env vars, volumes, and
 # service-to-service DNS for running everything together.
 #
-# See Session 1 plan notes for the two intentional deviations from a literal
+# See Session 1 plan notes for the one intentional deviation from a literal
 # per-service copy:
-#   - shared-database gets a command override (path fix + seed copy) because
-#     its Dockerfile's CMD is broken (wrong cwd for init_db.py and its seed).
 #   - shared-backend gets an explicit DATABASE_SERVICE_URL, which the
 #     standalone file omits (its fallback resolves to itself inside Docker).
 
@@ -53,19 +51,6 @@ services:
       DB_FILE: /data/shared-db.sqlite
     volumes:
       - shared-db-data:/data
-    # Dockerfile CMD runs "python init_db.py && python database/src/app.py"
-    # from WORKDIR /app, but init_db.py actually lives at
-    # database/src/init_db.py and reads its seed relative to its own
-    # __file__ (database/src/expected_shared_data.json), while the Dockerfile
-    # only copies the seed to /app/. Fix the path and stage the seed where
-    # init_db.py expects it, without touching the Dockerfile.
-    command:
-      - sh
-      - -c
-      - >-
-        cp -f /app/expected_shared_data.json /app/database/src/expected_shared_data.json &&
-        python /app/database/src/init_db.py &&
-        python /app/database/src/app.py
     networks:
       - voyage-net
 
