@@ -243,6 +243,72 @@ services:
     networks:
       - voyage-net
 
+  # ---------------- Itinerary ----------------
+  itinerary-frontend:
+    build: ./itinerary-service/itinerary-fe
+    ports:
+      - "3005:80"
+    depends_on:
+      itinerary-backend:
+        condition: service_healthy
+    networks:
+      - voyage-net
+
+  itinerary-backend:
+    build: ./itinerary-service/itinerary-be
+    ports:
+      - "5005:5005"
+    environment:
+      PORT: "5005"
+      DATABASE_SERVICE_URL: http://itinerary-database:6005
+      DESTINATION_SERVICE_URL: http://destination-database:6001
+      ACTIVITY_SERVICE_URL: http://activity-database:6003
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      # qwen2.5:7b (the standalone default) is not pulled on this host;
+      # override to the smaller model that IS available locally so the AI
+      # path is actually reachable. Root-only env override, no source edit.
+      OLLAMA_MODEL: qwen2.5:0.5b
+      OLLAMA_TIMEOUT_SECONDS: "60"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      itinerary-database:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:5005/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    networks:
+      voyage-net:
+        # itinerary-fe/nginx.conf hardcodes proxy_pass to itinerary-be:5005
+        # (Student 5 build artifact, not editable here); alias matches that
+        # hostname 1:1 so the root's globally-unique service key can stay
+        # itinerary-backend without breaking the frontend's reverse proxy.
+        aliases:
+          - itinerary-be
+
+  itinerary-database:
+    build: ./itinerary-service/itinerary-db
+    ports:
+      - "6005:6005"
+    environment:
+      PORT: "6005"
+      DB_FILE: /data/itinerary-db.sqlite
+    volumes:
+      - itinerary-db-data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:6005/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    networks:
+      - voyage-net
+
 networks:
   voyage-net:
     driver: bridge
@@ -253,3 +319,4 @@ volumes:
   accommodation-db-data:
   activity-db-data:
   budget-db-data:
+  itinerary-db-data:
