@@ -1,15 +1,322 @@
-# Root compose file — brings up ALL services (shared + 5 students) together
-# in one command, while each service's own docker-compose.yml still works
-# fine standalone (e.g. a student running just their own project).
+# Root compose file — the authoritative integration layer.
 #
-# No "version:" key needed — the Compose Spec doesn't require one anymore,
-# and "include" requires a reasonably recent Docker Compose (v2.20+).
- 
-include:
-  - shared/docker-compose.yml
-  # - destination-service/docker-compose.yml
-  # - accomodation-service/docker-compose.yml
-  # - activity-service/docker-compose.yml
-  - budget-service/docker-compose.yml
-  # - itinerary-service/docker-compose.yml
+# Each currently-implemented student stack is declared here under a globally
+# unique service key (rather than via "include:", which merges the generic
+# frontend/backend/database keys the standalone files reuse). Every student's
+# own docker-compose.yml is untouched and still works standalone; this file
+# is a parallel definition of build contexts, ports, env vars, volumes, and
+# service-to-service DNS for running everything together.
+#
+# See Session 1 plan notes for the one intentional deviation from a literal
+# per-service copy:
+#   - shared-backend gets an explicit DATABASE_SERVICE_URL, which the
+#     standalone file omits (its fallback resolves to itself inside Docker).
 
+services:
+  # ---------------- Shared ----------------
+  shared-frontend:
+    build:
+      context: ./shared
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      ACCESS_SERVICE_URL: http://shared-backend:5000
+    depends_on:
+      - shared-backend
+    networks:
+      - voyage-net
+
+  shared-backend:
+    build:
+      context: ./shared
+      dockerfile: backend/Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      PORT: "5000"
+      DATABASE_SERVICE_URL: http://shared-database:6000
+    depends_on:
+      - shared-database
+    networks:
+      - voyage-net
+
+  shared-database:
+    build:
+      context: ./shared
+      dockerfile: database/Dockerfile
+    ports:
+      - "6000:6000"
+    environment:
+      DB_FILE: /data/shared-db.sqlite
+    volumes:
+      - shared-db-data:/data
+    networks:
+      - voyage-net
+
+  # ---------------- Destination (student-1) ----------------
+  destination-frontend:
+    build: ./student-1/frontend
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: "3001"
+      BACKEND_SERVICE_URL: http://destination-backend:5001
+    depends_on:
+      - destination-backend
+    networks:
+      - voyage-net
+
+  destination-backend:
+    build: ./student-1/backend
+    ports:
+      - "5001:5001"
+    environment:
+      PORT: "5001"
+      DATABASE_SERVICE_URL: http://destination-database:6001
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:0.5b}
+      OLLAMA_TIMEOUT_SECONDS: ${OLLAMA_TIMEOUT_SECONDS:-60}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - destination-database
+    networks:
+      - voyage-net
+
+  destination-database:
+    build: ./student-1/database
+    ports:
+      - "6001:6001"
+    environment:
+      PORT: "6001"
+      DB_FILE: /data/destination-db.sqlite
+    volumes:
+      - destination-db-data:/data
+    networks:
+      - voyage-net
+
+  # ---------------- Accommodation ----------------
+  accommodation-frontend:
+    build: ./accommodation-service/frontend
+    ports:
+      - "3002:3002"
+    environment:
+      PORT: "3002"
+      BACKEND_SERVICE_URL: http://accommodation-backend:5002
+    depends_on:
+      - accommodation-backend
+    networks:
+      - voyage-net
+
+  accommodation-backend:
+    build: ./accommodation-service/backend
+    ports:
+      - "5002:5002"
+    environment:
+      PORT: "5002"
+      DATABASE_SERVICE_URL: http://accommodation-database:6002
+      OLLAMA_HOST: http://host.docker.internal:11434
+      # qwen2.5:7b (the standalone default) is not pulled on this host;
+      # override to the smaller model that IS available locally so the AI
+      # path is actually reachable. Root-only env override, no source edit.
+      OLLAMA_MODEL: qwen2.5:0.5b
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - accommodation-database
+    networks:
+      - voyage-net
+
+  accommodation-database:
+    build: ./accommodation-service/database
+    ports:
+      - "6002:6002"
+    environment:
+      PORT: "6002"
+      DB_FILE: /data/accommodation-db.sqlite
+    volumes:
+      - accommodation-db-data:/data
+    networks:
+      - voyage-net
+
+  # ---------------- Activity ----------------
+  activity-frontend:
+    build: ./activity-service/frontend
+    ports:
+      - "3003:80"   # standalone file publishes 3004:80; root uses the
+                     # canonical 3003 host mapping to avoid colliding with budget
+    depends_on:
+      - activity-backend
+    networks:
+      - voyage-net
+
+  activity-backend:
+    build:
+      context: ./activity-service/backend
+    ports:
+      - "5003:5003"
+    environment:
+      DATABASE_SERVICE_URL: http://activity-database:6003
+      ACCOMMODATION_SERVICE_URL: http://accommodation-database:6002
+      ACTIVITY_DB_PATH: /data/database-service.sqlite
+      OLLAMA_URL: http://host.docker.internal:11434
+      OLLAMA_MODEL: qwen2.5:0.5b
+    volumes:
+      - activity-db-data:/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      activity-database:
+        condition: service_healthy
+    networks:
+      - voyage-net
+
+  activity-database:
+    build: ./activity-service/database-service
+    ports:
+      - "6003:6003"
+    environment:
+      ACTIVITY_DB_PATH: /data/database-service.sqlite
+    volumes:
+      - activity-db-data:/data
+    # activity-backend writes SQLite directly to the same shared volume
+    # (root cause: activity-service/backend/services/activity_store.py — a
+    # student-owned data-path violation, not something root can fix). If the
+    # backend's sqlite3.connect() touches the file before this container has
+    # run init_schema(), it creates an empty, table-less database and every
+    # activity write 500s afterward. A plain depends_on only orders startup,
+    # not readiness, so gate on this healthcheck instead. No curl in the
+    # image, so probe with Python; /health is dependency-free (db_routes.py)
+    # but init_schema() runs in the app factory before app.run(), so a 200
+    # here proves the schema already exists.
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:6003/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    networks:
+      - voyage-net
+
+  # ---------------- Budget ----------------
+  budget-frontend:
+    build: ./budget-service/budget-fe
+    ports:
+      - "3004:80"
+    depends_on:
+      - budget-backend
+    networks:
+      - voyage-net
+
+  budget-backend:
+    build:
+      context: ./budget-service
+      dockerfile: budget-be/Dockerfile
+    ports:
+      - "5004:5004"
+    environment:
+      PORT: "5004"
+      DATABASE_SERVICE_URL: http://budget-database:6004
+      ACCOMMODATION_SERVICE_URL: http://accommodation-database:6002
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      # qwen2.5:7b (the standalone default) is not pulled on this host;
+      # override to the smaller model that IS available locally so the AI
+      # path is actually reachable. Root-only env override, no source edit.
+      OLLAMA_MODEL: qwen2.5:0.5b
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - budget-database
+    networks:
+      - voyage-net
+
+  budget-database:
+    build: ./budget-service/budget-db
+    ports:
+      - "6004:6004"
+    environment:
+      DB_FILE: /data/budget-db.sqlite
+    volumes:
+      - budget-db-data:/data
+    networks:
+      - voyage-net
+
+  # ---------------- Itinerary ----------------
+  itinerary-frontend:
+    build: ./itinerary-service/itinerary-fe
+    ports:
+      - "3005:80"
+    depends_on:
+      itinerary-backend:
+        condition: service_healthy
+    networks:
+      - voyage-net
+
+  itinerary-backend:
+    build: ./itinerary-service/itinerary-be
+    ports:
+      - "5005:5005"
+    environment:
+      PORT: "5005"
+      DATABASE_SERVICE_URL: http://itinerary-database:6005
+      DESTINATION_SERVICE_URL: http://destination-database:6001
+      ACTIVITY_SERVICE_URL: http://activity-database:6003
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      # qwen2.5:7b (the standalone default) is not pulled on this host;
+      # override to the smaller model that IS available locally so the AI
+      # path is actually reachable. Root-only env override, no source edit.
+      OLLAMA_MODEL: qwen2.5:0.5b
+      OLLAMA_TIMEOUT_SECONDS: "60"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      itinerary-database:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:5005/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    networks:
+      voyage-net:
+        # itinerary-fe/nginx.conf hardcodes proxy_pass to itinerary-be:5005
+        # (Student 5 build artifact, not editable here); alias matches that
+        # hostname 1:1 so the root's globally-unique service key can stay
+        # itinerary-backend without breaking the frontend's reverse proxy.
+        aliases:
+          - itinerary-be
+
+  itinerary-database:
+    build: ./itinerary-service/itinerary-db
+    ports:
+      - "6005:6005"
+    environment:
+      PORT: "6005"
+      DB_FILE: /data/itinerary-db.sqlite
+    volumes:
+      - itinerary-db-data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:6005/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    networks:
+      - voyage-net
+
+networks:
+  voyage-net:
+    driver: bridge
+
+volumes:
+  shared-db-data:
+  destination-db-data:
+  accommodation-db-data:
+  activity-db-data:
+  budget-db-data:
+  itinerary-db-data:

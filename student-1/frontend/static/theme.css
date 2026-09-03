@@ -2,27 +2,55 @@
    frontend renders with the shared VoyageAI look without a shared build
    context. Keep the token values in sync if the shared theme changes. */
 :root {
-  /* Brand palette */
-  --voyage-primary: #0B6E99;
-  --voyage-primary-dark: #084F6E;
-  --voyage-secondary: #F2A65A;
-  --voyage-accent: #2EC4B6;
+  /* VoyageAI shared design tokens — see shared/design-system/tokens.css */
+  --bg-0: #F2E9D7;
+  --bg-1: #F7F0E3;
+  --bg-2: #FBF5EA;
+  --surface: #FFFFFF;
+  --surface-alt: #F7F0E3;
+  --border: #CBB68C;
+  --radius: 12px;
+  --text: #2B2118;
+  --muted: #6B5B48;
+  --accent: #DA7757;
+  --accent-strong: #D06E4C;
+  --accent-soft: #F5DED2;
+  --accent-text: #A24B29;
+  --danger: #B3452E;
+  --danger-text: #7A2A1D;
+  --danger-soft: #F8E1DB;
+  --warning: #B8842B;
+  --warning-text: #6B4A14;
+  --warning-soft: #F3E4C7;
+  --state-on-bg: #DCEFDD;
+  --state-on-fg: #1F6B3D;
+  --state-off-bg: #F8E1DB;
+  --state-off-fg: #7A2A1D;
+  --disabled-bg: #E4D9C4;
+  --disabled-text: #A99A84;
+  --font-base: "Segoe UI", system-ui, -apple-system, Tahoma, Geneva, Verdana, sans-serif;
+
+  /* Brand palette — aliased to the canonical tokens above (values unchanged) */
+  --voyage-primary: var(--accent);
+  --voyage-primary-dark: var(--accent-text);
+  --voyage-secondary: var(--accent-strong);
+  --voyage-accent: var(--accent);
 
   /* Surfaces & text */
-  --voyage-bg: #F7F9FB;
-  --voyage-surface: #FFFFFF;
-  --voyage-text: #1B2733;
-  --voyage-text-muted: #5B6B79;
-  --voyage-border: #E1E7EC;
+  --voyage-bg: var(--bg-0);
+  --voyage-surface: var(--surface);
+  --voyage-text: var(--text);
+  --voyage-text-muted: var(--muted);
+  --voyage-border: var(--border);
 
   /* Status */
-  --voyage-success: #2E9E5B;
-  --voyage-danger: #D64545;
+  --voyage-success: var(--state-on-fg);
+  --voyage-danger: var(--danger);
 
   /* Layout & type */
-  --voyage-font-base: 'Segoe UI', system-ui, -apple-system, sans-serif;
-  --voyage-radius: 8px;
-  --voyage-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --voyage-font-base: var(--font-base);
+  --voyage-radius: var(--radius);
+  --voyage-shadow: 0 8px 24px rgba(43, 33, 24, 0.08);
   --voyage-nav-height: 64px;
   --voyage-max-width: 1100px;
 }
@@ -33,62 +61,19 @@
 
 body {
   margin: 0;
-  font-family: var(--voyage-font-base);
+  font-family: var(--font-base);
   background: var(--voyage-bg);
   color: var(--voyage-text);
 }
 
 a {
-  color: var(--voyage-primary);
+  color: var(--accent-text);
   text-decoration: none;
 }
 
 a:hover {
-  color: var(--voyage-primary-dark);
+  color: var(--voyage-text);
   text-decoration: underline;
-}
-
-/* Nav bar */
-.voyage-nav {
-  min-height: var(--voyage-nav-height);
-  background: var(--voyage-primary);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  padding: 0 24px;
-}
-
-.voyage-nav__container {
-  max-width: var(--voyage-max-width);
-  margin: 0 auto;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
-  padding: 12px 0;
-}
-
-.voyage-nav__brand {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: #fff;
-  letter-spacing: 0.02em;
-}
-
-.voyage-nav__links {
-  display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.voyage-nav__links a {
-  color: #fff;
-}
-
-.voyage-nav__links a:hover {
-  color: var(--voyage-secondary);
 }
 
 /* Layout shell */
@@ -198,12 +183,12 @@ textarea {
 
 .button--primary {
   background: var(--voyage-primary);
-  color: #fff;
+  color: var(--voyage-text);
 }
 
 .button--primary:hover {
-  background: var(--voyage-primary-dark);
-  color: #fff;
+  background: var(--accent-strong);
+  color: var(--voyage-text);
   text-decoration: none;
 }
 
@@ -224,7 +209,7 @@ textarea {
 }
 
 .button--danger:hover {
-  background: #b83a3a;
+  background: var(--danger-text);
   color: #fff;
   text-decoration: none;
 }
@@ -266,8 +251,8 @@ textarea {
 }
 
 .alert--error {
-  background: #FBEAEA;
-  color: var(--voyage-danger);
+  background: var(--danger-soft);
+  color: var(--danger-text);
   border: 1px solid var(--voyage-danger);
 }
 
@@ -339,4 +324,118 @@ textarea {
   color: var(--voyage-text-muted);
   font-size: 0.8rem;
   margin: 0;
+}
+
+/*
+ * VoyageAI shared navbar — canonical component styles.
+ *
+ * Requires the tokens above to already be defined on :root.
+ * Pair this with navbar-jinja.html (Flask/Jinja services) or
+ * navbar-static.html (plain HTML/JS services) for the markup.
+ *
+ * Drop-in: append this file's contents to your service's stylesheet.
+ */
+
+.voyage-nav {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  min-height: 64px;
+}
+
+.voyage-nav__container {
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.voyage-nav__brand {
+  font-weight: 700;
+  font-size: 1.25rem;
+  letter-spacing: 0.02em;
+  color: var(--text);
+}
+
+.voyage-nav__links {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+}
+
+.voyage-nav__links a {
+  color: var(--text);
+  font-size: 0.95rem;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.voyage-nav__links a:hover {
+  color: var(--accent-text);
+}
+
+/* Cross-microservice switcher: the shared bit every service drops in as-is. */
+.voyage-nav__switcher {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 4px;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.voyage-nav__switcher a {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: calc(var(--radius) - 4px);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-decoration: none;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.voyage-nav__switcher a:hover {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.voyage-nav__switcher a.is-active {
+  background: var(--accent);
+  color: var(--text);
+}
+
+.voyage-nav__switcher a.is-active:hover {
+  background: var(--accent-strong);
+}
+
+@media (max-width: 720px) {
+  .voyage-nav {
+    padding: 12px 16px;
+  }
+
+  .voyage-nav__container {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .voyage-nav__switcher {
+    width: 100%;
+  }
+}
+
+/* Shared focus state — see shared/design-system/navbar.css */
+:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 2px;
 }

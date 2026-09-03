@@ -1,14 +1,17 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Budget Manager</title>
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
 <nav class="voyage-nav">
     <div class="voyage-nav__container">
-        <span class="voyage-nav__brand">VoyageAI - Budget Manager</span>
+        <span class="voyage-nav__brand">VoyageAI &mdash; Budget</span>
         <div class="voyage-nav__switcher">
+            <a href="http://localhost:3000">Home</a>
             <a href="http://localhost:3001">Destinations</a>
             <a href="http://localhost:3002">Accommodation</a>
             <a href="http://localhost:3003">Activities</a>
@@ -17,7 +20,14 @@
         </div>
     </div>
 </nav>
-<main class="app-shell">
+<main class="voyage-main">
+    <header class="voyage-hero">
+        <div>
+            <p class="eyebrow">Student 4</p>
+            <h1>Your budget</h1>
+            <p>Track estimated and actual trip spending.</p>
+        </div>
+    </header>
 
     <section class="tab-shell card">
         <nav class="tab-nav" aria-label="Application tabs">
@@ -31,6 +41,7 @@
         </div>
     </section>
 </main>
+<footer class="voyage-footer">VoyageAI &mdash; Budget Manager</footer>
 
 <script>
 const tabButtons = Array.from(document.querySelectorAll(".tab-btn"));
@@ -38,6 +49,32 @@ const tabFrames = {
     normal: document.getElementById("tab-frame-normal"),
     "ai-mode": document.getElementById("tab-frame-ai-mode"),
 };
+
+const frameObservers = new WeakMap();
+
+function syncFrameHeight(frame) {
+    try {
+        const doc = frame.contentDocument;
+        if (!doc || !doc.body) return;
+        // documentElement and body can disagree depending on layout/browser;
+        // take the larger so tab content is never clipped.
+        const height = Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight);
+        if (height) frame.style.height = height + "px";
+    } catch (error) {
+        /* frame not ready yet — the load/observer will retry */
+    }
+}
+
+function observeFrame(frame) {
+    syncFrameHeight(frame);
+    if (frameObservers.has(frame)) return; // one observer per frame, reused
+    const doc = frame.contentDocument;
+    if (!doc || !doc.body) return;
+    const observer = new ResizeObserver(() => syncFrameHeight(frame));
+    observer.observe(doc.body);
+    observer.observe(doc.documentElement);
+    frameObservers.set(frame, observer);
+}
 
 function activateTab(tabName) {
     tabButtons.forEach((button) => {
@@ -49,6 +86,7 @@ function activateTab(tabName) {
     });
 
     window.location.hash = tabName;
+    syncFrameHeight(tabFrames[tabName]);
 }
 
 tabButtons.forEach((button) => {
@@ -59,6 +97,10 @@ tabButtons.forEach((button) => {
     button.addEventListener("click", () => {
         activateTab(button.dataset.tab);
     });
+});
+
+Object.values(tabFrames).forEach((frame) => {
+    frame.addEventListener("load", () => observeFrame(frame));
 });
 
 const hashTab = window.location.hash.replace("#", "");

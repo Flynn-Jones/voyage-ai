@@ -56,4 +56,7 @@
   /* Disabled — deliberately low contrast */
   --disabled-bg: #E4D9C4;
   --disabled-text: #A99A84;
+
+  /* Typography — Segoe UI on Windows, SF Pro on macOS, else system default */
+  --font-base: "Segoe UI", system-ui, -apple-system, Tahoma, Geneva, Verdana, sans-serif;
 }
