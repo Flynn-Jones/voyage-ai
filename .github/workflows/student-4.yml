@@ -1,4 +1,4 @@
-name: student-4-ci
+name: student-4
 
 on:
   workflow_dispatch:
@@ -6,7 +6,7 @@ on:
     branches: [main, budget]
     paths:
       - "budget-service/**"
-      - ".github/workflows/student-4-ci.yml"
+      - ".github/workflows/student-4.yml"
 
 jobs:
 
@@ -89,7 +89,7 @@ jobs:
           TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           cat > reports/report.json << EOF
           {
-            "workflow_name": "student-4-ci",
+            "workflow_name": "student-4",
             "run_id": "${{ github.run_id }}",
             "commit_sha": "${{ github.sha }}",
             "branch": "${{ github.ref_name }}",
@@ -103,7 +103,7 @@ jobs:
           cat > reports/report.md << EOF
           ## Student 4 (Budget Manager) Workflow Report
 
-          - Workflow: student-4-ci
+          - Workflow: student-4
           - Run ID: ${{ github.run_id }}
           - Commit SHA: ${{ github.sha }}
           - Branch: ${{ github.ref_name }}

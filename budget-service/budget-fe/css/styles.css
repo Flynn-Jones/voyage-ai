@@ -207,8 +207,10 @@ button:disabled {
 }
 
 input,
+select,
 textarea {
     width: 100%;
+    font: inherit;
     padding: 0.55rem 0.7rem;
     border: 1px solid var(--border);
     border-radius: 10px;

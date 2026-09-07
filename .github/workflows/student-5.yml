@@ -1,15 +1,12 @@
-name: student-5-ci
+name: student-5
 
 on:
   workflow_dispatch:
   push:
+    branches: [main, student-5/itinerary-feature]
     paths:
       - "itinerary-service/**"
-      - ".github/workflows/student-5-ci.yml"
-  pull_request:
-    paths:
-      - "itinerary-service/**"
-      - ".github/workflows/student-5-ci.yml"
+      - ".github/workflows/student-5.yml"
 
 jobs:
   itinerary-release-0:
@@ -123,7 +120,7 @@ jobs:
           timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           cat > itinerary-service/reports/report.json <<EOF
           {
-            "workflow_name": "student-5-ci",
+            "workflow_name": "student-5",
             "run_id": "${{ github.run_id }}",
             "commit_sha": "${{ github.sha }}",
             "branch": "${{ github.ref_name }}",
@@ -134,7 +131,7 @@ jobs:
           cat > itinerary-service/reports/report.md <<EOF
           ## Student 5 (Itinerary Manager) Workflow Report
 
-          - Workflow: student-5-ci
+          - Workflow: student-5
           - Run ID: ${{ github.run_id }}
           - Commit SHA: ${{ github.sha }}
           - Branch: ${{ github.ref_name }}

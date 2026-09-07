@@ -28,7 +28,7 @@
 
   <main class="act-main">
     <a href="../index.html" class="act-btn act-btn--secondary act-back-link">&larr; Back to Home</a>
-    <h1 class="act-section-title">Register a New Activity</h1>
+    <h1 id="page-title" class="act-section-title">Register a New Activity</h1>
 
     <div id="feedback" class="act-banner"></div>
 
@@ -59,7 +59,7 @@
         <small>Schedules this activity into a time slot.</small>
       </div>
 
-      <button type="submit" class="act-btn">Register Activity</button>
+      <button type="submit" id="submit-button" class="act-btn">Register Activity</button>
     </form>
   </main>
 
@@ -71,10 +71,45 @@
   <script>
     const form = document.getElementById("activity-form");
     const feedback = document.getElementById("feedback");
+    const pageTitle = document.getElementById("page-title");
+    const submitButton = document.getElementById("submit-button");
 
     function showFeedback(message, type) {
       feedback.textContent = message;
       feedback.className = `act-banner act-banner--visible act-banner--${type}`;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const editId = params.get("id");
+
+    async function prefillForEdit(id) {
+      pageTitle.textContent = "Edit Activity";
+      document.title = "VoyageAI — Edit Activity";
+      submitButton.textContent = "Save Changes";
+      submitButton.disabled = true;
+
+      try {
+        const [activity, assignments] = await Promise.all([
+          getActivity(id),
+          getActivityAssignments(id).catch(() => []),
+        ]);
+
+        form.activity_name.value = activity.activity_name ?? "";
+        form.activity_type.value = activity.activity_type ?? "";
+        form.activity_cost.value = activity.activity_cost ?? "";
+        form.duration.value = activity.duration ?? "";
+        if (assignments && assignments.length > 0) {
+          form.assignment_time.value = assignments[0].assignment_time ?? "";
+        }
+      } catch (error) {
+        showFeedback(`Could not load activity ${id}: ${error.message}`, "error");
+      } finally {
+        submitButton.disabled = false;
+      }
+    }
+
+    if (editId) {
+      prefillForEdit(editId);
     }
 
     form.addEventListener("submit", async (event) => {
@@ -90,15 +125,24 @@
         assignment_time: formData.get("assignment_time"),
       };
 
-      const submitButton = form.querySelector("button[type=submit]");
       submitButton.disabled = true;
 
       try {
+        if (editId) {
+          await editActivity(editId, payload);
+          showFeedback("Activity updated successfully. Returning to the activity list…", "success");
+          setTimeout(() => {
+            window.location.href = `activities.html?id=${encodeURIComponent(editId)}`;
+          }, 1200);
+          return;
+        }
+
         await addActivity(payload);
         showFeedback("Activity registered successfully.", "success");
         form.reset();
       } catch (error) {
-        showFeedback(`Could not register activity: ${error.message}`, "error");
+        const verb = editId ? "update" : "register";
+        showFeedback(`Could not ${verb} activity: ${error.message}`, "error");
       } finally {
         submitButton.disabled = false;
       }
