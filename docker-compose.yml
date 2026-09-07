@@ -75,7 +75,7 @@ services:
       PORT: "5001"
       DATABASE_SERVICE_URL: http://destination-database:6001
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:0.5b}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:7b}
       OLLAMA_TIMEOUT_SECONDS: ${OLLAMA_TIMEOUT_SECONDS:-60}
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -116,6 +116,7 @@ services:
     environment:
       PORT: "5002"
       DATABASE_SERVICE_URL: http://accommodation-database:6002
+      DESTINATION_SERVICE_URL: http://destination-database:6001
       OLLAMA_HOST: http://host.docker.internal:11434
       # qwen2.5:7b (the standalone default) is not pulled on this host;
       # override to the smaller model that IS available locally so the AI
@@ -224,7 +225,7 @@ services:
       # qwen2.5:7b (the standalone default) is not pulled on this host;
       # override to the smaller model that IS available locally so the AI
       # path is actually reachable. Root-only env override, no source edit.
-      OLLAMA_MODEL: qwen2.5:0.5b
+      OLLAMA_MODEL: qwen2.5:7b
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

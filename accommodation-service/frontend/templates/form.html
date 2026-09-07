@@ -23,11 +23,29 @@
       </label>
       <label>
         <span>Destination ID</span>
-        <input name="destination_id" value="{{ accommodation.destination_id if accommodation else '' }}">
+        {% if destinations %}
+          <select name="destination_id">
+            <option value="">Select a destination</option>
+            {% for destination in destinations %}
+              <option value="{{ destination.destination_id }}" {% if accommodation and accommodation.destination_id|string == destination.destination_id|string %}selected{% endif %}>{{ destination.city }}{% if destination.country %}, {{ destination.country }}{% endif %}</option>
+            {% endfor %}
+          </select>
+        {% else %}
+          <input name="destination_id" value="{{ accommodation.destination_id if accommodation else '' }}">
+        {% endif %}
       </label>
       <label>
         <span>City</span>
-        <input name="destination_city" value="{{ accommodation.destination_city if accommodation else '' }}">
+        {% if destinations %}
+          <select name="destination_city">
+            <option value="">Select a city</option>
+            {% for destination in destinations %}
+              <option value="{{ destination.city }}" {% if accommodation and accommodation.destination_city == destination.city %}selected{% endif %}>{{ destination.city }}{% if destination.country %}, {{ destination.country }}{% endif %}</option>
+            {% endfor %}
+          </select>
+        {% else %}
+          <input name="destination_city" value="{{ accommodation.destination_city if accommodation else '' }}">
+        {% endif %}
       </label>
       <label>
         <span>Type</span>
