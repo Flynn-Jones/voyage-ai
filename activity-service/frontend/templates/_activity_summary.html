@@ -1,0 +1,5 @@
+{% if error %}
+  <p class="act-empty">Could not generate a summary: {{ error }}</p>
+{% else %}
+  <p>{{ summary or "No summary available." }}</p>
+{% endif %}

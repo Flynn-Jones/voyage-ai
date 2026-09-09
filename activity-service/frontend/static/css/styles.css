@@ -295,6 +295,221 @@ a:hover {
   font-size: 0.8rem;
 }
 
+/* Custom date/time picker (replaces the native datetime-local popup, whose
+   colors can't be reached by CSS in any browser) */
+
+.act-datepicker {
+  position: relative;
+}
+
+.act-datepicker__input {
+  width: 100%;
+  cursor: pointer;
+}
+
+.act-datepicker__panel {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  left: 0;
+
+  width: 300px;
+
+  background: var(--act-white);
+  border: 1px solid var(--act-border);
+  border-radius: var(--act-radius);
+  box-shadow: var(--act-shadow);
+
+  padding: 14px;
+}
+
+.act-datepicker__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  margin-bottom: 10px;
+}
+
+.act-datepicker__month {
+  font-weight: 700;
+  color: var(--act-maroon);
+  font-size: 0.95rem;
+}
+
+.act-datepicker__nav {
+  background: none;
+  border: 1px solid var(--act-border);
+  border-radius: 8px;
+
+  width: 28px;
+  height: 28px;
+
+  color: var(--act-red);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.act-datepicker__nav:hover {
+  background: var(--act-rose);
+  border-color: var(--act-red);
+}
+
+.act-datepicker__weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--act-text-muted);
+
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.act-datepicker__days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.act-datepicker__day {
+  background: none;
+  border: none;
+  border-radius: 8px;
+
+  width: 100%;
+  aspect-ratio: 1;
+
+  font-size: 0.85rem;
+  color: var(--act-text);
+  cursor: pointer;
+}
+
+.act-datepicker__day:hover:not(:disabled) {
+  background: var(--act-rose);
+}
+
+.act-datepicker__day.is-muted {
+  color: var(--disabled-text);
+  cursor: default;
+}
+
+.act-datepicker__day.is-today {
+  border: 1px solid var(--act-red);
+}
+
+.act-datepicker__day.is-selected {
+  background: var(--act-red);
+  color: #fff;
+  font-weight: 700;
+}
+
+.act-datepicker__time {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--act-border);
+}
+
+.act-datepicker__time-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--act-maroon);
+  margin-right: 4px;
+}
+
+.act-datepicker__time-input {
+  width: 56px;
+
+  padding: 8px 4px;
+
+  border: 1px solid var(--act-border);
+  border-radius: 8px;
+  background: var(--act-offwhite);
+  color: var(--act-text);
+
+  font-family: inherit;
+  font-size: 1rem;
+  text-align: center;
+
+  /* Hide the native number spinner so the digits get the width instead */
+  -moz-appearance: textfield;
+}
+
+.act-datepicker__time-input::-webkit-outer-spin-button,
+.act-datepicker__time-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.act-datepicker__ampm {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.act-datepicker__ampm-btn {
+  padding: 6px 10px;
+
+  border: 1px solid var(--act-red);
+  border-radius: 8px;
+  background: var(--act-white);
+  color: var(--act-red);
+
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.act-datepicker__ampm-btn.is-active {
+  background: var(--act-red);
+  color: #fff;
+}
+
+.act-datepicker__actions {
+  display: flex;
+  justify-content: space-between;
+
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--act-border);
+}
+
+.act-datepicker__action {
+  background: none;
+  border: none;
+
+  color: var(--act-red);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.act-datepicker__action:hover {
+  color: var(--act-red-bright);
+  text-decoration: underline;
+}
+
+.act-datepicker__action--done {
+  padding: 4px 12px;
+
+  background: var(--act-red);
+  border-radius: 8px;
+
+  color: #fff;
+}
+
+.act-datepicker__action--done:hover {
+  background: var(--act-red-bright);
+  color: #fff;
+  text-decoration: none;
+}
+
 
 /* Feedback banners */
 

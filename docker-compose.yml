@@ -148,8 +148,10 @@ services:
   activity-frontend:
     build: ./activity-service/frontend
     ports:
-      - "3003:80"   # standalone file publishes 3004:80; root uses the
-                     # canonical 3003 host mapping to avoid colliding with budget
+      - "3003:3004"   # container always listens on 3004 (Flask's PORT default,
+                       # matching the standalone file's canonical port); root
+                       # remaps only the host side to 3003 to avoid colliding
+                       # with budget's host port 3004
     depends_on:
       - activity-backend
     networks:

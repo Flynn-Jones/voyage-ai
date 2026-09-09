@@ -1,0 +1,70 @@
+<div id="form-container">
+{% if error %}
+  <div class="act-banner act-banner--visible act-banner--error">{{ error }}</div>
+{% endif %}
+
+<form class="act-form"
+      hx-post="{% if mode == 'edit' %}{{ url_for('update_activity', activity_id=activity.activity_id) }}{% else %}{{ url_for('create_activity') }}{% endif %}"
+      hx-target="#form-container"
+      hx-swap="outerHTML">
+  <div class="act-field">
+    <label for="activity_name">Activity Name</label>
+    <input type="text" id="activity_name" name="activity_name" value="{{ activity.activity_name if activity else '' }}" required>
+  </div>
+
+  <div class="act-field">
+    <label for="activity_type">Activity Type</label>
+    <input type="text" id="activity_type" name="activity_type" placeholder="e.g. Sightseeing, Adventure, Food" value="{{ activity.activity_type if activity else '' }}" required>
+  </div>
+
+  <div class="act-field">
+    <label for="activity_cost">Cost (USD)</label>
+    <input type="number" id="activity_cost" name="activity_cost" min="0" step="0.01" value="{{ activity.activity_cost if activity else '' }}" required>
+  </div>
+
+  <div class="act-field">
+    <label for="duration">Duration</label>
+    <input type="text" id="duration" name="duration" placeholder="e.g. 2 hours" value="{{ activity.duration if activity else '' }}" required>
+  </div>
+
+  <div class="act-field">
+    <label for="assignment_time_display">Recommended / Assigned Time</label>
+    <div class="act-datepicker" id="assignment_time_wrapper">
+      <input type="text" id="assignment_time_display" class="act-datepicker__input"
+             placeholder="Select a date &amp; time" readonly autocomplete="off">
+      <input type="hidden" id="assignment_time" name="assignment_time" value="{{ activity.assignment_time if activity else '' }}">
+
+      <div class="act-datepicker__panel" id="assignment_time_panel" hidden>
+        <div class="act-datepicker__header">
+          <button type="button" class="act-datepicker__nav" id="dp-prev" aria-label="Previous month">&larr;</button>
+          <span class="act-datepicker__month" id="dp-month-label"></span>
+          <button type="button" class="act-datepicker__nav" id="dp-next" aria-label="Next month">&rarr;</button>
+        </div>
+        <div class="act-datepicker__weekdays">
+          <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+        </div>
+        <div class="act-datepicker__days" id="dp-days"></div>
+        <div class="act-datepicker__time">
+          <span class="act-datepicker__time-label">Time</span>
+          <input type="number" id="dp-hour" class="act-datepicker__time-input" min="1" max="12" placeholder="hh">
+          <span>:</span>
+          <input type="number" id="dp-minute" class="act-datepicker__time-input" min="0" max="59" placeholder="mm">
+          <div class="act-datepicker__ampm">
+            <button type="button" class="act-datepicker__ampm-btn" data-ampm="AM" id="dp-am">AM</button>
+            <button type="button" class="act-datepicker__ampm-btn" data-ampm="PM" id="dp-pm">PM</button>
+          </div>
+        </div>
+        <div class="act-datepicker__actions">
+          <button type="button" class="act-datepicker__action" id="dp-clear">Clear</button>
+          <button type="button" class="act-datepicker__action" id="dp-today">Today</button>
+          <button type="button" class="act-datepicker__action act-datepicker__action--done" id="dp-done">Done</button>
+        </div>
+      </div>
+    </div>
+    <small>Schedules this activity into a time slot.</small>
+  </div>
+
+  <button type="submit" class="act-btn">{% if mode == 'edit' %}Save Changes{% else %}Register Activity{% endif %}</button>
+</form>
+<script src="{{ url_for('static', filename='js/datepicker.js') }}"></script>
+</div>

@@ -1,0 +1,27 @@
+{% macro activity_card(activity, show_actions=True) %}
+<article class="act-card" id="activity-card-{{ activity.activity_id }}">
+  <h2>{{ activity.activity_name }}</h2>
+  <p>{{ activity.activity_type }}</p>
+  <p class="act-card__cost">${{ activity.activity_cost }} · {{ activity.duration }}</p>
+  <a class="act-card__link" href="{{ url_for('activity_detail', activity_id=activity.activity_id) }}">View Details</a>
+  {% if show_actions %}
+  <div style="display: flex; gap: 8px; margin-top: 4px;">
+    <a class="act-btn act-btn--secondary" style="flex: 1; text-align: center; padding: 8px 12px; font-size: 0.85rem;"
+       href="{{ url_for('edit_activity_form', activity_id=activity.activity_id) }}">Edit</a>
+    <button type="button" class="act-btn" style="flex: 1; padding: 8px 12px; font-size: 0.85rem; background: var(--danger); color: #fff;"
+            hx-delete="{{ url_for('delete_activity', activity_id=activity.activity_id) }}"
+            hx-target="closest article"
+            hx-swap="outerHTML"
+            hx-confirm="Delete &quot;{{ activity.activity_name }}&quot;? This cannot be undone.">
+      Delete
+    </button>
+  </div>
+  {% endif %}
+</article>
+{% endmacro %}
+
+{% macro activity_cards(activities, show_actions=True) %}
+{% for activity in activities %}
+{{ activity_card(activity, show_actions) }}
+{% endfor %}
+{% endmacro %}

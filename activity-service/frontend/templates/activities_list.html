@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% from "_activity_cards.html" import activity_cards %}
+
+{% block title %}VoyageAI — Browse Activities{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('index') }}" class="act-btn act-btn--secondary act-back-link">&larr; Back to Home</a>
+
+<h1 class="act-section-title">Browse Activities</h1>
+
+<div id="list-banner" class="act-banner"></div>
+
+{% if error %}
+  <p class="act-empty">Could not load activities: {{ error }}</p>
+{% elif not activities %}
+  <p class="act-empty">No activities found yet.</p>
+{% else %}
+  <div class="act-grid" id="activities-grid"
+       hx-on::after-request="if (!event.detail.successful) { const b = document.getElementById('list-banner'); b.textContent = 'Could not delete activity: ' + event.detail.xhr.responseText; b.className = 'act-banner act-banner--visible act-banner--error'; }">
+    {{ activity_cards(activities) }}
+  </div>
+{% endif %}
+{% endblock %}

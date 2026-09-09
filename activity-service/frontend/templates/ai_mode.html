@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% from "_chat_form.html" import chat_form %}
+
+{% block title %}VoyageAI — Activities AI Mode{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('index') }}" class="act-btn act-btn--secondary act-back-link">&larr; Back to Home</a>
+<h1 class="act-section-title">Activities — AI Mode</h1>
+
+<div class="act-tabstrip">
+  <a href="{{ url_for('activities_list') }}">Manual Mode</a>
+  <a href="{{ url_for('ai_mode') }}" class="act-tab--active">AI Mode</a>
+</div>
+
+<p style="color: var(--act-text-muted); margin-top: -8px; margin-bottom: 20px;">
+  Ask about activities — e.g. "What's a good half-day activity under $50?"
+</p>
+
+<div class="act-chat">
+  <div id="chat-log" class="act-chat__log">
+    <p id="chat-empty" class="act-chat__empty">No messages yet — ask something below.</p>
+  </div>
+
+  <div id="chat-pending" class="act-chat__bubble act-chat__bubble--pending htmx-indicator">Thinking…</div>
+
+  {{ chat_form() }}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+  .act-tabstrip {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--act-border);
+    margin-bottom: 24px;
+  }
+
+  .act-tabstrip a {
+    padding: 10px 18px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--act-text-muted);
+    border-bottom: 2px solid transparent;
+  }
+
+  .act-tabstrip a:hover {
+    color: var(--act-red);
+    text-decoration: none;
+  }
+
+  .act-tabstrip a.act-tab--active {
+    color: var(--act-maroon);
+    border-bottom-color: var(--act-red);
+  }
+
+  .act-chat {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-width: 720px;
+  }
+
+  .act-chat__log {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 320px;
+    max-height: 480px;
+    overflow-y: auto;
+    padding: 16px;
+    background: var(--act-white);
+    border: 1px solid var(--act-border);
+    border-radius: var(--act-radius);
+    box-shadow: var(--act-shadow);
+  }
+
+  .act-chat__bubble {
+    max-width: 80%;
+    padding: 10px 14px;
+    border-radius: var(--act-radius);
+    font-size: 0.9rem;
+    line-height: 1.4;
+    white-space: pre-wrap;
+  }
+
+  .act-chat__bubble--user {
+    align-self: flex-end;
+    background: var(--act-red);
+    color: var(--act-text);
+  }
+
+  .act-chat__bubble--assistant {
+    align-self: flex-start;
+    background: var(--act-rose);
+    color: var(--act-text);
+  }
+
+  .act-chat__bubble--pending {
+    align-self: flex-start;
+    background: var(--act-offwhite);
+    color: var(--act-text-muted);
+    font-style: italic;
+    border: 1px dashed var(--act-border);
+  }
+
+  .act-chat__bubble--error {
+    align-self: flex-start;
+    background: #FBEAEA;
+    color: var(--act-red);
+    border: 1px solid var(--act-red);
+  }
+
+  .act-chat__empty {
+    color: var(--act-text-muted);
+    font-style: italic;
+    margin: auto;
+  }
+
+  .act-chat__form {
+    display: flex;
+    gap: 10px;
+  }
+
+  .act-chat__form input[type="text"] {
+    flex: 1;
+    font-family: inherit;
+    font-size: 0.95rem;
+    padding: 10px 12px;
+    border: 1px solid var(--act-border);
+    border-radius: var(--act-radius);
+    background: var(--act-offwhite);
+    color: var(--act-text);
+  }
+
+  .act-chat__form input[type="text"]:focus {
+    outline: none;
+    border-color: var(--act-red);
+    background: var(--act-white);
+  }
+</style>
+{% endblock %}

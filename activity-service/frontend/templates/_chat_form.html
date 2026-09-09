@@ -1,0 +1,14 @@
+{% macro chat_form(oob=False) %}
+<form id="chat-form" class="act-chat__form"
+      {% if oob %}hx-swap-oob="true"{% endif %}
+      hx-post="{{ url_for('ai_mode_chat') }}"
+      hx-target="#chat-log"
+      hx-swap="beforeend"
+      hx-indicator="#chat-pending"
+      hx-disabled-elt="#chat-input, #chat-send"
+      hx-on::before-request="document.getElementById('chat-empty')?.remove()"
+      hx-on::after-request="document.getElementById('chat-input').focus(); const log = document.getElementById('chat-log'); log.scrollTop = log.scrollHeight;">
+  <input type="text" id="chat-input" name="message" placeholder="Ask about activities…" autocomplete="off" required>
+  <button type="submit" class="act-btn" id="chat-send">Send</button>
+</form>
+{% endmacro %}
