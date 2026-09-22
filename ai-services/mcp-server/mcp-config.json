@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "voyageai-shared": {
+      "command": "python",
+      "args": ["server.py"]
+    }
+  }
+}

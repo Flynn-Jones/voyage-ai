@@ -32,11 +32,15 @@
         <nav class="tab-nav" aria-label="Application tabs">
             <button class="tab-btn is-active" data-tab="normal" type="button">Normal UI</button>
             <button class="tab-btn" data-tab="ai-mode" type="button">AI Mode</button>
+            <button class="tab-btn" data-tab="mcp-mode" type="button">MCP Mode</button>
+            <button class="tab-btn" data-tab="rag-mode" type="button">RAG Mode</button>
         </nav>
 
         <div class="tab-content">
             <iframe id="tab-frame-normal" class="tab-frame is-active" src="tabs/normal.html" title="Normal UI tab"></iframe>
             <iframe id="tab-frame-ai-mode" class="tab-frame" src="tabs/ai-mode.html" title="AI Mode tab"></iframe>
+            <iframe id="tab-frame-mcp-mode" class="tab-frame" src="tabs/mcp-mode.html" title="MCP Mode tab"></iframe>
+            <iframe id="tab-frame-rag-mode" class="tab-frame" src="tabs/rag-mode.html" title="RAG Mode tab"></iframe>
         </div>
     </section>
 </main>
@@ -47,6 +51,8 @@ const tabButtons = Array.from(document.querySelectorAll(".tab-btn"));
 const tabFrames = {
     normal: document.getElementById("tab-frame-normal"),
     "ai-mode": document.getElementById("tab-frame-ai-mode"),
+    "mcp-mode": document.getElementById("tab-frame-mcp-mode"),
+    "rag-mode": document.getElementById("tab-frame-rag-mode"),
 };
 
 const frameObservers = new WeakMap();

@@ -1,0 +1,3 @@
+chroma/
+corpus/*.jsonl
+rag-audit.jsonl

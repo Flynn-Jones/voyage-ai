@@ -25,6 +25,10 @@ services:
       - ACCOMMODATION_SERVICE_URL=http://accomodation-db:6002
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
       - OLLAMA_MODEL=qwen2.5:7b
+      - MCP_SERVICE_URL=http://host.docker.internal:7001
+      - MCP_ENABLED=true
+      - RAG_SERVICE_URL=http://host.docker.internal:7002
+      - RAG_ENABLED=true
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
