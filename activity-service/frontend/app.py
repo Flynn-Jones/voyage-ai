@@ -6,14 +6,32 @@ from flask import Flask, redirect, render_template, request, url_for
 BACKEND_SERVICE_URL = os.environ.get("BACKEND_SERVICE_URL", "http://activity-backend:5003")
 PORT = int(os.environ.get("PORT", "3004"))
 
+# MCP Mode's read-only tools, for the tab's runner form and tool table. The
+# backend's routes/mcp_mode.py TOOL_ARGUMENTS is the enforcing registry; this
+# only drives display and maps each tool to its backend route.
+MCP_TOOLS = [
+    {"name": "list_activities", "route": "list-activities", "argument": None,
+     "description": "List every activity with its id, name, type, cost, and duration."},
+    {"name": "get_activity", "route": "activity", "argument": "activity_id",
+     "description": "Get one activity by its activity_id."},
+    {"name": "get_activity_assignments", "route": "activity-assignments", "argument": "activity_id",
+     "description": "Get the scheduled time assignment(s) for one activity."},
+    {"name": "list_assignments", "route": "list-assignments", "argument": None,
+     "description": "List every activity time assignment."},
+    {"name": "get_assignment", "route": "assignment", "argument": "assignment_id",
+     "description": "Get one time assignment by its assignment_id."},
+]
+
 
 def create_app():
     app = Flask(__name__, template_folder="templates", static_folder="static")
 
-    def backend_request(method, path, *, params=None, json_body=None):
+    def backend_request(method, path, *, params=None, json_body=None, headers=None):
         url = f"{BACKEND_SERVICE_URL}{path}"
         try:
-            return requests.request(method, url, params=params or {}, json=json_body, timeout=(5, 60))
+            # headers only passed when given, so existing callers' requests are unchanged
+            extra = {"headers": headers} if headers else {}
+            return requests.request(method, url, params=params or {}, json=json_body, timeout=(5, 60), **extra)
         except requests.exceptions.RequestException as exc:
             raise RuntimeError(f"Backend request failed: {exc}") from exc
 
@@ -115,6 +133,44 @@ def create_app():
 
         reply = response.json().get("reply")
         return render_template("_chat_exchange.html", message=message, reply=reply, error=None)
+
+    @app.route("/mcp-mode")
+    def mcp_mode():
+        return render_template("mcp_mode.html", tools=MCP_TOOLS)
+
+    @app.route("/mcp-mode/call", methods=["POST"])
+    def mcp_mode_call():
+        # Always 200 so htmx swaps the card in — the backend's real status
+        # code is shown on the card itself instead (same reasoning as
+        # render_form's htmx handling below).
+        kind = request.form.get("kind", "tool")
+        if kind == "ask":
+            message = request.form.get("message", "").strip()
+            if not message:
+                return "", 204
+            path, payload, call = "/api/activity/mcp/ask", {"message": message}, {"kind": "ask", "message": message}
+        else:
+            tool = request.form.get("tool", "")
+            spec = next((t for t in MCP_TOOLS if t["name"] == tool), None)
+            if spec is None:
+                return render_template("tabs/_mcp_call.html", call={"kind": "tool", "tool": tool, "arguments": {}},
+                                       status_code=None, data=None, error=f"Unknown tool: {tool!r}")
+            payload = {}
+            if spec["argument"]:
+                payload[spec["argument"]] = request.form.get("record_id", "").strip()
+            path, call = f"/api/activity/mcp/{spec['route']}", {"kind": "tool", "tool": tool, "arguments": payload}
+
+        try:
+            response = backend_request("POST", path, json_body=payload, headers={"X-MCP-Mode": "on"})
+        except RuntimeError as exc:
+            return render_template("tabs/_mcp_call.html", call=call, status_code=None, data=None, error=str(exc))
+
+        is_json = response.headers.get("Content-Type", "").startswith("application/json")
+        data = response.json() if is_json else {}
+        error = None
+        if response.status_code >= 400 or data.get("status") != "success":
+            error = data.get("error") or (data.get("result") or {}).get("error") or f"Request failed ({response.status_code})"
+        return render_template("tabs/_mcp_call.html", call=call, status_code=response.status_code, data=data, error=error)
 
     def parse_activity_form():
         return {

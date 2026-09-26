@@ -168,8 +168,17 @@ services:
       ACTIVITY_DB_PATH: /data/database-service.sqlite
       OLLAMA_URL: http://host.docker.internal:11434
       OLLAMA_MODEL: qwen2.5:7b
+      # MCP Mode: activity-service/mcp-server/mcp_http_server.py runs on the
+      # host (not containerised), reached the same way as Ollama.
+      MCP_SERVICE_URL: ${MCP_SERVICE_URL:-http://host.docker.internal:7003}
+      MCP_ENABLED: ${MCP_ENABLED:-true}
+      # MCP Mode's Ask box picks tools with this model (shared with AI Mode's
+      # intent step); the code default, qwen2.5:7b, isn't pulled locally.
+      OLLAMA_INTENT_MODEL: ${OLLAMA_INTENT_MODEL:-llama3.1:8b}
     volumes:
       - activity-db-data:/data
+      # prompts/mcp/ for the Ask box; ",z" lets SELinux hosts read the mount.
+      - ./activity-service/prompts:/prompts:ro,z
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

@@ -4,6 +4,7 @@ from flask_cors import CORS
 
 from routes.activity_routes import activity_api
 from routes.ai_routes import ai_api
+from routes.mcp_mode import mcp_mode_bp
 
 
 def create_app():
@@ -11,6 +12,7 @@ def create_app():
     CORS(app)
     app.register_blueprint(activity_api)
     app.register_blueprint(ai_api)
+    app.register_blueprint(mcp_mode_bp)
     return app
 
 

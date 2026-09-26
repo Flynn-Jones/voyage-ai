@@ -115,6 +115,28 @@ a:hover {
   margin-top: 20px;
 }
 
+/* Home hero buttons: background-coloured by default, a slight red on hover,
+   and the full red when active (pressed, or marked .is-active) — the same
+   tokens as the service switcher in the nav. Scoped to the hero so other
+   .act-btn buttons keep their solid red. */
+.act-hero__actions .act-btn {
+  background: var(--bg-1);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.act-hero__actions .act-btn:hover {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.act-hero__actions .act-btn.is-active,
+.act-hero__actions .act-btn:active {
+  background: var(--accent);
+  color: var(--text);
+}
+
 .act-back-link {
   margin-bottom: 20px;
   display: inline-block;
@@ -176,10 +198,19 @@ a:hover {
   color: var(--act-red);
 }
 
+/* The 8px space that used to be the link's margin-top, kept here because the
+   link's margin-top is now "auto". Needs .act-card p's specificity to win. */
+.act-card p.act-card__cost {
+  margin-bottom: 8px;
+}
+
 .act-card__link {
   display: inline-block;
 
-  margin-top: 8px;
+  /* auto pushes the link (and the Edit/Delete row after it) to the bottom of
+     the card, so it sits the card's 20px padding from the bottom edge, the
+     same as the title from the top, even when grid rows stretch the card. */
+  margin-top: auto;
   padding: 8px 16px;
 
   background: var(--act-red);
@@ -708,4 +739,32 @@ a:hover {
 :focus-visible {
   outline: 2px solid var(--accent-text);
   outline-offset: 2px;
+}
+
+/* Mode tab strip (Manual / AI / MCP). Copied verbatim from ai_mode.html's
+   inline block so MCP Mode can share it; ai_mode.html's identical inline
+   copy is left in place. */
+.act-tabstrip {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--act-border);
+  margin-bottom: 24px;
+}
+
+.act-tabstrip a {
+  padding: 10px 18px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--act-text-muted);
+  border-bottom: 2px solid transparent;
+}
+
+.act-tabstrip a:hover {
+  color: var(--act-red);
+  text-decoration: none;
+}
+
+.act-tabstrip a.act-tab--active {
+  color: var(--act-maroon);
+  border-bottom-color: var(--act-red);
 }

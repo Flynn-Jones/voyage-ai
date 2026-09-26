@@ -1,0 +1,41 @@
+{# One MCP call-log card. call: {kind, tool?, arguments?, message?};
+   data: the backend's JSON body (may be None); status_code: the backend's
+   HTTP status (None if the backend was unreachable); error: message or None. #}
+{% set tool = (data or {}).get("tool") if call.kind == "ask" else call.tool %}
+{# Prefer the arguments the backend reports it actually forwarded. #}
+{% set arguments = (data or {}).get("arguments", {} if call.kind == "ask" else call.arguments) %}
+<div class="act-mcp__call{% if error %} act-mcp__call--error{% endif %}">
+  <div class="act-mcp__call-head">
+    <span>
+      {% if call.kind == "ask" %}Ask &rarr; {% endif %}
+      {% if tool %}<code>{{ tool }}</code>{% else %}<em>no tool called</em>{% endif %}
+    </span>
+    <span class="act-mcp__status{% if error %} act-mcp__status--error{% endif %}">
+      {% if status_code %}HTTP {{ status_code }}{% else %}no response{% endif %}
+    </span>
+  </div>
+
+  {% if call.kind == "ask" %}
+    <span class="act-mcp__label">Request</span>
+    <pre>{{ call.message }}</pre>
+  {% endif %}
+
+  <span class="act-mcp__label">Arguments</span>
+  <pre>{{ (arguments or {}) | tojson(indent=2) }}</pre>
+
+  {% if error %}
+    <p class="act-mcp__error">{{ error }}</p>
+  {% endif %}
+
+  {% if data and data.result is defined %}
+    <span class="act-mcp__label">Result</span>
+    <pre>{{ data.result | tojson(indent=2) }}</pre>
+  {% endif %}
+
+  {% if data and data.model_output %}
+    <details>
+      <summary>Raw model tool selection</summary>
+      <pre>{{ data.model_output }}</pre>
+    </details>
+  {% endif %}
+</div>

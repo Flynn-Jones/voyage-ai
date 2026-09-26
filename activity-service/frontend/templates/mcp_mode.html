@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+
+{% block title %}VoyageAI — Activities MCP Mode{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('index') }}" class="act-btn act-btn--secondary act-back-link">&larr; Back to Home</a>
+<h1 class="act-section-title">Activities — MCP Mode</h1>
+
+<div class="act-tabstrip">
+  <a href="{{ url_for('activities_list') }}">Manual Mode</a>
+  <a href="{{ url_for('ai_mode') }}">AI Mode</a>
+  <a href="{{ url_for('mcp_mode') }}" class="act-tab--active">MCP Mode</a>
+</div>
+
+<p style="color: var(--act-text-muted); margin-top: -8px; margin-bottom: 20px;">
+  Calls activity-service's MCP server directly. Every call shows which tool ran, with what
+  arguments, and exactly what it returned. All tools are read-only.
+</p>
+
+{% include "tabs/mcp.html" %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    const select = document.getElementById("mcp-tool");
+    const idInput = document.getElementById("mcp-record-id");
+    function syncArgument() {
+      const argument = select.selectedOptions[0].dataset.argument;
+      idInput.disabled = !argument;
+      idInput.required = !!argument;
+      idInput.placeholder = argument ? argument + " (e.g. 1)" : "No argument needed";
+      if (!argument) idInput.value = "";
+    }
+    select.addEventListener("change", syncArgument);
+    syncArgument();
+  })();
+</script>
+<style>
+  /* .act-tabstrip lives in styles.css; the .act-chat__* rules reused here
+     (log, form, pending bubble, empty state) are defined in ai_mode.html,
+     so the few this page needs are repeated below verbatim. */
+  .act-chat__log {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px;
+    background: var(--act-white);
+    border: 1px solid var(--act-border);
+    border-radius: var(--act-radius);
+    box-shadow: var(--act-shadow);
+  }
+
+  .act-chat__bubble {
+    padding: 10px 14px;
+    border-radius: var(--act-radius);
+    font-size: 0.9rem;
+    line-height: 1.4;
+  }
+
+  .act-chat__bubble--pending {
+    background: var(--act-offwhite);
+    color: var(--act-text-muted);
+    font-style: italic;
+    border: 1px dashed var(--act-border);
+    margin-bottom: 10px;
+  }
+
+  /* htmx only fades the indicator (opacity: 0); collapse it between requests
+     so it doesn't leave a gap above the call log. */
+  #mcp-pending:not(.htmx-request) { display: none; }
+
+  .act-chat__empty {
+    color: var(--act-text-muted);
+    font-style: italic;
+    margin: auto;
+  }
+
+  .act-chat__form {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .act-chat__form input[type="text"],
+  .act-chat__form select {
+    font-family: inherit;
+    font-size: 0.95rem;
+    padding: 10px 12px;
+    border: 1px solid var(--act-border);
+    border-radius: var(--act-radius);
+    background: var(--act-offwhite);
+    color: var(--act-text);
+    min-width: 0;
+  }
+
+  .act-chat__form input[type="text"] { flex: 1; }
+  .act-chat__form input:disabled { color: var(--act-text-muted); opacity: 0.6; }
+
+  .act-chat__form input[type="text"]:focus,
+  .act-chat__form select:focus {
+    outline: none;
+    border-color: var(--act-red);
+    background: var(--act-white);
+  }
+
+  /* MCP-specific */
+  .act-mcp {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 24px;
+    align-items: start;
+  }
+
+  @media (max-width: 860px) {
+    .act-mcp { grid-template-columns: minmax(0, 1fr); }
+  }
+
+  .act-mcp h2 {
+    font-size: 1rem;
+    color: var(--act-maroon);
+    margin: 0 0 10px;
+  }
+
+  .act-mcp__tools {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+    margin-bottom: 24px;
+    background: var(--act-white);
+    border: 1px solid var(--act-border);
+    border-radius: var(--act-radius);
+  }
+
+  .act-mcp__tools th,
+  .act-mcp__tools td {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--act-border);
+    vertical-align: top;
+  }
+
+  .act-mcp__tools th { color: var(--act-text-muted); font-weight: 600; }
+  .act-mcp__tools tr:last-child td { border-bottom: none; }
+
+  .act-mcp__log {
+    min-height: 320px;
+    max-height: 640px;
+    overflow-y: auto;
+  }
+
+  .act-mcp__call {
+    border: 1px solid var(--act-border);
+    border-left: 4px solid var(--act-red);
+    border-radius: var(--act-radius);
+    padding: 12px 14px;
+    background: var(--act-white);
+    font-size: 0.85rem;
+  }
+
+  .act-mcp__call--error { border-left-color: var(--act-maroon); background: var(--act-rose); }
+
+  .act-mcp__call-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+
+  .act-mcp__call-head code { font-weight: 700; color: var(--act-maroon); }
+
+  .act-mcp__status {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--state-on-bg);
+    color: var(--state-on-fg);
+    white-space: nowrap;
+  }
+
+  .act-mcp__status--error { background: var(--state-off-bg); color: var(--state-off-fg); }
+
+  .act-mcp__label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--act-text-muted);
+    margin: 8px 0 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .act-mcp__call pre {
+    margin: 0;
+    padding: 8px 10px;
+    background: var(--act-offwhite);
+    border-radius: 8px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 260px;
+    overflow: auto;
+  }
+
+  .act-mcp__call details summary { cursor: pointer; color: var(--act-text-muted); margin-top: 8px; }
+  .act-mcp__error { color: var(--act-maroon); font-weight: 600; margin: 4px 0 0; }
+</style>
+{% endblock %}

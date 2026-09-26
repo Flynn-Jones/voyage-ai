@@ -7,6 +7,10 @@ services:
     container_name: frontend
     ports:
       - "3004:3004"            # Flask app listens on 3004 internally (PORT default in app.py)
+    environment:
+      # app.py defaults to http://activity-backend:5003 (the root compose's
+      # service name); in this standalone file the backend service is "backend".
+      - BACKEND_SERVICE_URL=http://backend:5003
     depends_on:
       - backend
     networks:
@@ -31,8 +35,17 @@ services:
       # qwen2.5:7b (the original choice here) isn't pulled locally; using the
       # smaller already-available qwen2.5:0.5b instead, per John's call.
       - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen2.5:0.5b}
+      # MCP Mode: mcp-server/mcp_http_server.py runs on the host (not
+      # containerised), reached the same way as Ollama. Set MCP_ENABLED=false
+      # to turn every /api/activity/mcp/* route into a 403.
+      - MCP_SERVICE_URL=${MCP_SERVICE_URL:-http://host.docker.internal:7003}
+      - MCP_ENABLED=${MCP_ENABLED:-true}
     volumes:
       - database-service-data:/data
+      # prompts/mcp/ for /api/activity/mcp/ask — the build context is
+      # ./backend, so the prompts can't be COPY'd into the image. ",z" lets
+      # SELinux hosts (e.g. Fedora) read the mount; a no-op elsewhere.
+      - ./prompts:/prompts:ro,z
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

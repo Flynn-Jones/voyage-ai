@@ -1,0 +1,59 @@
+{# MCP Mode panel, included by mcp_mode.html (which owns the page shell,
+   tab strip, styles, and the tool/argument sync script). Both forms htmx-post
+   to /mcp-mode/call and prepend the returned tabs/_mcp_call.html card to
+   #mcp-log, newest first. #}
+<div class="act-mcp">
+  <section class="act-mcp__panel">
+    <h2>Registered tools</h2>
+    <table class="act-mcp__tools">
+      <thead><tr><th>Tool</th><th>Argument</th><th>Description</th></tr></thead>
+      <tbody>
+        {% for tool in tools %}
+        <tr>
+          <td><code>{{ tool.name }}</code></td>
+          <td>{% if tool.argument %}<code>{{ tool.argument }}</code>{% else %}&mdash;{% endif %}</td>
+          <td>{{ tool.description }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <h2>Run a tool</h2>
+    <form id="mcp-tool-form" class="act-chat__form"
+          hx-post="{{ url_for('mcp_mode_call') }}"
+          hx-target="#mcp-log" hx-swap="afterbegin"
+          hx-indicator="#mcp-pending"
+          hx-disabled-elt="#mcp-tool-form button"
+          hx-on::before-request="document.getElementById('mcp-empty')?.remove()">
+      <input type="hidden" name="kind" value="tool">
+      <select id="mcp-tool" name="tool" aria-label="Tool">
+        {% for tool in tools %}
+        <option value="{{ tool.name }}" data-argument="{{ tool.argument or '' }}">{{ tool.name }}</option>
+        {% endfor %}
+      </select>
+      <input type="text" id="mcp-record-id" name="record_id" inputmode="numeric" autocomplete="off"
+             placeholder="No argument needed" disabled>
+      <button type="submit" class="act-btn">Run</button>
+    </form>
+
+    <h2>Ask (LLM picks the tool)</h2>
+    <form id="mcp-ask-form" class="act-chat__form"
+          hx-post="{{ url_for('mcp_mode_call') }}"
+          hx-target="#mcp-log" hx-swap="afterbegin"
+          hx-indicator="#mcp-pending"
+          hx-disabled-elt="#mcp-ask-form input, #mcp-ask-form button"
+          hx-on::before-request="document.getElementById('mcp-empty')?.remove()">
+      <input type="hidden" name="kind" value="ask">
+      <input type="text" name="message" placeholder="e.g. When is activity 4 scheduled?" autocomplete="off" required>
+      <button type="submit" class="act-btn">Ask</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>Call log</h2>
+    <div id="mcp-pending" class="act-chat__bubble act-chat__bubble--pending htmx-indicator">Calling MCP tool…</div>
+    <div id="mcp-log" class="act-chat__log act-mcp__log">
+      <p id="mcp-empty" class="act-chat__empty">No tool calls yet — run a tool or ask something.</p>
+    </div>
+  </section>
+</div>
