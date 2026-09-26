@@ -38,9 +38,9 @@ jobs:
       - name: Create external network
         run: docker network inspect microservices-net >/dev/null 2>&1 || docker network create microservices-net
 
-      - name: Start services
+      - name: Start services (MCP/RAG disabled for CI)
         working-directory: budget-service
-        run: docker-compose up -d
+        run: docker-compose -f docker-compose.yml -f docker-compose.ci.yml up -d
 
       - name: Smoke checks
         run: |
@@ -66,6 +66,14 @@ jobs:
           check_url "http://localhost:3004/"
           check_url "http://localhost:5004/"
           check_url "http://localhost:6004/"
+
+      - name: Verify MCP/RAG are disabled in CI
+        run: |
+          mcp_code=$(curl -sS -o /dev/null -w "%{http_code}" -X POST http://localhost:5004/budget/mcp/list-expenses)
+          rag_code=$(curl -sS -o /dev/null -w "%{http_code}" -X POST http://localhost:5004/budget/rag/refresh)
+          echo "MCP disabled check -> $mcp_code (expected 403)"
+          echo "RAG disabled check -> $rag_code (expected 403)"
+          [ "$mcp_code" = "403" ] && [ "$rag_code" = "403" ]
 
       - name: Stop services
         if: always()

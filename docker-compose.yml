@@ -227,9 +227,8 @@ services:
       DATABASE_SERVICE_URL: http://budget-database:6004
       ACCOMMODATION_SERVICE_URL: http://accommodation-database:6002
       OLLAMA_BASE_URL: http://host.docker.internal:11434
-      # qwen2.5:7b (the standalone default) is not pulled on this host;
-      # override to the smaller model that IS available locally so the AI
-      # path is actually reachable. Root-only env override, no source edit.
+      # Pinned to qwen2.5:7b — the model actually pulled on this host
+      # (checked via `ollama list`). Root-only env override, no source edit.
       OLLAMA_MODEL: qwen2.5:7b
     extra_hosts:
       - "host.docker.internal:host-gateway"
