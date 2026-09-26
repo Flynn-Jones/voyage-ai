@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}VoyageAI — Activities{% endblock %}</title>
+  <script src="https://unpkg.com/htmx.org@1.9.12" defer></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+  <nav class="voyage-nav">
+    <div class="voyage-nav__container">
+      <span class="voyage-nav__brand">VoyageAI &mdash; Activities</span>
+      <div class="voyage-nav__links">
+        <a href="{{ url_for('index') }}" class="{{ 'is-active' if request.endpoint == 'index' else '' }}">Home</a>
+        <a href="{{ url_for('activities_list') }}" class="{{ 'is-active' if request.endpoint in ('activities_list', 'activity_detail') else '' }}">Activities</a>
+        <a href="{{ url_for('ai_mode') }}" class="{{ 'is-active' if request.endpoint == 'ai_mode' else '' }}">AI Mode</a>
+        <a href="{{ url_for('register_activity_form') }}" class="{{ 'is-active' if request.endpoint in ('register_activity_form', 'create_activity', 'edit_activity_form', 'update_activity') else '' }}">Register Activity</a>
+      </div>
+      <div class="voyage-nav__switcher">
+        <a href="http://localhost:3000">Home</a>
+        <a href="http://localhost:3001">Destinations</a>
+        <a href="http://localhost:3002">Accommodation</a>
+        <a href="http://localhost:3003" class="is-active">Activities</a>
+        <a href="http://localhost:3004">Budget</a>
+        <a href="http://localhost:3005">Itinerary</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="act-main">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="act-footer">
+    VoyageAI — Activity Manager
+  </footer>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

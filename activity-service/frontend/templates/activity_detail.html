@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}VoyageAI — {{ activity.activity_name if activity else "Activity" }}{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('index') }}" class="act-btn act-btn--secondary act-back-link">&larr; Back to Home</a>
+<div id="detail-actions" style="display: flex; gap: 8px; margin-bottom: 20px;">
+  <a href="{{ url_for('activities_list') }}" class="act-btn act-btn--secondary">&larr; Back to all activities</a>
+  {% if activity %}
+  <a href="{{ url_for('edit_activity_form', activity_id=activity.activity_id) }}" class="act-btn act-btn--secondary">Edit</a>
+  <button type="button" class="act-btn" style="background: var(--danger); color: #fff;"
+          hx-delete="{{ url_for('delete_activity', activity_id=activity.activity_id) }}"
+          hx-confirm="Delete &quot;{{ activity.activity_name }}&quot;? This cannot be undone."
+          hx-swap="none"
+          hx-on::after-request="if (event.detail.successful) { window.location.href = '{{ url_for('activities_list') }}'; } else { const b = document.getElementById('detail-banner'); b.textContent = 'Could not delete activity: ' + event.detail.xhr.responseText; b.className = 'act-banner act-banner--visible act-banner--error'; }">
+    Delete
+  </button>
+  {% endif %}
+</div>
+
+<div id="detail-banner" class="act-banner"></div>
+
+{% if error %}
+  <p class="act-empty">{{ error }}</p>
+{% else %}
+  <article class="act-card" style="max-width: 640px;">
+    <h2>{{ activity.activity_name }}</h2>
+    <p>{{ activity.activity_type }}</p>
+    <div class="act-detail__meta">
+      <span>${{ activity.activity_cost }}</span>
+      <span>{{ activity.duration }}</span>
+      <span>Assigned time: {{ activity.assignment_time or "Not scheduled" }}</span>
+    </div>
+
+    <div id="summary-section" class="act-summary">
+      <h3>AI-Generated Summary</h3>
+      <p class="act-loading"
+         hx-get="{{ url_for('activity_summary', activity_id=activity.activity_id) }}"
+         hx-trigger="load"
+         hx-swap="outerHTML">
+        Generating summary…
+      </p>
+    </div>
+  </article>
+{% endif %}
+{% endblock %}

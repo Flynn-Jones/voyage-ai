@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% from "_activity_cards.html" import activity_cards %}
+
+{% block title %}VoyageAI — Activities{% endblock %}
+
+{% block content %}
+<section class="act-hero">
+  <h1>Find Activities for Your Trip</h1>
+  <p>Browse activities, check costs and durations, and see AI-generated summaries.</p>
+  <div class="act-hero__actions">
+    <a class="act-btn" href="{{ url_for('activities_list') }}">Browse Activities</a>
+    <a class="act-btn" href="{{ url_for('register_activity_form') }}">Register Activity</a>
+    <a class="act-btn" href="{{ url_for('ai_mode') }}">AI Mode</a>
+  </div>
+</section>
+
+<section>
+  <h2 class="act-section-title">Featured Activities</h2>
+
+  {% if error %}
+    <p class="act-empty">Could not load activities: {{ error }}</p>
+  {% elif not activities %}
+    <p class="act-empty">No activities found yet.</p>
+  {% else %}
+    <div class="act-grid">
+      {{ activity_cards(activities, show_actions=False) }}
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

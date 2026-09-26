@@ -6,7 +6,7 @@ services:
     build: ./frontend
     container_name: frontend
     ports:
-      - "3004:80"            # nginx:alpine's default listen port
+      - "3004:3004"            # Flask app listens on 3004 internally (PORT default in app.py)
     depends_on:
       - backend
     networks:
@@ -25,10 +25,12 @@ services:
       # same file database-service reads — must match the env var below and
       # the shared volume mount (neither existed on this service before).
       - ACTIVITY_DB_PATH=/data/database-service.sqlite
-      - OLLAMA_URL=http://host.docker.internal:11434
+      # Overridable via activity-service/.env — see .env.example for the
+      # documented variable names and defaults.
+      - OLLAMA_URL=${OLLAMA_URL:-http://host.docker.internal:11434}
       # qwen2.5:7b (the original choice here) isn't pulled locally; using the
       # smaller already-available qwen2.5:0.5b instead, per John's call.
-      - OLLAMA_MODEL=qwen2.5:0.5b
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen2.5:0.5b}
     volumes:
       - database-service-data:/data
     extra_hosts:

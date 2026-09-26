@@ -42,7 +42,7 @@ def create_app():
             "name": request.form.get("name", "").strip(),
             "destination_id": request.form.get("destination_id", "").strip() or None,
             "destination_city": request.form.get("destination_city", "").strip() or None,
-            "type": request.form.get("type", "").strip() or None,
+            "type": request.form.get("type", "").strip().lower() or None,
             "price_per_night": parse_float(request.form.get("price_per_night")),
             "rating": parse_float(request.form.get("rating")),
             "location": request.form.get("location", "").strip() or None,
@@ -69,6 +69,16 @@ def create_app():
             raise RuntimeError(payload.get("error") or payload.get("message") or "Accommodation not found.")
         return response.json()
 
+    def fetch_destinations():
+        try:
+            response = backend_request("GET", "/destinations")
+            if response.status_code >= 400:
+                return []
+            payload = response.json()
+            return payload if isinstance(payload, list) else payload.get("data", [])
+        except (RuntimeError, ValueError, AttributeError):
+            return []
+
     @app.route("/")
     def index():
         filters = {
@@ -81,19 +91,20 @@ def create_app():
             "sort_by": request.args.get("sort_by"),
         }
         filters = {k: v for k, v in filters.items() if v not in (None, "")}
+        destinations = fetch_destinations()
         try:
             result = fetch_accommodations(filters)
         except RuntimeError as exc:
-            return render_template("list.html", accommodations=[], filters=filters, error=str(exc), htmx_mode=False)
+            return render_template("list.html", accommodations=[], filters=filters, destinations=destinations, error=str(exc), htmx_mode=False)
 
         accommodations = result.get("data", [])
         if request.headers.get("HX-Request") == "true":
             return render_template("_list_table.html", accommodations=accommodations, filters=filters)
-        return render_template("list.html", accommodations=accommodations, filters=filters, error=None, htmx_mode=False)
+        return render_template("list.html", accommodations=accommodations, filters=filters, destinations=destinations, error=None, htmx_mode=False)
 
     @app.route("/accommodations/new")
     def new_accommodation_form():
-        return render_template("form.html", accommodation=None, mode="create", error=None)
+        return render_template("form.html", accommodation=None, destinations=fetch_destinations(), mode="create", error=None)
 
     @app.route("/accommodations", methods=["POST"])
     def create_accommodation():
@@ -103,8 +114,8 @@ def create_app():
             data = response.json() if response.headers.get("Content-Type", "").startswith("application/json") else {}
             error_message = data.get("error") or data.get("message") or "Validation failed."
             if request.headers.get("HX-Request") == "true":
-                return render_template("form.html", accommodation=payload, mode="create", error=error_message), 422
-            return render_template("form.html", accommodation=payload, mode="create", error=error_message), 422
+                return render_template("form.html", accommodation=payload, destinations=fetch_destinations(), mode="create", error=error_message), 422
+            return render_template("form.html", accommodation=payload, destinations=fetch_destinations(), mode="create", error=error_message), 422
         if request.headers.get("HX-Request") == "true":
             return redirect(url_for("index"))
         return redirect(url_for("index"))
@@ -122,8 +133,8 @@ def create_app():
         try:
             accommodation = fetch_accommodation(accommodation_id)
         except RuntimeError as exc:
-            return render_template("form.html", accommodation=None, mode="edit", error=str(exc)), 404
-        return render_template("form.html", accommodation=accommodation, mode="edit", error=None)
+            return render_template("form.html", accommodation=None, destinations=fetch_destinations(), mode="edit", error=str(exc)), 404
+        return render_template("form.html", accommodation=accommodation, destinations=fetch_destinations(), mode="edit", error=None)
 
     @app.route("/accommodations/<int:accommodation_id>", methods=["PATCH", "POST"])
     def update_accommodation(accommodation_id):
@@ -133,8 +144,8 @@ def create_app():
             data = response.json() if response.headers.get("Content-Type", "").startswith("application/json") else {}
             error_message = data.get("error") or data.get("message") or "Validation failed."
             if request.headers.get("HX-Request") == "true":
-                return render_template("form.html", accommodation={**payload, "id": accommodation_id}, mode="edit", error=error_message), 422
-            return render_template("form.html", accommodation={**payload, "id": accommodation_id}, mode="edit", error=error_message), 422
+                return render_template("form.html", accommodation={**payload, "id": accommodation_id}, destinations=fetch_destinations(), mode="edit", error=error_message), 422
+            return render_template("form.html", accommodation={**payload, "id": accommodation_id}, destinations=fetch_destinations(), mode="edit", error=error_message), 422
         return redirect(url_for("index"))
 
     @app.route("/accommodations/<int:accommodation_id>/delete", methods=["POST"])
@@ -150,7 +161,7 @@ def create_app():
 
     @app.route("/recommend")
     def recommend_page():
-        return render_template("recommend.html", recommendation=None, error=None)
+        return render_template("recommend.html", destinations=fetch_destinations(), recommendation=None, error=None)
 
     @app.route("/recommend", methods=["POST"])
     def recommend():
@@ -160,13 +171,13 @@ def create_app():
             "interests": [item.strip().lower() for item in request.form.get("interests", "").split(",") if item.strip()],
         }
         if not payload["destination_city"]:
-            return render_template("recommend.html", recommendation=None, error="Destination city is required."), 400
+            return render_template("recommend.html", destinations=fetch_destinations(), recommendation=None, error="Destination city is required."), 400
 
         response = backend_request("POST", "/ai/recommend", json_body=payload)
         if response.status_code >= 400:
             data = response.json() if response.headers.get("Content-Type", "").startswith("application/json") else {}
             error_message = data.get("error") or "Recommendation service is unavailable."
-            return render_template("recommend.html", recommendation=None, error=error_message), 503
+            return render_template("recommend.html", destinations=fetch_destinations(), recommendation=None, error=error_message), 503
 
         data = response.json()
         raw_recommendation = data.get("recommendations") or data.get("recommendation") or []
@@ -194,7 +205,7 @@ def create_app():
             "recommendation": primary_recommendation,
             "recommendations": recommendations,
         }
-        return render_template("recommend.html", recommendation=result, error=None)
+        return render_template("recommend.html", destinations=fetch_destinations(), recommendation=result, error=None)
 
     @app.route("/health")
     def health():

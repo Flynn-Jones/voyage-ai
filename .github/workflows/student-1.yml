@@ -1,15 +1,12 @@
 name: student-1
 
 on:
-  push:
-    paths:
-      - 'student-1/**'
-      - '.github/workflows/student-1.yml'
-  pull_request:
-    paths:
-      - 'student-1/**'
-      - '.github/workflows/student-1.yml'
   workflow_dispatch:
+  push:
+    branches: [main, feat/destination-service]
+    paths:
+      - 'student-1/**'
+      - '.github/workflows/student-1.yml'
 
 concurrency:
   group: student-1-${{ github.ref }}

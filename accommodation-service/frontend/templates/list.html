@@ -20,7 +20,16 @@
       </label>
       <label>
         <span>City</span>
-        <input type="text" name="destination_city" value="{{ filters.get('destination_city','') }}" placeholder="Tokyo">
+        {% if destinations %}
+          <select name="destination_city">
+            <option value="">Any city</option>
+            {% for destination in destinations %}
+              <option value="{{ destination.city }}" {% if filters.get('destination_city') == destination.city %}selected{% endif %}>{{ destination.city }}{% if destination.country %}, {{ destination.country }}{% endif %}</option>
+            {% endfor %}
+          </select>
+        {% else %}
+          <input type="text" name="destination_city" value="{{ filters.get('destination_city','') }}" placeholder="Tokyo">
+        {% endif %}
       </label>
       <label>
         <span>Type</span>

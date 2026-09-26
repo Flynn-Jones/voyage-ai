@@ -1,12 +1,12 @@
-name: student-4-ci
+name: student-3
 
 on:
   workflow_dispatch:
   push:
-    branches: [main, budget]
+    branches: [main, activity-service]
     paths:
-      - "budget-service/**"
-      - ".github/workflows/student-4-ci.yml"
+      - "activity-service/**"
+      - ".github/workflows/student-3.yml"
 
 jobs:
 
@@ -21,7 +21,7 @@ jobs:
           docker-compose --version || (sudo apt-get update && sudo apt-get install -y docker-compose)
 
       - name: Build services
-        working-directory: budget-service
+        working-directory: activity-service
         run: docker-compose build
 
   smoke-check:
@@ -38,9 +38,9 @@ jobs:
       - name: Create external network
         run: docker network inspect microservices-net >/dev/null 2>&1 || docker network create microservices-net
 
-      - name: Start services (MCP/RAG disabled for CI)
-        working-directory: budget-service
-        run: docker-compose -f docker-compose.yml -f docker-compose.ci.yml up -d
+      - name: Start services
+        working-directory: activity-service
+        run: docker-compose up -d
 
       - name: Smoke checks
         run: |
@@ -64,20 +64,12 @@ jobs:
           }
 
           check_url "http://localhost:3004/"
-          check_url "http://localhost:5004/"
-          check_url "http://localhost:6004/"
-
-      - name: Verify MCP/RAG are disabled in CI
-        run: |
-          mcp_code=$(curl -sS -o /dev/null -w "%{http_code}" -X POST http://localhost:5004/budget/mcp/list-expenses)
-          rag_code=$(curl -sS -o /dev/null -w "%{http_code}" -X POST http://localhost:5004/budget/rag/refresh)
-          echo "MCP disabled check -> $mcp_code (expected 403)"
-          echo "RAG disabled check -> $rag_code (expected 403)"
-          [ "$mcp_code" = "403" ] && [ "$rag_code" = "403" ]
+          check_url "http://localhost:5003/health"
+          check_url "http://localhost:6003/health"
 
       - name: Stop services
         if: always()
-        working-directory: budget-service
+        working-directory: activity-service
         run: docker-compose down -v
 
   evidence-pack:
@@ -88,16 +80,16 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Create reports directory
-        working-directory: budget-service
+        working-directory: activity-service
         run: mkdir -p reports
 
       - name: Generate report.json
-        working-directory: budget-service
+        working-directory: activity-service
         run: |
           TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           cat > reports/report.json << EOF
           {
-            "workflow_name": "student-4-ci",
+            "workflow_name": "student-3",
             "run_id": "${{ github.run_id }}",
             "commit_sha": "${{ github.sha }}",
             "branch": "${{ github.ref_name }}",
@@ -106,19 +98,19 @@ jobs:
           EOF
 
       - name: Generate report.md
-        working-directory: budget-service
+        working-directory: activity-service
         run: |
           cat > reports/report.md << EOF
-          ## Student 4 (Budget Manager) Workflow Report
+          ## Student 3 (Activity Manager) Workflow Report
 
-          - Workflow: student-4-ci
+          - Workflow: student-3
           - Run ID: ${{ github.run_id }}
           - Commit SHA: ${{ github.sha }}
           - Branch: ${{ github.ref_name }}
           EOF
 
       - name: Generate run-view.md
-        working-directory: budget-service
+        working-directory: activity-service
         run: |
           cat > reports/run-view.md << EOF
           Run URL:
@@ -127,5 +119,5 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: student-4-report
-          path: budget-service/reports
+          name: student-3-report
+          path: activity-service/reports
