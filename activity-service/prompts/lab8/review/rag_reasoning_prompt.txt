@@ -1,0 +1,15 @@
+Evaluate the Activity Manager RAG architecture described in the evidence.
+
+Check:
+- corpus design (activities database, docs/reports, repository index; authority tiers)
+- chunking (one record per chunk, ~80-word doc chunks)
+- embedding strategy (hash bag-of-words vs Ollama embeddings)
+- vector store usage (ChromaDB collection, lexical fallback)
+- governance risks (audit log, stale corpus, unsupported answers)
+
+Return exactly:
+Strengths:
+Risks:
+Recommendations:
+
+Maximum 45 words.

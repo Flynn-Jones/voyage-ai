@@ -1,0 +1,74 @@
+{# One RAG results card. call: {kind, query?, k?}; data: the backend's JSON
+   body (may be None); status_code: the backend's HTTP status (None if the
+   backend was unreachable); error: message or None. #}
+{% set labels = {"refresh": "Refresh corpus", "retrieve": "Retrieve context", "answer": "Answer with citations"} %}
+<div class="act-mcp__call{% if error %} act-mcp__call--error{% endif %}">
+  <div class="act-mcp__call-head">
+    <code>{{ labels.get(call.kind, call.kind) }}</code>
+    <span class="act-mcp__status{% if error %} act-mcp__status--error{% endif %}">
+      {% if status_code %}HTTP {{ status_code }}{% else %}no response{% endif %}
+    </span>
+  </div>
+
+  {% if call.query %}
+    <span class="act-mcp__label">Query (k={{ call.k }})</span>
+    <pre>{{ call.query }}</pre>
+  {% endif %}
+
+  {% if error %}
+    <p class="act-mcp__error">{{ error }}</p>
+  {% endif %}
+
+  {% if not error and call.kind == "refresh" %}
+    <span class="act-mcp__label">Corpus</span>
+    <p class="act-rag__snippet">
+      {{ data.chunk_count }} chunks
+      ({% for tier, count in (data.tier_counts or {}).items() %}{{ tier }}: {{ count }}{% if not loop.last %}, {% endif %}{% endfor %})
+      &middot; vector store <strong>{{ data.vector_store_status }}</strong>
+      &middot; {{ data.embedding_mode }} embeddings
+    </p>
+    <p class="act-rag__meta">tier_1 source: {{ data.tier_1_source }}</p>
+    {% if data.vector_store_error %}<p class="act-mcp__error">{{ data.vector_store_error }}</p>{% endif %}
+    {% if data.embedding_fallback %}<p class="act-mcp__error">{{ data.embedding_fallback }}</p>{% endif %}
+  {% endif %}
+
+  {% if not error and call.kind == "retrieve" %}
+    <span class="act-mcp__label">Top {{ data.results | length }} chunks ({{ data.retrieval_mode }})</span>
+    <ol class="act-rag__list">
+      {% for row in data.results %}
+      <li>
+        <code>{{ row.chunk_id }}</code>
+        <span class="act-rag__meta">{{ row.authority_tier }} &middot; distance {{ "%.3f" | format(row.distance) }} &middot; {{ row.source_id }}</span>
+        <p class="act-rag__snippet">{{ row.text | truncate(180) }}</p>
+      </li>
+      {% endfor %}
+    </ol>
+  {% endif %}
+
+  {% if data and data.answer %}
+    {% set confidence = data.confidence_category %}
+    <div class="act-mcp__call-head" style="margin-top: 8px;">
+      <span class="act-mcp__label" style="margin: 0;">Answer ({{ data.answer_source }})</span>
+      <span class="act-mcp__status{% if confidence == 'Medium' %} act-rag__confidence--medium{% elif confidence != 'High' %} act-mcp__status--error{% endif %}">
+        Confidence: {{ confidence }}
+      </span>
+    </div>
+    <p class="act-rag__answer">{{ data.answer }}</p>
+  {% endif %}
+
+  {% if data and data.citations %}
+    <span class="act-mcp__label">Citations</span>
+    <ul class="act-rag__list">
+      {% for c in data.citations %}
+      <li><code>{{ c.chunk_id }}</code> <span class="act-rag__meta">{{ c.source_id }} &middot; {{ c.authority_tier }}</span></li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+
+  {% if data %}
+    <details>
+      <summary>Raw JSON</summary>
+      <pre>{{ data | tojson(indent=2) }}</pre>
+    </details>
+  {% endif %}
+</div>

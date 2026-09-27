@@ -11,6 +11,7 @@ def print_menu() -> None:
     print("VOYAGEAI SHARED AGENTIC LOOP - VALIDATION MENU")
     print("1 - MCP")
     print("2 - RAG")
+    print("3 - Activity RAG")
     print("0 - Exit")
     print("=" * 70)
 

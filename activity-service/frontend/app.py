@@ -22,6 +22,9 @@ MCP_TOOLS = [
      "description": "Get one time assignment by its assignment_id."},
 ]
 
+# RAG Mode's actions, each forwarded to /api/activity/rag/<kind> on the backend.
+RAG_ACTIONS = ("refresh", "retrieve", "answer")
+
 
 def create_app():
     app = Flask(__name__, template_folder="templates", static_folder="static")
@@ -171,6 +174,40 @@ def create_app():
         if response.status_code >= 400 or data.get("status") != "success":
             error = data.get("error") or (data.get("result") or {}).get("error") or f"Request failed ({response.status_code})"
         return render_template("tabs/_mcp_call.html", call=call, status_code=response.status_code, data=data, error=error)
+
+    @app.route("/rag-mode")
+    def rag_mode():
+        return render_template("rag_mode.html")
+
+    @app.route("/rag-mode/call", methods=["POST"])
+    def rag_mode_call():
+        # Always 200 so htmx swaps the card in; the backend's status is shown
+        # on the card, as in mcp_mode_call. X-RAG-Mode follows the page toggle.
+        kind = request.form.get("kind", "")
+        if kind not in RAG_ACTIONS:
+            return render_template("tabs/_rag_call.html", call={"kind": kind}, status_code=None, data=None,
+                                   error=f"Unknown RAG action: {kind!r}")
+        payload = {}
+        if kind != "refresh":
+            query = request.form.get("query", "").strip()
+            if not query:
+                return "", 204
+            payload = {"query": query, "k": request.form.get("k", "5").strip() or "5"}
+        call = {"kind": kind, **payload}
+        rag_header = "off" if request.form.get("rag_mode") == "off" else "on"
+
+        try:
+            response = backend_request("POST", f"/api/activity/rag/{kind}", json_body=payload,
+                                       headers={"X-RAG-Mode": rag_header})
+        except RuntimeError as exc:
+            return render_template("tabs/_rag_call.html", call=call, status_code=None, data=None, error=str(exc))
+
+        is_json = response.headers.get("Content-Type", "").startswith("application/json")
+        data = response.json() if is_json else {}
+        error = None
+        if response.status_code >= 400 or data.get("status") != "success":
+            error = data.get("error") or f"Request failed ({response.status_code})"
+        return render_template("tabs/_rag_call.html", call=call, status_code=response.status_code, data=data, error=error)
 
     def parse_activity_form():
         return {

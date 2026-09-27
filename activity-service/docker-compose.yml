@@ -40,6 +40,10 @@ services:
       # to turn every /api/activity/mcp/* route into a 403.
       - MCP_SERVICE_URL=${MCP_SERVICE_URL:-http://host.docker.internal:7003}
       - MCP_ENABLED=${MCP_ENABLED:-true}
+      # RAG Mode: rag-server/rag_http_server.py also runs on the host. Set
+      # RAG_ENABLED=false to turn every /api/activity/rag/* route into a 403.
+      - RAG_SERVICE_URL=${RAG_SERVICE_URL:-http://host.docker.internal:6013}
+      - RAG_ENABLED=${RAG_ENABLED:-true}
     volumes:
       - database-service-data:/data
       # prompts/mcp/ for /api/activity/mcp/ask — the build context is

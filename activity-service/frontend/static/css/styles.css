@@ -116,7 +116,7 @@ a:hover {
 }
 
 /* Home hero buttons: background-coloured by default, a slight red on hover,
-   and the full red when active (pressed, or marked .is-active) — the same
+   and the full red while pressed — the same
    tokens as the service switcher in the nav. Scoped to the hero so other
    .act-btn buttons keep their solid red. */
 .act-hero__actions .act-btn {
@@ -131,7 +131,6 @@ a:hover {
   color: var(--accent-text);
 }
 
-.act-hero__actions .act-btn.is-active,
 .act-hero__actions .act-btn:active {
   background: var(--accent);
   color: var(--text);
@@ -767,4 +766,42 @@ a:hover {
 .act-tabstrip a.act-tab--active {
   color: var(--act-maroon);
   border-bottom-color: var(--act-red);
+}
+
+/* Rounded scrollbar for the scrolling logs (AI Mode chat, MCP call log):
+   a visible pill-shaped track with a pill-shaped thumb inside it. The track
+   is inset by the border radius so it sits inside the box's rounded corners.
+   The transparent borders + background-clip give the "gap" around each pill
+   (a scrollbar track can't take horizontal margin).
+   Chrome/Edge/Safari use ::-webkit-scrollbar. Firefox only supports the
+   standard properties, which are kept inside @supports because Chrome
+   ignores ::-webkit-scrollbar entirely once scrollbar-color is set. */
+.act-chat__log::-webkit-scrollbar {
+  width: 16px;
+}
+
+.act-chat__log::-webkit-scrollbar-track {
+  background: var(--bg-1);
+  background-clip: padding-box;
+  border: 3px solid transparent;
+  border-radius: 999px;
+  margin-block: var(--act-radius);
+}
+
+.act-chat__log::-webkit-scrollbar-thumb {
+  background: var(--act-border);
+  background-clip: padding-box;
+  border: 5px solid transparent;
+  border-radius: 999px;
+}
+
+.act-chat__log::-webkit-scrollbar-thumb:hover {
+  background-color: var(--act-red);
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  .act-chat__log {
+    scrollbar-width: thin;
+    scrollbar-color: var(--act-border) var(--bg-1);
+  }
 }

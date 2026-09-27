@@ -61,6 +61,15 @@ def make_fake_backend(activities=None, activity=None, assignments=None,
     return fake_request
 
 
+
+def make_recording_backend(calls, status_code, payload):
+    """A fake `requests.request` for the MCP and RAG tabs: records each call's
+    url, JSON body and headers in `calls`, and always returns one response."""
+    def fake_request(method, url, params=None, json=None, timeout=None, headers=None):
+        calls.append({"url": url, "json": json, "headers": headers})
+        return DummyResponse(status_code, payload)
+    return fake_request
+
 @pytest.fixture
 def app_module():
     import app as flask_app_module
