@@ -9,6 +9,7 @@ container's SQLite volume.
 import hashlib
 import json
 import os
+import re
 import time
 import uuid
 from datetime import datetime, timezone
@@ -48,11 +49,18 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+_TOKEN_RE = re.compile(r"[a-z0-9]+")
+
+
 def embed_texts(texts: list[str]) -> list[list[float]]:
     vectors: list[list[float]] = []
     for text in texts:
         values = [0.0] * EMBED_VECTOR_SIZE
-        tokens = (text or "").lower().split()
+        # Split on any non-alphanumeric boundary rather than whitespace, so
+        # punctuation-glued key=value text (e.g. "destination_id=dest-tokyo,")
+        # yields "tokyo" as its own token instead of one opaque blob that
+        # never matches a plain-language query mentioning the city by name.
+        tokens = _TOKEN_RE.findall((text or "").lower())
         if not tokens:
             vectors.append(values)
             continue
@@ -258,12 +266,12 @@ def read_corpus() -> list[dict[str, Any]]:
 
 def lexical_fallback_retrieve(query: str, k: int) -> list[dict[str, Any]]:
     corpus = _last_corpus_chunks or read_corpus()
-    query_tokens = set((query or "").lower().split())
+    query_tokens = set(_TOKEN_RE.findall((query or "").lower()))
     tier_weight = {"tier_1": 3, "tier_2": 2, "tier_3": 1}
 
     scored = []
     for chunk in corpus:
-        text_tokens = set(chunk.get("text", "").lower().split())
+        text_tokens = set(_TOKEN_RE.findall(chunk.get("text", "").lower()))
         overlap = len(query_tokens.intersection(text_tokens))
         scored.append(
             {
