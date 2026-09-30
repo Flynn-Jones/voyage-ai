@@ -1,0 +1,4 @@
+chroma/
+corpus/*.jsonl
+rag-audit.jsonl
+retrieval-metrics.md

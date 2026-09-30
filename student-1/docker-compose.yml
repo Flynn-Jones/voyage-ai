@@ -1,0 +1,64 @@
+# STUDENT 1 MICROSERVICE — Destination Manager, its own independent project.
+# Ports: frontend 3001, backend 5001, database 6001 (internal == external).
+#
+# Session 1 scope: three-service skeleton with /health only, proving the
+# architecture (frontend -> backend -> database API -> SQLite) before any
+# CRUD or AI logic lands. Unique service/network/volume names below so this
+# file can later be included in the shared root docker-compose.yml without
+# colliding with the other students' generic frontend/backend/database keys.
+
+services:
+  destination-frontend:
+    build: ./frontend
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - BACKEND_SERVICE_URL=http://destination-backend:5001
+    depends_on:
+      - destination-backend
+    networks:
+      - student-1-internal
+
+  destination-backend:
+    build: ./backend
+    ports:
+      - "5001:5001"
+    environment:
+      PORT: "5001"
+      DATABASE_SERVICE_URL: http://destination-database:6001
+      # Ollama config: overridable from the shell or an uncommitted local
+      # .env (see .env.example) without editing this file.
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:0.5b}
+      OLLAMA_TIMEOUT_SECONDS: ${OLLAMA_TIMEOUT_SECONDS:-60}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - destination-database
+    networks:
+      - student-1-internal
+
+  destination-database:
+    build: ./database
+    ports:
+      - "6001:6001"
+    environment:
+      - PORT=6001
+      - DB_FILE=/data/destination-db.sqlite
+    volumes:
+      - destination-db-data:/data
+    networks:
+      student-1-internal:
+      microservices-net:
+        aliases:
+          - destination-db
+
+networks:
+  student-1-internal:
+    driver: bridge
+  microservices-net:
+    external: true            # created once: docker network create microservices-net
+
+volumes:
+  destination-db-data:

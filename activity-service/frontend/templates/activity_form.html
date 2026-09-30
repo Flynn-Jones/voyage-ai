@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+
+{% block title %}VoyageAI — {% if mode == 'edit' %}Edit Activity{% else %}Register a New Activity{% endif %}{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('index') }}" class="act-btn act-btn--secondary act-back-link">&larr; Back to Home</a>
+<h1 class="act-section-title">{% if mode == 'edit' %}Edit Activity{% else %}Register a New Activity{% endif %}</h1>
+
+{% include "_activity_form.html" %}
+{% endblock %}

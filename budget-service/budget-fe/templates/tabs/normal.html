@@ -1,12 +1,13 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Normal UI</title>
     <link rel="stylesheet" href="/css/styles.css">
     <style>
         body { margin: 0; min-height: auto; background: transparent; }
-        .app-shell { max-width: none; padding: 0; }
+        .app-shell, .voyage-main { max-width: none; padding: 0; }
     </style>
 </head>
 <body>
@@ -14,13 +15,16 @@
     <section class="card">
         <h2>Budget Dashboard</h2>
         <div id="dashboard-stats" class="dashboard-stats"></div>
-        <ul id="category-breakdown" class="category-breakdown"></ul>
+        <div id="category-chart" class="category-chart"></div>
     </section>
 
     <section class="card">
         <h2>Expenses</h2>
 
         <div class="filter-row">
+            <select id="filter-trip">
+                <option value="">Any trip</option>
+            </select>
             <input id="filter-category" type="text" placeholder="Category">
             <select id="filter-status">
                 <option value="">Any status</option>
@@ -28,9 +32,9 @@
                 <option value="Paid">Paid</option>
                 <option value="Cancelled">Cancelled</option>
             </select>
-            <input id="filter-destination-id" type="number" min="1" placeholder="Destination ID">
-            <button id="apply-filters-btn" type="button">Apply Filters</button>
-            <button id="clear-filters-btn" type="button">Clear</button>
+            <input id="filter-destination-id" type="text" placeholder="Destination ID (e.g. dest-tokyo)">
+            <button id="apply-filters-btn" class="button button--primary" type="button">Apply Filters</button>
+            <button id="clear-filters-btn" class="button button--secondary" type="button">Clear</button>
         </div>
 
         <div id="expense-list-panel" class="panel"></div>
@@ -63,7 +67,7 @@
                 </div>
                 <div>
                     <label for="create_destination_id">Destination ID</label>
-                    <input id="create_destination_id" name="destination_id" type="number" min="1" required>
+                    <input id="create_destination_id" name="destination_id" type="text" placeholder="dest-tokyo" required>
                 </div>
                 <div>
                     <label for="create_status">Status</label>
@@ -74,7 +78,7 @@
                     </select>
                 </div>
             </div>
-            <button type="submit">Create Expense</button>
+            <button type="submit" class="button button--primary">Create Expense</button>
         </form>
 
         <div id="create-result" class="panel"></div>
@@ -92,7 +96,9 @@
                 </div>
                 <div>
                     <label for="edit_trip_reference">Trip Reference</label>
-                    <input id="edit_trip_reference" name="trip_reference" type="text">
+                    <select id="edit_trip_reference" name="trip_reference">
+                        <option value="">-- no change --</option>
+                    </select>
                 </div>
                 <div>
                     <label for="edit_expense">Expense</label>
@@ -112,7 +118,7 @@
                 </div>
                 <div>
                     <label for="edit_destination_id">Destination ID</label>
-                    <input id="edit_destination_id" name="destination_id" type="number" min="1">
+                    <input id="edit_destination_id" name="destination_id" type="text" placeholder="dest-tokyo">
                 </div>
                 <div>
                     <label for="edit_status">Status</label>
@@ -124,7 +130,7 @@
                     </select>
                 </div>
             </div>
-            <button type="submit">Update Expense</button>
+            <button type="submit" class="button button--primary">Update Expense</button>
         </form>
 
         <div id="edit-result" class="panel"></div>
@@ -136,7 +142,7 @@
         <form id="delete-form">
             <label for="delete_id">Expense ID</label>
             <input id="delete_id" name="id" type="number" min="1" required>
-            <button type="submit">Delete Expense</button>
+            <button type="submit" class="button button--danger">Delete Expense</button>
         </form>
 
         <div id="delete-result" class="panel"></div>
@@ -148,8 +154,21 @@ const API_BASE = "http://localhost:5004";
 
 const expenseListPanel = document.getElementById("expense-list-panel");
 const dashboardStats = document.getElementById("dashboard-stats");
-const categoryBreakdown = document.getElementById("category-breakdown");
+const categoryChart = document.getElementById("category-chart");
 
+// VoyageAI categorical palette, fixed hue order (see shared/design-system).
+// Assigned by position in the sorted category list, not by name — the pie's
+// slices only touch their immediate neighbours, and this order is the one
+// validated as safe for every adjacent pair. Past 8 categories, colors repeat.
+const CATEGORY_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"];
+
+function escapeHtml(value) {
+    const div = document.createElement("div");
+    div.textContent = value;
+    return div.innerHTML;
+}
+
+const filterTrip = document.getElementById("filter-trip");
 const filterCategory = document.getElementById("filter-category");
 const filterStatus = document.getElementById("filter-status");
 const filterDestinationId = document.getElementById("filter-destination-id");
@@ -157,9 +176,42 @@ const filterDestinationId = document.getElementById("filter-destination-id");
 const createForm = document.getElementById("create-form");
 const editForm = document.getElementById("edit-form");
 const deleteForm = document.getElementById("delete-form");
+const editTripReference = document.getElementById("edit_trip_reference");
+
+async function loadTripOptions(selectEl) {
+    try {
+        const response = await fetch(`${API_BASE}/budget/trips`);
+        const data = await response.json();
+        const previousValue = selectEl.value;
+
+        selectEl.querySelectorAll("option[data-dynamic]").forEach((option) => option.remove());
+        (data.trips || []).forEach((trip) => {
+            const option = document.createElement("option");
+            option.value = trip;
+            option.textContent = trip;
+            option.dataset.dynamic = "true";
+            selectEl.appendChild(option);
+        });
+
+        if ([...selectEl.options].some((option) => option.value === previousValue)) {
+            selectEl.value = previousValue;
+        }
+    } catch (error) {
+        // Trip list is a convenience filter; leave existing options as-is on failure.
+    }
+}
+
+function refreshTripOptions() {
+    loadTripOptions(filterTrip);
+    loadTripOptions(editTripReference);
+}
+refreshTripOptions();
+filterTrip.addEventListener("focus", () => loadTripOptions(filterTrip));
+editTripReference.addEventListener("focus", () => loadTripOptions(editTripReference));
 
 function buildFilterQuery() {
     const params = new URLSearchParams();
+    if (filterTrip.value) params.set("trip_reference", filterTrip.value);
     if (filterCategory.value.trim()) params.set("category", filterCategory.value.trim());
     if (filterStatus.value) params.set("status", filterStatus.value);
     if (filterDestinationId.value) params.set("destination_id", filterDestinationId.value);
@@ -191,27 +243,75 @@ function updateDashboard() {
         categories[category].estimated += estimated;
     });
 
+    const ratio = totalEstimated > 0 ? totalActual / totalEstimated : 0;
+    const severity = ratio > 1 ? "danger" : ratio >= 0.9 ? "warning" : "";
+    const trackClass = severity ? ` budget-meter__track--${severity}` : "";
+    const fillClass = severity ? ` budget-meter__fill--${severity}` : "";
+    const fillWidth = Math.min(ratio, 1) * 100;
+    const overNote = ratio > 1
+        ? `<span class="budget-meter__note">${formatCurrency(totalActual - totalEstimated)} over estimate</span>`
+        : "";
+
     dashboardStats.innerHTML = `
         <div class="stat-card">
             <span class="stat-label">Expenses</span>
             <span class="stat-value">${rows.length}</span>
         </div>
-        <div class="stat-card">
-            <span class="stat-label">Total Estimated</span>
-            <span class="stat-value">${formatCurrency(totalEstimated)}</span>
-        </div>
-        <div class="stat-card">
-            <span class="stat-label">Total Actual</span>
-            <span class="stat-value">${formatCurrency(totalActual)}</span>
+        <div class="stat-card stat-card--meter">
+            <span class="stat-label">Actual vs Estimated</span>
+            <div class="budget-meter__values">
+                <span class="budget-meter__value">${formatCurrency(totalActual)}</span>
+                <span class="budget-meter__of">of ${formatCurrency(totalEstimated)}</span>
+            </div>
+            <div class="budget-meter__track${trackClass}" role="img" aria-label="${formatCurrency(totalActual)} spent of ${formatCurrency(totalEstimated)} estimated">
+                <div class="budget-meter__fill${fillClass}" style="width: ${fillWidth}%"></div>
+            </div>
+            ${overNote}
         </div>
     `;
 
-    const categoryEntries = Object.entries(categories);
-    categoryBreakdown.innerHTML = categoryEntries.length
-        ? categoryEntries
-              .map(([name, data]) => `<li><span>${name} (${data.count})</span><span>${formatCurrency(data.estimated)}</span></li>`)
-              .join("")
-        : '<li class="empty">No expenses to break down.</li>';
+    renderCategoryChart(categories, totalEstimated);
+}
+
+function renderCategoryChart(categories, totalEstimated) {
+    const entries = Object.entries(categories).sort((a, b) => b[1].estimated - a[1].estimated);
+
+    if (!entries.length || totalEstimated <= 0) {
+        categoryChart.innerHTML = '<p class="empty">No expenses to break down.</p>';
+        return;
+    }
+
+    const radius = 15.9155;
+    const gap = entries.length > 1 ? 1.2 : 0;
+    let offset = 25;
+
+    const arcs = entries.map(([name, data], index) => {
+        const percent = (data.estimated / totalEstimated) * 100;
+        const dash = Math.max(percent - gap, 0);
+        const color = CATEGORY_COLORS[index % CATEGORY_COLORS.length];
+        const circle = `<circle class="category-chart__arc" cx="18" cy="18" r="${radius}" fill="none"
+            stroke="${color}" stroke-width="4"
+            stroke-dasharray="${dash} ${100 - dash}" stroke-dashoffset="${offset}"><title>${escapeHtml(name)}: ${formatCurrency(data.estimated)} (${percent.toFixed(1)}%)</title></circle>`;
+        offset -= percent;
+        return circle;
+    }).join("");
+
+    const legend = entries.map(([name, data], index) => {
+        const percent = (data.estimated / totalEstimated) * 100;
+        const color = CATEGORY_COLORS[index % CATEGORY_COLORS.length];
+        return `<li>
+            <span class="category-legend__name">
+                <span class="category-legend__swatch" style="background: ${color}"></span>
+                <span class="category-legend__label">${escapeHtml(name)} (${data.count})</span>
+            </span>
+            <span class="category-legend__value">${formatCurrency(data.estimated)} &middot; ${percent.toFixed(0)}%</span>
+        </li>`;
+    }).join("");
+
+    categoryChart.innerHTML = `
+        <svg class="category-chart__pie" viewBox="0 0 36 36" role="img" aria-label="Estimated spend by category">${arcs}</svg>
+        <ul class="category-legend">${legend}</ul>
+    `;
 }
 
 async function refreshList() {
@@ -226,6 +326,7 @@ async function refreshList() {
 
 document.getElementById("apply-filters-btn").addEventListener("click", refreshList);
 document.getElementById("clear-filters-btn").addEventListener("click", () => {
+    filterTrip.value = "";
     filterCategory.value = "";
     filterStatus.value = "";
     filterDestinationId.value = "";
@@ -240,7 +341,7 @@ createForm.addEventListener("submit", async (event) => {
         expense: formData.get("expense"),
         category: formData.get("category"),
         estimated_cost: Number(formData.get("estimated_cost")),
-        destination_id: Number(formData.get("destination_id")),
+        destination_id: formData.get("destination_id"),
         status: formData.get("status"),
     };
     const actualCost = formData.get("actual_cost");
@@ -257,6 +358,7 @@ createForm.addEventListener("submit", async (event) => {
         if (response.ok) {
             createForm.reset();
             refreshList();
+            refreshTripOptions();
         }
     } catch (error) {
         panel.innerHTML = `<p class="error">Request failed: ${error}</p>`;
@@ -269,11 +371,11 @@ editForm.addEventListener("submit", async (event) => {
     const id = formData.get("id");
     const payload = {};
 
-    ["trip_reference", "expense", "category", "status"].forEach((field) => {
+    ["trip_reference", "expense", "category", "status", "destination_id"].forEach((field) => {
         const value = formData.get(field);
         if (value) payload[field] = value;
     });
-    ["estimated_cost", "actual_cost", "destination_id"].forEach((field) => {
+    ["estimated_cost", "actual_cost"].forEach((field) => {
         const value = formData.get(field);
         if (value) payload[field] = Number(value);
     });
@@ -286,7 +388,10 @@ editForm.addEventListener("submit", async (event) => {
             body: JSON.stringify(payload),
         });
         panel.innerHTML = await response.text();
-        if (response.ok) refreshList();
+        if (response.ok) {
+            refreshList();
+            refreshTripOptions();
+        }
     } catch (error) {
         panel.innerHTML = `<p class="error">Request failed: ${error}</p>`;
     }
@@ -304,6 +409,7 @@ deleteForm.addEventListener("submit", async (event) => {
             panel.innerHTML = `<p>Expense ${id} deleted.</p>`;
             deleteForm.reset();
             refreshList();
+            refreshTripOptions();
         } else {
             panel.innerHTML = await response.text();
         }

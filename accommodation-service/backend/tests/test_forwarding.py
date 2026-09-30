@@ -1,7 +1,7 @@
 import requests
 
 from app import create_app
-from services import database_api
+from services import database_api, destination_api
 
 
 class DummyResponse:
@@ -64,3 +64,29 @@ def test_backend_returns_502_when_database_is_unavailable(monkeypatch):
 
     assert response.status_code == 502
     assert response.get_json() == {"error": "Accommodation database is unavailable."}
+
+
+def test_destinations_proxy_returns_destination_records(monkeypatch):
+    destinations = [{"destination_id": "dest-tokyo", "city": "Tokyo", "country": "Japan"}]
+    monkeypatch.setattr(destination_api, "list_destinations", lambda: destinations)
+
+    app = create_app()
+    with app.test_client() as client:
+        response = client.get("/destinations")
+
+    assert response.status_code == 200
+    assert response.get_json() == destinations
+
+
+def test_destinations_proxy_returns_503_when_service_is_unavailable(monkeypatch):
+    def unavailable():
+        raise destination_api.DestinationUnavailableError("destination service is unavailable")
+
+    monkeypatch.setattr(destination_api, "list_destinations", unavailable)
+
+    app = create_app()
+    with app.test_client() as client:
+        response = client.get("/destinations")
+
+    assert response.status_code == 503
+    assert response.get_json() == {"error": "Destination service is unavailable."}

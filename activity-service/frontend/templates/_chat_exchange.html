@@ -1,0 +1,10 @@
+{% from "_chat_form.html" import chat_form %}
+<div class="act-chat__bubble act-chat__bubble--user">{{ message }}</div>
+{% if error %}
+  <div class="act-chat__bubble act-chat__bubble--error">Could not get a response: {{ error }}</div>
+{% else %}
+  <div class="act-chat__bubble act-chat__bubble--assistant">{{ reply or "No reply received." }}</div>
+  {# Only clear the input on success — on error, leave the failed message in
+     the box so the user can retry/edit it, matching the original behavior. #}
+  {{ chat_form(oob=True) }}
+{% endif %}

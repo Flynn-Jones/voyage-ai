@@ -1,0 +1,41 @@
+{% if error %}
+<div class="alert alert--error">{{ error }}</div>
+{% elif rows %}
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>City</th>
+      <th>Country</th>
+      <th>Travel style</th>
+      <th>Avg. daily cost</th>
+      <th>Trip length</th>
+      <th>Categories</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for destination in rows %}
+    <tr>
+      <td><a href="{{ url_for('destination_detail', destination_id=destination.destination_id) }}">{{ destination.city }}</a></td>
+      <td>{{ destination.country }}</td>
+      <td>{{ destination.travel_style or '—' }}</td>
+      <td>{{ '$%.2f'|format(destination.average_daily_cost) if destination.average_daily_cost is not none else '—' }}</td>
+      <td>{{ destination.recommended_trip_length if destination.recommended_trip_length is not none else '—' }}</td>
+      <td>{{ (destination.categories or []) | join(', ') or '—' }}</td>
+      <td class="actions">
+        <a class="button button--small" href="{{ url_for('destination_detail', destination_id=destination.destination_id) }}">View</a>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty-state">
+  {% if q or country %}
+    No destinations match your search.
+    <a href="{{ url_for('index') }}">Clear search and filters</a>
+  {% else %}
+    No destinations yet. <a href="{{ url_for('new_destination') }}">Add the first one</a>.
+  {% endif %}
+</div>
+{% endif %}

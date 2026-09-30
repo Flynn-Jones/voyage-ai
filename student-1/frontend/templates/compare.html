@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Compare destinations{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="page-header">
+    <div>
+      <h1>Compare destinations</h1>
+      <p>Ask the AI to compare two destinations for a traveller's interests, grounded in the destination database.</p>
+    </div>
+  </div>
+
+  <form class="stacked-form"
+        method="post" action="{{ url_for('compare') }}"
+        hx-post="{{ url_for('compare') }}"
+        hx-target="#comparison" hx-swap="innerHTML"
+        hx-indicator="#compare-spinner">
+    <div class="field-grid">
+      <label>
+        <span>City A</span>
+        <select name="city_a" required>
+          {% for destination in rows %}
+          <option value="{{ destination.city }}" {% if destination.city == city_a %}selected{% endif %}>{{ destination.city }}, {{ destination.country }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        <span>City B</span>
+        <select name="city_b" required>
+          {% for destination in rows %}
+          <option value="{{ destination.city }}" {% if destination.city == city_b %}selected{% endif %}>{{ destination.city }}, {{ destination.country }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="full-width">
+        <span>Traveller interests</span>
+        <input type="text" name="preferences" value="{{ preferences }}" placeholder="e.g. nightlife and food">
+      </label>
+    </div>
+    <div class="form-actions">
+      <button class="button button--primary" type="submit">Compare</button>
+      <span id="compare-spinner" class="htmx-indicator spinner" aria-live="polite">Asking Ollama&hellip;</span>
+    </div>
+  </form>
+
+  <div id="comparison">
+    {% include "_comparison.html" %}
+  </div>
+</section>
+{% endblock %}

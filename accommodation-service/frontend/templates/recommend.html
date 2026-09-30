@@ -15,7 +15,16 @@
     <div class="field-grid">
       <label>
         <span>Destination city</span>
-        <input name="destination_city" placeholder="Tokyo" required>
+        {% if destinations %}
+          <select name="destination_city" required>
+            <option value="">Select a city</option>
+            {% for destination in destinations %}
+              <option value="{{ destination.city }}">{{ destination.city }}{% if destination.country %}, {{ destination.country }}{% endif %}</option>
+            {% endfor %}
+          </select>
+        {% else %}
+          <input name="destination_city" placeholder="Tokyo" required>
+        {% endif %}
       </label>
       <label>
         <span>Max price</span>

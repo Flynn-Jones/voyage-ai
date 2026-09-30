@@ -6,7 +6,7 @@ from views import html_formatters
 
 normal_ui_bp = Blueprint("normal_ui", __name__)
 
-FILTERABLE_FIELDS = ("category", "destination_id", "status")
+FILTERABLE_FIELDS = ("category", "destination_id", "status", "trip_reference")
 
 
 @normal_ui_bp.route("/")

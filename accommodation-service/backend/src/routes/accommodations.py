@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request
 
-from services import database_api
+from services import database_api, destination_api
 
 bp = Blueprint("accommodations", __name__)
 
@@ -35,6 +35,18 @@ def health():
         payload = {"status": "unknown"}
 
     return jsonify(payload), response.status_code
+
+
+@bp.get("/destinations")
+def list_destinations():
+    try:
+        return jsonify(destination_api.list_destinations())
+    except destination_api.DestinationNotFoundError:
+        return jsonify({"error": "Destinations not found"}), 404
+    except destination_api.DestinationUnavailableError:
+        return jsonify({"error": "Destination service is unavailable."}), 503
+    except destination_api.DestinationServiceError:
+        return jsonify({"error": "Destination service is unavailable."}), 502
 
 
 @bp.get("/accommodations")

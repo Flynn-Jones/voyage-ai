@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Delete {{ destination.city }}{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="page-header">
+    <h1>Delete this destination?</h1>
+  </div>
+
+  <div class="alert alert--error">
+    This action cannot be undone.
+  </div>
+
+  <div class="detail-grid">
+    <div>
+      <span class="detail-label">City</span>
+      <span>{{ destination.city }}</span>
+    </div>
+    <div>
+      <span class="detail-label">Country</span>
+      <span>{{ destination.country }}</span>
+    </div>
+    <div>
+      <span class="detail-label">Travel style</span>
+      <span>{{ destination.travel_style or '—' }}</span>
+    </div>
+    <div>
+      <span class="detail-label">Average daily cost</span>
+      <span>{{ '$%.2f'|format(destination.average_daily_cost) if destination.average_daily_cost is not none else '—' }}</span>
+    </div>
+  </div>
+
+  <form method="post" action="{{ url_for('delete_destination', destination_id=destination.destination_id) }}">
+    <div class="form-actions">
+      <button class="button button--danger" type="submit">Delete permanently</button>
+      <a class="button button--secondary" href="{{ url_for('destination_detail', destination_id=destination.destination_id) }}">Cancel</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

@@ -15,7 +15,7 @@
 set -uo pipefail   # no -e: we want to keep going even if one project fails
 
 PROJECTS=(shared
-  destination-service
+  student-1
   accommodation-service
   activity-service
   budget-service

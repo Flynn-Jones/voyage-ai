@@ -1,0 +1,59 @@
+{# RAG Mode panel, included by rag_mode.html (which owns the page shell, tab
+   strip, styles, and the ON/OFF toggle script). Every form htmx-posts to
+   /rag-mode/call with the toggle's #rag-mode-value, and prepends the returned
+   tabs/_rag_call.html card to #rag-log, newest first. #}
+<div class="act-mcp">
+  <section class="act-mcp__panel">
+    <input type="hidden" id="rag-mode-value" name="rag_mode" value="on">
+    <label class="act-rag__toggle">
+      <input type="checkbox" id="rag-toggle" checked>
+      <span id="rag-toggle-label" class="act-mcp__status">RAG ON</span>
+      <span class="act-rag__meta">OFF sends X-RAG-Mode: off, which the backend rejects with 403.</span>
+    </label>
+
+    <h2>Refresh corpus</h2>
+    <form id="rag-refresh-form" class="act-chat__form"
+          hx-post="{{ url_for('rag_mode_call') }}" hx-include="#rag-mode-value"
+          hx-target="#rag-log" hx-swap="afterbegin"
+          hx-indicator="#rag-pending"
+          hx-disabled-elt="#rag-refresh-form button"
+          hx-on::before-request="document.getElementById('rag-empty')?.remove()">
+      <input type="hidden" name="kind" value="refresh">
+      <button type="submit" class="act-btn">Refresh Corpus</button>
+    </form>
+
+    <h2>Retrieve context (short phrase)</h2>
+    <form id="rag-retrieve-form" class="act-chat__form act-rag__form"
+          hx-post="{{ url_for('rag_mode_call') }}" hx-include="#rag-mode-value"
+          hx-target="#rag-log" hx-swap="afterbegin"
+          hx-indicator="#rag-pending"
+          hx-disabled-elt="#rag-retrieve-form input, #rag-retrieve-form button"
+          hx-on::before-request="document.getElementById('rag-empty')?.remove()">
+      <input type="hidden" name="kind" value="retrieve">
+      <input type="text" name="query" placeholder="e.g. harbour kayaking price" autocomplete="off" required>
+      <input type="text" name="k" value="5" inputmode="numeric" aria-label="Top k">
+      <button type="submit" class="act-btn">Retrieve</button>
+    </form>
+
+    <h2>Answer with citations (full question)</h2>
+    <form id="rag-answer-form" class="act-chat__form act-rag__form"
+          hx-post="{{ url_for('rag_mode_call') }}" hx-include="#rag-mode-value"
+          hx-target="#rag-log" hx-swap="afterbegin"
+          hx-indicator="#rag-pending"
+          hx-disabled-elt="#rag-answer-form input, #rag-answer-form button"
+          hx-on::before-request="document.getElementById('rag-empty')?.remove()">
+      <input type="hidden" name="kind" value="answer">
+      <input type="text" name="query" placeholder="e.g. How many Adventure activities are there?" autocomplete="off" required>
+      <input type="text" name="k" value="5" inputmode="numeric" aria-label="Top k">
+      <button type="submit" class="act-btn">Answer</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>Results</h2>
+    <div id="rag-pending" class="act-chat__bubble act-chat__bubble--pending act-pending htmx-indicator">Calling RAG server…</div>
+    <div id="rag-log" class="act-chat__log act-mcp__log">
+      <p id="rag-empty" class="act-chat__empty">No RAG calls yet — refresh, retrieve, or ask something.</p>
+    </div>
+  </section>
+</div>

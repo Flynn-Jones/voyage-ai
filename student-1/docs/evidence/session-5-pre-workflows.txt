@@ -1,0 +1,34 @@
+=== SESSION 5 PRE-CHANGE WORKFLOW STATE ===
+captured 2026-09-02T05:19:41Z
+
+=== git ls-files -s .github/workflows (note 0-byte blobs) ===
+100644 64665d07ff43e907a90d5a4b9b55c5aaf634dc97 0	.github/workflows/cloud-deployment.yml
+100644 e69de29bb2d1d6434b8b29ae775ad8c2e48c5391 0	.github/workflows/integration-ci.yml
+100644 e69de29bb2d1d6434b8b29ae775ad8c2e48c5391 0	.github/workflows/student-1-ci.yml
+100644 e69de29bb2d1d6434b8b29ae775ad8c2e48c5391 0	.github/workflows/student-2-ci.yml
+100644 e69de29bb2d1d6434b8b29ae775ad8c2e48c5391 0	.github/workflows/student-3-ci.yml
+100644 20ba9ce1954538bbe3383430e5642df82453e94e 0	.github/workflows/student-4-ci.yml
+100644 e69de29bb2d1d6434b8b29ae775ad8c2e48c5391 0	.github/workflows/student-5-ci.yml
+
+=== blob sizes ===
+100644 blob 64665d07ff43e907a90d5a4b9b55c5aaf634dc97      21	.github/workflows/cloud-deployment.yml
+100644 blob e69de29bb2d1d6434b8b29ae775ad8c2e48c5391       0	.github/workflows/integration-ci.yml
+100644 blob e69de29bb2d1d6434b8b29ae775ad8c2e48c5391       0	.github/workflows/student-1-ci.yml
+100644 blob e69de29bb2d1d6434b8b29ae775ad8c2e48c5391       0	.github/workflows/student-2-ci.yml
+100644 blob e69de29bb2d1d6434b8b29ae775ad8c2e48c5391       0	.github/workflows/student-3-ci.yml
+100644 blob 20ba9ce1954538bbe3383430e5642df82453e94e    3260	.github/workflows/student-4-ci.yml
+100644 blob e69de29bb2d1d6434b8b29ae775ad8c2e48c5391       0	.github/workflows/student-5-ci.yml
+
+=== gh run list --limit 12 (all red, 0s = invalid empty workflows) ===
+completed	failure	feat(student-1): add Ollama destination comparison	.github/workflows/student-3-ci.yml	feat/destination-service	push	33592673305	0s	2026-09-02T04:55:42Z
+completed	failure	feat(student-1): add Ollama destination comparison	.github/workflows/integration-ci.yml	feat/destination-service	push	33592672731	0s	2026-09-02T04:55:41Z
+completed	failure	feat(student-1): add Ollama destination comparison	.github/workflows/student-2-ci.yml	feat/destination-service	push	33592672214	0s	2026-09-02T04:55:41Z
+completed	failure	feat(student-1): add Ollama destination comparison	.github/workflows/student-1-ci.yml	feat/destination-service	push	33592671731	0s	2026-09-02T04:55:40Z
+completed	failure	feat(student-1): add Ollama destination comparison	.github/workflows/student-5-ci.yml	feat/destination-service	push	33592671042	0s	2026-09-02T04:55:40Z
+completed	failure	feat(student-1): add Ollama destination comparison	.github/workflows/cloud-deployment.yml	feat/destination-service	push	33592670427	0s	2026-09-02T04:55:39Z
+completed	failure	feat(student-1): complete destination management frontend	.github/workflows/cloud-deployment.yml	feat/destination-service	push	33584716705	0s	2026-09-02T02:50:20Z
+completed	failure	feat(student-1): complete destination management frontend	.github/workflows/student-1-ci.yml	feat/destination-service	push	33584716219	0s	2026-09-02T02:50:20Z
+completed	failure	feat(student-1): complete destination management frontend	.github/workflows/student-3-ci.yml	feat/destination-service	push	33584715559	0s	2026-09-02T02:50:19Z
+completed	failure	feat(student-1): complete destination management frontend	.github/workflows/student-2-ci.yml	feat/destination-service	push	33584714859	0s	2026-09-02T02:50:19Z
+completed	failure	feat(student-1): complete destination management frontend	.github/workflows/integration-ci.yml	feat/destination-service	push	33584714108	0s	2026-09-02T02:50:18Z
+completed	failure	feat(student-1): complete destination management frontend	.github/workflows/student-5-ci.yml	feat/destination-service	push	33584713442	0s	2026-09-02T02:50:17Z

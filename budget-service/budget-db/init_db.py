@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS expenses (
     category TEXT NOT NULL,
     estimated_cost REAL NOT NULL,
     actual_cost REAL,
-    destination_id INTEGER NOT NULL,
+    destination_id TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'Planned',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
@@ -25,18 +25,18 @@ CREATE TABLE IF NOT EXISTS expenses (
 SEED_TIMESTAMP = "2026-08-01T00:00:00Z"
 
 SEED_EXPENSES = [
-    ("TRIP-1001", "Flight to Paris", "Transport", 450.00, 480.00, 1, "Paid"),
-    ("TRIP-1001", "Hotel Le Marais - 4 nights", "Accommodation", 620.00, 620.00, 1, "Paid"),
-    ("TRIP-1001", "Museum passes", "Activities", 90.00, None, 1, "Planned"),
-    ("TRIP-1002", "Train to Rome", "Transport", 120.00, 115.00, 2, "Paid"),
-    ("TRIP-1002", "Airbnb - Trastevere", "Accommodation", 380.00, None, 2, "Planned"),
-    ("TRIP-1002", "Cooking class", "Activities", 75.00, None, 2, "Planned"),
-    ("TRIP-1003", "Flight to Tokyo", "Transport", 900.00, 940.00, 3, "Paid"),
-    ("TRIP-1003", "Shinjuku hotel - 5 nights", "Accommodation", 700.00, None, 3, "Planned"),
-    ("TRIP-1003", "JR rail pass", "Transport", 210.00, None, 3, "Cancelled"),
-    ("TRIP-1004", "Car rental - Gold Coast", "Transport", 180.00, 175.00, 4, "Paid"),
-    ("TRIP-1004", "Theme park tickets", "Activities", 260.00, None, 4, "Planned"),
-    ("TRIP-1005", "Ferry to island", "Transport", 60.00, None, 5, "Cancelled"),
+    ("TRIP-1001", "Flight to Paris", "Transport", 450.00, 480.00, "dest-paris", "Paid"),
+    ("TRIP-1001", "Hotel Le Marais - 4 nights", "Accommodation", 620.00, 620.00, "dest-paris", "Paid"),
+    ("TRIP-1001", "Museum passes", "Activities", 90.00, None, "dest-paris", "Planned"),
+    ("TRIP-1002", "Shinkansen to Kyoto", "Transport", 120.00, 115.00, "dest-kyoto", "Paid"),
+    ("TRIP-1002", "Gion Hatanaka - 2 nights", "Accommodation", 380.00, None, "dest-kyoto", "Planned"),
+    ("TRIP-1002", "Cooking class", "Activities", 75.00, None, "dest-kyoto", "Planned"),
+    ("TRIP-1003", "Flight to Tokyo", "Transport", 900.00, 940.00, "dest-tokyo", "Paid"),
+    ("TRIP-1003", "Shinjuku Granbell Hotel - 5 nights", "Accommodation", 700.00, None, "dest-tokyo", "Planned"),
+    ("TRIP-1003", "JR rail pass", "Transport", 210.00, None, "dest-tokyo", "Cancelled"),
+    ("TRIP-1004", "Car rental - Osaka", "Transport", 180.00, 175.00, "dest-osaka", "Paid"),
+    ("TRIP-1004", "Theme park tickets", "Activities", 260.00, None, "dest-osaka", "Planned"),
+    ("TRIP-1005", "Ferry to island", "Transport", 60.00, None, "dest-bangkok", "Cancelled"),
 ]
 
 

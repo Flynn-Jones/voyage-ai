@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP Mode</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <style>
+        body { margin: 0; min-height: auto; background: transparent; }
+        .app-shell, .voyage-main { max-width: none; padding: 0; }
+        pre { white-space: pre-wrap; word-break: break-word; }
+    </style>
+</head>
+<body>
+<main class="app-shell">
+    <section class="card">
+        <h2>MCP Tools</h2>
+        <p class="rag-helper">Calls the shared local MCP server's registered tools and shows the structured result.</p>
+
+        <form id="mcp-expenses-form">
+            <label for="mcp-trip">List Expenses (optional trip filter)</label>
+            <div class="filter-row">
+                <input id="mcp-trip" name="trip_reference" type="text" placeholder="e.g. TRIP-1001">
+                <button type="submit" class="button button--primary">Run list_expenses</button>
+            </div>
+        </form>
+        <div id="mcp-expenses-result" class="panel"></div>
+    </section>
+
+    <section class="card">
+        <h2>MCP: Accommodation by Destination</h2>
+        <form id="mcp-accommodation-form">
+            <label for="mcp-destination">Destination</label>
+            <div class="filter-row">
+                <input id="mcp-destination" name="destination" type="text" placeholder="e.g. Tokyo" required>
+                <button type="submit" class="button button--primary">Run get_accommodation_by_destination</button>
+            </div>
+        </form>
+        <div id="mcp-accommodation-result" class="panel"></div>
+    </section>
+</main>
+
+<script>
+const API_BASE = "http://localhost:5004";
+
+function escapeHtml(value) {
+    const div = document.createElement("div");
+    div.textContent = value;
+    return div.innerHTML;
+}
+
+async function callMcpTool(panel, url, payload) {
+    panel.innerHTML = "<p>Calling MCP tool...</p>";
+    try {
+        const response = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-MCP-Mode": "on" },
+            body: JSON.stringify(payload || {}),
+        });
+        const data = await response.json();
+        if (!response.ok || data.status === "error") {
+            panel.innerHTML = `<p class="error">${escapeHtml(data.error || "MCP tool call failed.")}</p>`;
+            return;
+        }
+        panel.innerHTML = `<pre>${escapeHtml(JSON.stringify(data.result ?? data, null, 2))}</pre>`;
+    } catch (error) {
+        panel.innerHTML = `<p class="error">Request failed: ${escapeHtml(String(error))}</p>`;
+    }
+}
+
+document.getElementById("mcp-expenses-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const tripReference = document.getElementById("mcp-trip").value.trim();
+    callMcpTool(
+        document.getElementById("mcp-expenses-result"),
+        `${API_BASE}/budget/mcp/list-expenses`,
+        { trip_reference: tripReference || undefined }
+    );
+});
+
+document.getElementById("mcp-accommodation-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const destination = document.getElementById("mcp-destination").value.trim();
+    callMcpTool(
+        document.getElementById("mcp-accommodation-result"),
+        `${API_BASE}/budget/mcp/accommodation-by-destination`,
+        { destination }
+    );
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG Mode</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <style>
+        body { margin: 0; min-height: auto; background: transparent; }
+        .app-shell, .voyage-main { max-width: none; padding: 0; }
+        .confidence { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.8rem; font-weight: 600; }
+        .confidence.high { background: #d4f7dc; color: #146c2e; }
+        .confidence.medium { background: #fff3cd; color: #8a6d00; }
+        .confidence.low, .confidence.insufficient { background: #fde2e1; color: #9b1c1c; }
+        .citation-list { font-size: 0.85rem; color: #555; }
+    </style>
+</head>
+<body>
+<main class="app-shell">
+    <section class="card">
+        <h2>Ask with Grounded Answers (RAG)</h2>
+        <p class="rag-helper">Retrieves context from the shared knowledge base (budget expenses, accommodation data, and project docs) and answers only from what it finds, with citations and a confidence category.</p>
+
+        <form id="rag-answer-form">
+            <label for="rag-question">Question</label>
+            <textarea id="rag-question" name="query" rows="2" placeholder="e.g. What accommodation options are logged for Tokyo?" required></textarea>
+            <button type="submit" class="button button--primary">Ask</button>
+        </form>
+
+        <div id="rag-answer-result" class="panel"></div>
+    </section>
+
+    <section class="card">
+        <h2>Retrieve Raw Context</h2>
+        <form id="rag-retrieve-form">
+            <label for="rag-query">Query</label>
+            <div class="filter-row">
+                <input id="rag-query" name="query" type="text" placeholder="e.g. budget expenses over estimate" required>
+                <button type="submit" class="button button--primary">Retrieve Context</button>
+            </div>
+        </form>
+        <div id="rag-retrieve-result" class="panel"></div>
+    </section>
+
+    <section class="card">
+        <button id="rag-refresh-btn" type="button" class="button">Refresh Corpus</button>
+        <div id="rag-refresh-result" class="panel"></div>
+    </section>
+</main>
+
+<script>
+const API_BASE = "http://localhost:5004";
+
+function escapeHtml(value) {
+    const div = document.createElement("div");
+    div.textContent = value;
+    return div.innerHTML;
+}
+
+async function postRag(panel, url, payload) {
+    panel.innerHTML = '<p>Thinking... this can take up to a minute on the first request while the model loads.</p>';
+    try {
+        const response = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-RAG-Mode": "on" },
+            body: JSON.stringify(payload || {}),
+        });
+        const data = await response.json();
+        return { ok: response.ok, data };
+    } catch (error) {
+        panel.innerHTML = `<p class="error">Request failed: ${escapeHtml(String(error))}</p>`;
+        return null;
+    }
+}
+
+document.getElementById("rag-answer-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const panel = document.getElementById("rag-answer-result");
+    const query = document.getElementById("rag-question").value.trim();
+    const result = await postRag(panel, `${API_BASE}/budget/rag/answer`, { query });
+    if (!result) return;
+
+    const { data } = result;
+    if (data.status === "error") {
+        panel.innerHTML = `<p class="error">${escapeHtml(data.error)}</p>`;
+        return;
+    }
+
+    const confidenceClass = (data.confidence_category || "unknown").toLowerCase();
+    const citations = (data.citations || [])
+        .map((c) => `${escapeHtml(c.source_id || "unknown")} (${escapeHtml(c.authority_tier || "")})`)
+        .join(", ");
+
+    panel.innerHTML = `
+        <p><span class="confidence ${confidenceClass}">${escapeHtml(data.confidence_category || "Unknown")} confidence</span></p>
+        <div class="ai-response">${escapeHtml(data.answer || "")}</div>
+        <p class="citation-list">${citations ? "Sources: " + citations : "No sources cited."}</p>
+    `;
+});
+
+document.getElementById("rag-retrieve-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const panel = document.getElementById("rag-retrieve-result");
+    const query = document.getElementById("rag-query").value.trim();
+    const result = await postRag(panel, `${API_BASE}/budget/rag/retrieve`, { query, k: 5 });
+    if (!result) return;
+
+    const { data } = result;
+    if (data.status === "error") {
+        panel.innerHTML = `<p class="error">${escapeHtml(data.error)}</p>`;
+        return;
+    }
+    panel.innerHTML = `<pre>${escapeHtml(JSON.stringify(data.results, null, 2))}</pre>`;
+});
+
+document.getElementById("rag-refresh-btn").addEventListener("click", async () => {
+    const panel = document.getElementById("rag-refresh-result");
+    const result = await postRag(panel, `${API_BASE}/budget/rag/refresh`, {});
+    if (!result) return;
+    panel.innerHTML = `<pre>${escapeHtml(JSON.stringify(result.data, null, 2))}</pre>`;
+});
+</script>
+</body>
+</html>
