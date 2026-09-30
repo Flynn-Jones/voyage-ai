@@ -53,32 +53,33 @@ def generate_recommendation(prompt: str, model: str | None = None, timeout: int 
         raise LLMServiceError(f"Unexpected Ollama response: {response.text}") from exc
 
 
-def _build_prompt(request_payload: dict, shortlist: list[dict]) -> str:
-    prompt_text = prompt_loader.load_prompt("recommend.txt")
-    return prompt_text.format(
-        destination_city=request_payload.get("destination_city", ""),
-        max_price=request_payload.get("max_price", ""),
-        interests=", ".join(request_payload.get("interests", [])),
-        shortlist=json.dumps(shortlist, ensure_ascii=False),
-    )
-
-
-def _build_ranking_prompt(request_payload: dict, candidates: list[dict]) -> str:
+def _build_evidence(request_payload: dict, candidates: list[dict], candidates_label: str) -> str:
     return (
-        "You are ranking accommodation candidates for a traveler. "
-        "Rank the accommodation candidates from best to worst based on how well they match the user's request. "
-        "Return valid JSON only, as a list of objects sorted best-to-worst. "
-        "Each object must include: id, name, score, and reason. "
-        "The score should be a float between 0 and 1.\n\n"
-        f"User request:\n"
+        "User request:\n"
         f"- destination_city: {request_payload.get('destination_city', '')}\n"
         f"- max_price: {request_payload.get('max_price', '')}\n"
         f"- interests: {', '.join(request_payload.get('interests', []))}\n\n"
-        "Candidates:\n"
-        f"{json.dumps(candidates, ensure_ascii=False)}\n\n"
-        "Respond with JSON in this shape: "
-        "[{\"id\": 1, \"name\": \"Hotel A\", \"score\": 0.92, \"reason\": \"Best match...\"}]"
+        f"{candidates_label}:\n"
+        f"{json.dumps(candidates, ensure_ascii=False)}"
     )
+
+
+def call_accommodation_agent(
+    system_prompt_file: str,
+    task_prompt_file: str,
+    request_payload: dict,
+    candidates: list[dict],
+    candidates_label: str = "Candidates",
+    timeout: int = 180,
+):
+    """Layer system + context + task prompt files over the evidence, then call Ollama."""
+    system_prompt = prompt_loader.load_accommodation_prompt(system_prompt_file)
+    context_prompt = prompt_loader.load_accommodation_prompt("context_prompt.txt")
+    task_prompt = prompt_loader.load_accommodation_prompt(task_prompt_file)
+    evidence = _build_evidence(request_payload, candidates, candidates_label)
+
+    prompt = f"{system_prompt}\n\n{context_prompt}\n\n{task_prompt}\n\nEvidence:\n{evidence}"
+    return generate_recommendation(prompt, timeout=timeout)
 
 
 def _parse_json_recommendations(value: str) -> Any:
@@ -103,13 +104,23 @@ def _parse_json_recommendations(value: str) -> Any:
         return parsed
 
 
-def rank_accommodations(request_payload: dict, candidates: list[dict]) -> list[dict]:
+def rank_accommodations(
+    system_prompt_file: str,
+    task_prompt_file: str,
+    request_payload: dict,
+    candidates: list[dict],
+) -> list[dict]:
     if not candidates:
         return []
 
-    prompt = _build_ranking_prompt(request_payload, candidates)
     start = time.perf_counter()
-    result = generate_recommendation(prompt, timeout=180)
+    result = call_accommodation_agent(
+        system_prompt_file,
+        task_prompt_file,
+        request_payload,
+        candidates,
+        candidates_label="Candidates",
+    )
     elapsed = time.perf_counter() - start
     if not isinstance(result, dict):
         raise LLMServiceError(f"Unexpected Ollama response shape: {result!r}")
@@ -143,10 +154,20 @@ def rank_accommodations(request_payload: dict, candidates: list[dict]) -> list[d
     return ranked
 
 
-def recommend_accommodation(request_payload: dict, shortlist: list[dict]) -> dict:
-    prompt = _build_prompt(request_payload, shortlist)
+def recommend_accommodation(
+    system_prompt_file: str,
+    task_prompt_file: str,
+    request_payload: dict,
+    shortlist: list[dict],
+) -> dict:
     start = time.perf_counter()
-    result = generate_recommendation(prompt, timeout=180)
+    result = call_accommodation_agent(
+        system_prompt_file,
+        task_prompt_file,
+        request_payload,
+        shortlist,
+        candidates_label="Shortlist candidates",
+    )
     elapsed = time.perf_counter() - start
     if not isinstance(result, dict):
         raise LLMServiceError(f"Unexpected Ollama response shape: {result!r}")

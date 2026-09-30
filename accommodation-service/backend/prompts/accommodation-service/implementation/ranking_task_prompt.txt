@@ -1,0 +1,21 @@
+Rank the accommodation candidates from best to worst based on how well they match the
+traveller's request in the evidence.
+
+For EACH candidate, score the fit before ordering:
+- If max_price is given, a candidate whose price_per_night is above it scores below 0.2.
+- If destination_city is given, a candidate in a different city scores below 0.2.
+- Otherwise weigh rating, location, and how the amenities and description match the
+  stated interests.
+- Do not credit a candidate for an interest its evidence does not support.
+
+Work through this in order, silently:
+Step 1: List every candidate's id, name, price_per_night, rating, and amenities.
+Step 2: For each one, assign a score between 0 and 1.
+Step 3: Only after completing steps 1-2 for every candidate, write your final answer.
+
+Do not include steps 1-3 in your output. Do not drop any candidate from the ranking.
+
+Return valid JSON only, as a list of objects sorted best-to-worst, with no prose and no
+markdown fences. Each object must include id, name, score, and reason, where score is a
+float between 0 and 1:
+[{"id": 1, "name": "Hotel A", "score": 0.92, "reason": "Best match..."}]
