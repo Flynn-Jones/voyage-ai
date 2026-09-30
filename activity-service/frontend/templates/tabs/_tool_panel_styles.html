@@ -85,14 +85,96 @@
     margin: 0 0 10px;
   }
 
-  .act-mcp__tools {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.85rem;
+  /* Rounded card around the tools table. border-radius has no effect on a
+     border-collapse table, so the card lives on a wrapper; overflow clips the
+     table's corners to it. */
+  .act-mcp__box {
     margin-bottom: 24px;
     background: var(--act-white);
     border: 1px solid var(--act-border);
     border-radius: var(--act-radius);
+    box-shadow: var(--act-shadow);
+    overflow: hidden;
+  }
+
+  .act-visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  /* Custom dropdown standing in for the native tool select */
+  .act-select { position: relative; }
+
+  .act-select__button {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+    font-family: inherit;
+    font-size: 0.95rem;
+    padding: 10px 12px;
+    border: 1px solid var(--act-border);
+    border-radius: var(--act-radius);
+    background: var(--act-offwhite);
+    color: var(--act-text);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .act-select__button::after {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: translateY(-2px) rotate(45deg);
+    transition: transform 0.15s;
+  }
+
+  .act-select__button[aria-expanded="true"]::after { transform: translateY(2px) rotate(-135deg); }
+
+  .act-select__button:focus-visible,
+  .act-select__button[aria-expanded="true"] {
+    outline: none;
+    border-color: var(--act-red);
+    background: var(--act-white);
+  }
+
+  .act-select__list {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    min-width: 100%;
+    margin: 0;
+    padding: 6px;
+    list-style: none;
+    background: var(--act-white);
+    border: 1px solid var(--act-border);
+    border-radius: var(--act-radius);
+    box-shadow: var(--act-shadow);
+    z-index: 20;
+  }
+
+  .act-select__list li {
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  .act-select__list li.is-active { background: var(--act-rose); }
+  .act-select__list li[aria-selected="true"] { color: var(--act-maroon); font-weight: 600; }
+
+  .act-mcp__tools {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
   }
 
   .act-mcp__tools th,
@@ -168,4 +250,16 @@
 
   .act-mcp__call details summary { cursor: pointer; color: var(--act-text-muted); margin-top: 8px; }
   .act-mcp__error { color: var(--act-maroon); font-weight: 600; margin: 4px 0 0; }
+
+  .act-mcp__answer {
+    margin: 0;
+    padding: 10px 12px;
+    background: var(--act-rose);
+    border-radius: 8px;
+    font-size: 0.95rem;
+    line-height: 1.45;
+    color: var(--act-text);
+  }
+
+  .act-mcp__note { color: var(--act-text-muted); font-style: italic; margin: 8px 0 0; }
 </style>

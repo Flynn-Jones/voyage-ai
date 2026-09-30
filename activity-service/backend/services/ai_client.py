@@ -229,6 +229,31 @@ def generate_grounded_reply(message, candidates):
     return _generate(_build_grounded_prompt(message, candidates))
 
 
+def _build_tool_answer_prompt(message, tool_name, result):
+    return (
+        "You are a helpful assistant for a travel activity planning app. A "
+        f"tool named {tool_name} was called to answer the user's question, "
+        "and returned the JSON below. Answer the question in one to three "
+        "plain sentences using ONLY this data. Do not invent activities, "
+        "times, or prices that aren't in it. If the data is empty or reports "
+        "an error, say so plainly (e.g. that nothing is scheduled). Write "
+        "times in a readable form (e.g. \"Oct 6, 2026 at 8:00 AM\"). Do not "
+        "mention JSON, tools, or field names.\n\n"
+        f"Tool result:\n{json.dumps(result, indent=2)}\n\n"
+        f"User question: {message}\n"
+    )
+
+
+def generate_tool_answer(message, tool_name, result):
+    """MCP Ask's final step: turn a tool's raw result into a plain-language
+    answer grounded only in that result, as generate_grounded_reply does for
+    AI Mode. Uses OLLAMA_INTENT_MODEL, the model Ask's tool-selection step
+    has just loaded, rather than swapping in a second one."""
+    return _generate(
+        _build_tool_answer_prompt(message, tool_name, result), temperature=0.0, model=OLLAMA_INTENT_MODEL
+    )
+
+
 def format_no_match_reply(intent, used_fallback=False):
     """Adapt step (zero matches): a deterministic, no-LLM-call reply — no
     real data exists to ground a generated answer in, so there's nothing an

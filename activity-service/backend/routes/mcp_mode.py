@@ -9,7 +9,9 @@ a tool + arguments using prompts/mcp/implementation/tool_selection_prompt.txt,
 the selection is validated against the same registry the direct routes use,
 and only then is the tool called. Following the lesson from AI Mode's
 extract_intent, output that can't be parsed or names an unknown tool is
-reported back as such — nothing is guessed and no tool is called.
+reported back as such — nothing is guessed and no tool is called. Once the
+tool has run, the model turns its result into a plain-language answer
+grounded only in that result; the raw result is still returned alongside.
 """
 import json
 import logging
@@ -241,9 +243,19 @@ def mcp_ask():
             "model_output": raw,
         }), 502
 
+    # The tool call already succeeded, so a failed answer step doesn't fail
+    # the request — the raw result is still worth showing on its own.
+    answer, answer_error = None, None
+    try:
+        answer = ai_client.generate_tool_answer(message, selection["tool"], result.get("result"))
+    except ai_client.AIServiceError as exc:
+        answer_error = f"AI answer unavailable: {exc}"
+
     return jsonify({
         **result,
         "tool": selection["tool"],
         "arguments": selection["arguments"],
         "model_output": raw,
+        "answer": answer,
+        "answer_error": answer_error,
     }), _result_status_code(result)

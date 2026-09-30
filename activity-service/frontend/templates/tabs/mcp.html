@@ -5,18 +5,20 @@
 <div class="act-mcp">
   <section class="act-mcp__panel">
     <h2>Registered tools</h2>
-    <table class="act-mcp__tools">
-      <thead><tr><th>Tool</th><th>Argument</th><th>Description</th></tr></thead>
-      <tbody>
-        {% for tool in tools %}
-        <tr>
-          <td><code>{{ tool.name }}</code></td>
-          <td>{% if tool.argument %}<code>{{ tool.argument }}</code>{% else %}&mdash;{% endif %}</td>
-          <td>{{ tool.description }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <div class="act-mcp__box">
+      <table class="act-mcp__tools">
+        <thead><tr><th>Tool</th><th>Argument</th><th>Description</th></tr></thead>
+        <tbody>
+          {% for tool in tools %}
+          <tr>
+            <td><code>{{ tool.name }}</code></td>
+            <td>{% if tool.argument %}<code>{{ tool.argument }}</code>{% else %}&mdash;{% endif %}</td>
+            <td>{{ tool.description }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
 
     <h2>Run a tool</h2>
     <form id="mcp-tool-form" class="act-chat__form"
@@ -26,11 +28,25 @@
           hx-disabled-elt="#mcp-tool-form button"
           hx-on::before-request="document.getElementById('mcp-empty')?.remove()">
       <input type="hidden" name="kind" value="tool">
-      <select id="mcp-tool" name="tool" aria-label="Tool">
+      {# The native select still carries the form value and drives the
+         argument sync; #mcp-tool-picker is the visible, styleable stand-in
+         (a native select's open list can't be rounded). #}
+      <select id="mcp-tool" name="tool" class="act-visually-hidden" tabindex="-1" aria-hidden="true">
         {% for tool in tools %}
         <option value="{{ tool.name }}" data-argument="{{ tool.argument or '' }}">{{ tool.name }}</option>
         {% endfor %}
       </select>
+      <div id="mcp-tool-picker" class="act-select">
+        <button type="button" class="act-select__button" aria-label="Tool"
+                aria-haspopup="listbox" aria-expanded="false" aria-controls="mcp-tool-list">
+          <span class="act-select__value">{{ tools[0].name if tools else '' }}</span>
+        </button>
+        <ul id="mcp-tool-list" class="act-select__list" role="listbox" hidden>
+          {% for tool in tools %}
+          <li id="mcp-tool-opt-{{ loop.index0 }}" role="option" data-value="{{ tool.name }}">{{ tool.name }}</li>
+          {% endfor %}
+        </ul>
+      </div>
       <input type="text" id="mcp-record-id" name="record_id" inputmode="numeric" autocomplete="off"
              placeholder="No argument needed" disabled>
       <button type="submit" class="act-btn">Run</button>

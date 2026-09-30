@@ -347,6 +347,58 @@ def test_ask_valid_selection_calls_the_tool(bridge, monkeypatch):
     assert prompts[0].endswith("User request: When is activity 4 scheduled?")
 
 
+def use_model_replies(monkeypatch, *replies):
+    """Fake _generate returning each reply in turn (an exception is raised
+    instead of returned) — Ask calls it once to select, once to answer."""
+    from services import ai_client
+
+    prompts, queue = [], list(replies)
+
+    def fake_generate(prompt, temperature=None, model=None):
+        prompts.append(prompt)
+        reply = queue.pop(0)
+        if isinstance(reply, Exception):
+            raise reply
+        return reply
+
+    monkeypatch.setattr(ai_client, "_generate", fake_generate)
+    return prompts
+
+
+def test_ask_answers_from_the_tool_result(bridge, monkeypatch):
+    prompts = use_model_replies(
+        monkeypatch,
+        '{"tool": "get_activity_assignments", "arguments": {"activity_id": 4}}',
+        "Activity 4 is scheduled once.",
+    )
+    resp = bridge.post("/api/activity/mcp/ask", json={"message": "When is activity 4 scheduled?"})
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["answer"] == "Activity 4 is scheduled once."
+    assert body["answer_error"] is None
+    assert body["result"]["assignments"] == ASSIGNMENTS
+    # the answer prompt is grounded in the real tool result and the question
+    assert ASSIGNMENTS[0]["assignment_time"] in prompts[1]
+    assert "get_activity_assignments" in prompts[1]
+    assert prompts[1].endswith("User question: When is activity 4 scheduled?\n")
+
+
+def test_ask_answer_failure_still_returns_the_result(bridge, monkeypatch):
+    from services import ai_client
+
+    use_model_replies(
+        monkeypatch,
+        '{"tool": "get_activity_assignments", "arguments": {"activity_id": 4}}',
+        ai_client.AIServiceError("timed out"),
+    )
+    resp = bridge.post("/api/activity/mcp/ask", json={"message": "When is activity 4 scheduled?"})
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["answer"] is None
+    assert body["answer_error"] == "AI answer unavailable: timed out"
+    assert body["result"]["assignments"] == ASSIGNMENTS
+
+
 def test_ask_accepts_markdown_fenced_json(bridge, monkeypatch):
     use_model_output(monkeypatch, bridge, '```json\n{"tool": "list_activities", "arguments": {}}\n```')
     resp = bridge.post("/api/activity/mcp/ask", json={"message": "show everything"})

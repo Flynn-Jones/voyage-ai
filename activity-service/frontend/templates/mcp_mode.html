@@ -36,6 +36,69 @@
     select.addEventListener("change", syncArgument);
     syncArgument();
   })();
+
+  // Rounded tool picker: mirrors #mcp-tool and fires its change event, so the
+  // argument sync above and the form submission are unchanged.
+  (function () {
+    const select = document.getElementById("mcp-tool");
+    const picker = document.getElementById("mcp-tool-picker");
+    const button = picker.querySelector(".act-select__button");
+    const label = picker.querySelector(".act-select__value");
+    const list = picker.querySelector(".act-select__list");
+    const options = Array.from(list.querySelectorAll("[role=option]"));
+    let active = 0;
+
+    function render() {
+      label.textContent = select.value;
+      options.forEach((option, i) => {
+        option.setAttribute("aria-selected", option.dataset.value === select.value);
+        option.classList.toggle("is-active", i === active);
+      });
+      if (list.hidden) button.removeAttribute("aria-activedescendant");
+      else button.setAttribute("aria-activedescendant", options[active].id);
+    }
+
+    function open() {
+      active = Math.max(0, options.findIndex((o) => o.dataset.value === select.value));
+      list.hidden = false;
+      button.setAttribute("aria-expanded", "true");
+      render();
+    }
+
+    function close() {
+      list.hidden = true;
+      button.setAttribute("aria-expanded", "false");
+      render();
+    }
+
+    function choose(i) {
+      select.value = options[i].dataset.value;
+      select.dispatchEvent(new Event("change"));
+      close();
+      button.focus();
+    }
+
+    button.addEventListener("click", () => (list.hidden ? open() : close()));
+    button.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        if (list.hidden) return open();
+        active = (active + (e.key === "ArrowDown" ? 1 : -1) + options.length) % options.length;
+        render();
+      } else if ((e.key === "Enter" || e.key === " ") && !list.hidden) {
+        e.preventDefault();
+        choose(active);
+      } else if (e.key === "Escape" || e.key === "Tab") {
+        close();
+      }
+    });
+    options.forEach((option, i) => {
+      option.addEventListener("click", () => choose(i));
+      option.addEventListener("mousemove", () => { if (active !== i) { active = i; render(); } });
+    });
+    document.addEventListener("click", (e) => { if (!picker.contains(e.target)) close(); });
+    render();
+  })();
 </script>
 {% include "tabs/_tool_panel_styles.html" %}
 {% endblock %}

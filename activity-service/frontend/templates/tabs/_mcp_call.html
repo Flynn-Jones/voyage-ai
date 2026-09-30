@@ -18,6 +18,13 @@
   {% if call.kind == "ask" %}
     <span class="act-mcp__label">Request</span>
     <pre>{{ call.message }}</pre>
+
+    {% if data and data.answer %}
+      <span class="act-mcp__label">Answer</span>
+      <p class="act-mcp__answer">{{ data.answer }}</p>
+    {% elif data and data.answer_error %}
+      <p class="act-mcp__note">{{ data.answer_error }} — showing the raw result only.</p>
+    {% endif %}
   {% endif %}
 
   <span class="act-mcp__label">Arguments</span>

@@ -56,6 +56,26 @@ def test_mcp_ask_card_shows_selected_tool_and_model_output(app_module, monkeypat
     assert calls[0]["json"] == {"message": "When is activity 4?"}
 
 
+def test_mcp_ask_card_shows_answer(app_module, monkeypatch):
+    resp, _ = post_mcp_call(app_module, monkeypatch, {"kind": "ask", "message": "When is activity 4?"}, 200, {
+        "status": "success", "tool": "get_activity_assignments", "arguments": {"activity_id": 4},
+        "result": {"activity_id": 4, "count": 1, "assignments": [{"assignment_time": "2026-10-06T08:00"}]},
+        "answer": "Activity 4 is scheduled for Oct 6, 2026 at 8:00 AM.", "answer_error": None,
+    })
+    assert b"Answer" in resp.data
+    assert b"Activity 4 is scheduled for Oct 6, 2026 at 8:00 AM." in resp.data
+
+
+def test_mcp_ask_card_notes_missing_answer(app_module, monkeypatch):
+    resp, _ = post_mcp_call(app_module, monkeypatch, {"kind": "ask", "message": "When is activity 4?"}, 200, {
+        "status": "success", "tool": "get_activity_assignments", "arguments": {"activity_id": 4},
+        "result": {"activity_id": 4, "count": 0, "assignments": []},
+        "answer": None, "answer_error": "AI answer unavailable: timed out",
+    })
+    assert b"AI answer unavailable: timed out" in resp.data
+    assert b"showing the raw result only" in resp.data
+
+
 def test_mcp_ask_no_tool_called_shows_reason(app_module, monkeypatch):
     resp, _ = post_mcp_call(app_module, monkeypatch, {"kind": "ask", "message": "delete everything"}, 200, {
         "status": "no_tool_called", "error": "no registered tool matches this request", "tool": None,
