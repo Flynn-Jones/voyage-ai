@@ -21,12 +21,12 @@ from core.reporter import print_menu, print_prompt_map
 
 
 def _menu_choice_to_key(choice: str):
-    return {"1": "mcp", "2": "rag"}.get(choice)
+    return {"1": "mcp", "2": "rag", "3": "activity_rag"}.get(choice)
 
 
 def main() -> None:
     modes = build_mode_config()
-    print_prompt_map({mode.label: str(REPO_ROOT / "prompts" / mode.prompt_family) for mode in modes.values()})
+    print_prompt_map({mode.label: str(REPO_ROOT / mode.prompts_dir / mode.prompt_family) for mode in modes.values()})
 
     while True:
         print_menu()
@@ -38,7 +38,7 @@ def main() -> None:
 
         mode_key = _menu_choice_to_key(choice)
         if not mode_key:
-            print("Invalid choice. Select 0, 1, or 2.")
+            print("Invalid choice. Select 0, 1, 2, or 3.")
             continue
 
         mode = modes[mode_key]

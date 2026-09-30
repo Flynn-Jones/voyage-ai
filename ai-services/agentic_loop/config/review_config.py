@@ -15,6 +15,8 @@ class ModeConfig:
     prompt_family: str
     implementation_prompts: tuple
     review_prompts: tuple = field(default_factory=tuple)
+    # repo-relative folder holding <prompt_family>/; a service can keep its own prompts
+    prompts_dir: str = "prompts"
 
 
 def build_mode_config() -> dict:
@@ -32,5 +34,13 @@ def build_mode_config() -> dict:
             prompt_family="rag",
             implementation_prompts=("implementation/rag_implementation_prompt.txt",),
             review_prompts=("review/rag_review_prompt.txt", "review/rag_reasoning_prompt.txt"),
+        ),
+        "activity_rag": ModeConfig(
+            key="activity_rag",
+            label="Activity RAG",
+            prompt_family="lab8",
+            implementation_prompts=("implementation/rag_implementation_prompt.txt",),
+            review_prompts=("review/rag_review_prompt.txt", "review/rag_reasoning_prompt.txt"),
+            prompts_dir="activity-service/prompts",
         ),
     }

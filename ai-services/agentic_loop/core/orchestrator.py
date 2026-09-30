@@ -1,7 +1,7 @@
 """Runs one agentic_loop validation mode: OBSERVE (collector) -> LLM implementation -> LLM review."""
 from pathlib import Path
 
-from collectors import mcp_collector, rag_collector
+from collectors import activity_rag_collector, mcp_collector, rag_collector
 from core import ai, prompts
 from core.reporter import stage
 from pipelines import mcp_pipeline, rag_pipeline
@@ -9,11 +9,13 @@ from pipelines import mcp_pipeline, rag_pipeline
 COLLECTORS = {
     "mcp": mcp_collector.collect,
     "rag": rag_collector.collect,
+    "activity_rag": activity_rag_collector.collect,
 }
 
 PIPELINES = {
     "mcp": mcp_pipeline,
     "rag": rag_pipeline,
+    "activity_rag": rag_pipeline,
 }
 
 
@@ -30,7 +32,7 @@ def run_mode(mode, repo_root: Path, app_dir: Path) -> str:
     pipeline = PIPELINES[mode.key]
 
     stage(mode.label, "PROMPTS", f"Loading prompt family: {mode.prompt_family}")
-    task_prompt = prompts.read(mode.prompt_family, mode.implementation_prompts[0])
+    task_prompt = prompts.read(mode.prompt_family, mode.implementation_prompts[0], mode.prompts_dir)
     system_prompt = (
         f"You are a precise {mode.label} integration validator. "
         "Use only supplied evidence and reply in at most 40 words."
@@ -45,7 +47,7 @@ def run_mode(mode, repo_root: Path, app_dir: Path) -> str:
         return f"OBSERVE: {evidence}\n\nMODEL FAILED: {err}"
     stage(mode.label, "LLM", f"{mode.label} implementation model complete")
 
-    review_prompt_text = "\n\n".join(prompts.read(mode.prompt_family, path) for path in mode.review_prompts)
+    review_prompt_text = "\n\n".join(prompts.read(mode.prompt_family, path, mode.prompts_dir) for path in mode.review_prompts)
     review_user_prompt = pipeline.build_review_prompt(implementation_output, evidence)
     stage(mode.label, "PROMPTS", f"Loaded {mode.label} review prompt(s)")
 

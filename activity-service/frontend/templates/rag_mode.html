@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}VoyageAI — Activities RAG Mode{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('index') }}" class="act-btn act-btn--secondary act-back-link">&larr; Back to Home</a>
+<h1 class="act-section-title">Activities — RAG Mode</h1>
+
+<div class="act-tabstrip">
+  <a href="{{ url_for('activities_list') }}">Manual Mode</a>
+  <a href="{{ url_for('ai_mode') }}">AI Mode</a>
+  <a href="{{ url_for('mcp_mode') }}">MCP Mode</a>
+  <a href="{{ url_for('rag_mode') }}" class="act-tab--active">RAG Mode</a>
+</div>
+
+<p style="color: var(--act-text-muted); margin-top: -8px; margin-bottom: 20px;">
+  Answers questions from activity-service's own knowledge: the activities database, the docs and
+  reports, and a repository index. Every answer lists the chunks it cites and how confident it is.
+</p>
+
+{% include "tabs/rag.html" %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    // Toggle state is a per-browser convenience; the backend's RAG_ENABLED
+    // still wins, and OFF is enforced server-side via the X-RAG-Mode header.
+    const KEY = "activity-rag-mode";
+    const toggle = document.getElementById("rag-toggle");
+    const value = document.getElementById("rag-mode-value");
+    const label = document.getElementById("rag-toggle-label");
+    try { toggle.checked = localStorage.getItem(KEY) !== "off"; } catch (e) { /* storage blocked: default ON */ }
+    function sync() {
+      value.value = toggle.checked ? "on" : "off";
+      label.textContent = toggle.checked ? "RAG ON" : "RAG OFF";
+      label.classList.toggle("act-mcp__status--error", !toggle.checked);
+      try { localStorage.setItem(KEY, value.value); } catch (e) { /* ignore */ }
+    }
+    toggle.addEventListener("change", sync);
+    sync();
+  })();
+</script>
+{% include "tabs/_tool_panel_styles.html" %}
+<style>
+  /* RAG-specific additions on top of the shared tool-panel styles */
+  .act-rag__toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+    font-size: 0.9rem;
+  }
+
+  .act-rag__toggle input { width: 18px; height: 18px; accent-color: var(--act-red); }
+  .act-rag__form input[name="k"] { flex: 0 0 64px; }
+
+  .act-rag__answer { font-size: 0.95rem; line-height: 1.45; margin: 4px 0 0; }
+
+  .act-rag__confidence--medium { background: var(--warning-soft); color: var(--warning-text); }
+
+  .act-rag__list {
+    margin: 0;
+    padding-left: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .act-rag__meta { color: var(--act-text-muted); font-size: 0.8rem; }
+  .act-rag__snippet { margin: 2px 0 0; color: var(--act-text); }
+</style>
+{% endblock %}
