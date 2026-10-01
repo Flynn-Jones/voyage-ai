@@ -434,6 +434,54 @@ textarea {
   }
 }
 
+/* Destination second-row navigation. Visual style follows Accommodation's
+   mode bar; the links themselves are Destination-specific. */
+.mode-bar {
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+}
+
+.mode-bar__container {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.6rem 0;
+}
+
+.mode-btn {
+  display: inline-block;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-alt);
+  color: var(--text);
+  font-size: 0.92rem;
+  text-decoration: none;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.mode-btn:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.mode-btn.is-active {
+  background: var(--accent);
+  border-color: transparent;
+  font-weight: 600;
+}
+
+@media (max-width: 720px) {
+  .mode-bar {
+    padding: 0 16px;
+  }
+}
+
 /* Shared focus state — see shared/design-system/navbar.css */
 :focus-visible {
   outline: 2px solid var(--accent-text);

@@ -70,6 +70,44 @@ def test_forms_and_nav(client):
             assert link in html
 
 
+NAV_LABELS = ("Destinations", "Add destination", "Compare", "Data lookup (MCP)", "Ask (RAG)")
+OSAKA = {"destination_id": 3, "city": "Osaka", "country": "Japan", "travel_style": "Food and nightlife",
+         "average_daily_cost": 125.0, "recommended_trip_length": 3, "categories": []}
+
+
+@pytest.mark.parametrize("path,active", [
+    ("/", "Destinations"),
+    ("/?q=Osaka", "Destinations"),
+    ("/?country=Japan", "Destinations"),
+    ("/destinations/1", "Destinations"),
+    ("/destinations/1/edit", "Destinations"),
+    ("/destinations/1/delete", "Destinations"),
+    ("/destinations/new", "Add destination"),
+    ("/compare", "Compare"),
+    ("/mcp-lookup", "Data lookup (MCP)"),
+    ("/ask", "Ask (RAG)"),
+])
+def test_destination_nav_bar_active_item(client, monkeypatch, path, active):
+    def fake_request(method, url, **kw):
+        payload = [TOKYO, OSAKA] if url.endswith("/api/destinations") else TOKYO
+        return Resp(200, payload)
+
+    monkeypatch.setattr(fe.requests, "request", fake_request)
+    r = client.get(path)
+    html = r.get_data(as_text=True)
+    assert r.status_code == 200
+    assert 'class="mode-bar"' in html
+    for label in NAV_LABELS:
+        assert f">{label}</a>" in html
+    # Exactly one second-row item is current, and it is the expected one.
+    assert html.count('aria-current="page"') == 1
+    assert f'aria-current="page">{active}</a>' in html
+    assert html.count('mode-btn is-active') == 1
+    # Shared switcher still highlights Destinations; Destination links are not in the top row.
+    assert 'class="is-active">Destinations</a>' in html
+    assert "voyage-nav__links" not in html
+
+
 def test_mcp_success_renders_rows(client, backend):
     backend["resp"] = Resp(200, {"status": "success", "tool": "list_destinations", "count": 1,
                                   "filters": {"country": "Japan"}, "destinations": [TOKYO]})

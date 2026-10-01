@@ -11,13 +11,6 @@
   <nav class="voyage-nav">
     <div class="voyage-nav__container">
       <span class="voyage-nav__brand">VoyageAI &mdash; Destinations</span>
-      <div class="voyage-nav__links">
-        <a href="{{ url_for('index') }}">Destinations</a>
-        <a href="{{ url_for('new_destination') }}">Add destination</a>
-        <a href="{{ url_for('compare') }}">Compare</a>
-        <a href="{{ url_for('mcp_lookup') }}">Data lookup (MCP)</a>
-        <a href="{{ url_for('ask') }}">Ask (RAG)</a>
-      </div>
       <div class="voyage-nav__switcher">
         <a href="http://localhost:3000">Home</a>
         <a href="http://localhost:3001" class="is-active">Destinations</a>
@@ -26,6 +19,24 @@
         <a href="http://localhost:3004">Budget</a>
         <a href="http://localhost:3005">Itinerary</a>
       </div>
+    </div>
+  </nav>
+  {# Second-row Destination navigation: styled like Accommodation's mode bar
+     (style only). Active item comes from the current endpoint. #}
+  {% set destination_tabs = [
+       ('Destinations', url_for('index'),
+        ['index', 'destination_detail', 'edit_destination', 'delete_destination']),
+       ('Add destination', url_for('new_destination'), ['new_destination']),
+       ('Compare', url_for('compare'), ['compare']),
+       ('Data lookup (MCP)', url_for('mcp_lookup'), ['mcp_lookup']),
+       ('Ask (RAG)', url_for('ask'), ['ask'])
+     ] %}
+  <nav class="mode-bar" aria-label="Destination Manager">
+    <div class="mode-bar__container">
+      {% for label, href, endpoints in destination_tabs %}
+        {% set active = request.endpoint in endpoints %}
+        <a class="mode-btn{% if active %} is-active{% endif %}" href="{{ href }}"{% if active %} aria-current="page"{% endif %}>{{ label }}</a>
+      {% endfor %}
     </div>
   </nav>
   <main class="voyage-main">
