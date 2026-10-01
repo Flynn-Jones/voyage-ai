@@ -1,0 +1,28 @@
+Extract the accommodation search filters from the traveller's question below.
+
+Return ONLY this JSON object, with null for every filter the question does not state:
+{
+  "destination": <city name string or null>,
+  "accommodation_type": <"hotel"|"hostel"|"ryokan"|"apartment"|"guesthouse" or null>,
+  "min_price": <number or null>,
+  "max_price": <number or null>,
+  "min_rating": <number 0-5 or null>,
+  "amenities": <comma-separated string or null>,
+  "sort_by": <"price_asc"|"price_desc"|"rating_desc"|"name_asc"|"created_at_desc" or null>
+}
+
+Worked examples:
+
+Question: What accommodation are there in Tokyo?
+{"destination": "Tokyo", "accommodation_type": null, "min_price": null, "max_price": null, "min_rating": null, "amenities": null, "sort_by": null}
+
+Question: Cheapest hostels in Osaka under $60
+{"destination": "Osaka", "accommodation_type": "hostel", "min_price": null, "max_price": 60, "min_rating": null, "amenities": null, "sort_by": "price_asc"}
+
+Question: Show me highly rated ryokan in Kyoto with an onsen
+{"destination": "Kyoto", "accommodation_type": "ryokan", "min_price": null, "max_price": null, "min_rating": 4.5, "amenities": "Onsen", "sort_by": "rating_desc"}
+
+Question: Anywhere with a pool for less than 200 a night, best rated first
+{"destination": null, "accommodation_type": null, "min_price": null, "max_price": 200, "min_rating": null, "amenities": "Pool", "sort_by": "rating_desc"}
+
+Output the JSON object and nothing else.

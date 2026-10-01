@@ -47,7 +47,9 @@ def _rank_records(records: list[dict[str, Any]], plan: dict[str, Any]) -> list[d
         return []
 
     try:
-        ranked = llm_client.rank_accommodations(plan, records)
+        ranked = llm_client.rank_accommodations(
+            "system_prompt.txt", "ranking_task_prompt.txt", plan, records
+        )
     except llm_client.LLMServiceError:
         logger.exception("[OBSERVE] LLM ranking failed; falling back to original record order")
         return records
@@ -114,7 +116,9 @@ def ai_recommend():
     print(f"[ADAPT] Calling Ollama with shortlist of {len(shortlist)} item(s)")
 
     try:
-        recommendation = llm_client.recommend_accommodation(prompt_payload, shortlist)
+        recommendation = llm_client.recommend_accommodation(
+            "system_prompt.txt", "task_prompt.txt", prompt_payload, shortlist
+        )
     except llm_client.LLMServiceError as exc:
         logger.exception("[ADAPT] Ollama recommendation failed: %s", exc)
         return jsonify({"error": "Accommodation recommendation service is unavailable."}), 503

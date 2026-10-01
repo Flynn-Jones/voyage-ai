@@ -17,6 +17,8 @@ REQUIRED_TOOLS = {
     "project_files",
     "ci_report",
     "list_destinations",
+    "search_accommodations",
+    "create_accommodation",
 }
 ROWS = [
     {"destination_id": 1, "city": "Tokyo", "country": "Japan", "description": "d",
@@ -184,3 +186,23 @@ def test_shim_destination_error_is_502(client, fake_get):
     resp = client.post("/list_destinations", json={})
     assert resp.status_code == 502
     assert "destination-db unavailable" in resp.json()["error"]
+
+
+def test_shim_search_accommodations_accepts_explicit_nulls(client, fake_get):
+    calls, state = fake_get
+    state["response"] = FakeResponse({"data": [{"name": "Shinjuku Hotel", "destination_city": "Tokyo"}]})
+    resp = client.post("/search_accommodations", json={"destination": "Tokyo", "min_price": None, "limit": None})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "success"
+    assert body["result"]["matched_by"] == "destination_city"
+    assert body["result"]["count"] == 1
+    assert calls and calls[0]["params"]["destination_city"] == "Tokyo"
+    assert "min_price" not in calls[0]["params"]
+
+
+def test_shim_create_accommodation_validates_before_http(client, fake_get):
+    calls, _ = fake_get
+    resp = client.post("/create_accommodation", json={"name": "X"})
+    assert resp.status_code == 502 and resp.json()["status"] == "error"
+    assert not calls

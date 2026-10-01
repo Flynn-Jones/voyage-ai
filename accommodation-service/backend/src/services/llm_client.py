@@ -1,6 +1,7 @@
 """Ollama client wrapper for accommodation recommendations."""
 import json
 import os
+import re
 import time
 from typing import Any
 
@@ -53,32 +54,202 @@ def generate_recommendation(prompt: str, model: str | None = None, timeout: int 
         raise LLMServiceError(f"Unexpected Ollama response: {response.text}") from exc
 
 
-def _build_prompt(request_payload: dict, shortlist: list[dict]) -> str:
-    prompt_text = prompt_loader.load_prompt("recommend.txt")
-    return prompt_text.format(
-        destination_city=request_payload.get("destination_city", ""),
-        max_price=request_payload.get("max_price", ""),
-        interests=", ".join(request_payload.get("interests", [])),
-        shortlist=json.dumps(shortlist, ensure_ascii=False),
-    )
-
-
-def _build_ranking_prompt(request_payload: dict, candidates: list[dict]) -> str:
+def _build_evidence(request_payload: dict, candidates: list[dict], candidates_label: str) -> str:
     return (
-        "You are ranking accommodation candidates for a traveler. "
-        "Rank the accommodation candidates from best to worst based on how well they match the user's request. "
-        "Return valid JSON only, as a list of objects sorted best-to-worst. "
-        "Each object must include: id, name, score, and reason. "
-        "The score should be a float between 0 and 1.\n\n"
-        f"User request:\n"
+        "User request:\n"
         f"- destination_city: {request_payload.get('destination_city', '')}\n"
         f"- max_price: {request_payload.get('max_price', '')}\n"
         f"- interests: {', '.join(request_payload.get('interests', []))}\n\n"
-        "Candidates:\n"
-        f"{json.dumps(candidates, ensure_ascii=False)}\n\n"
-        "Respond with JSON in this shape: "
-        "[{\"id\": 1, \"name\": \"Hotel A\", \"score\": 0.92, \"reason\": \"Best match...\"}]"
+        f"{candidates_label}:\n"
+        f"{json.dumps(candidates, ensure_ascii=False)}"
     )
+
+
+def call_accommodation_agent(
+    system_prompt_file: str,
+    task_prompt_file: str,
+    request_payload: dict,
+    candidates: list[dict],
+    candidates_label: str = "Candidates",
+    timeout: int = 180,
+):
+    """Layer system + context + task prompt files over the evidence, then call Ollama."""
+    system_prompt = prompt_loader.load_accommodation_prompt(system_prompt_file)
+    context_prompt = prompt_loader.load_accommodation_prompt("context_prompt.txt")
+    task_prompt = prompt_loader.load_accommodation_prompt(task_prompt_file)
+    evidence = _build_evidence(request_payload, candidates, candidates_label)
+
+    prompt = f"{system_prompt}\n\n{context_prompt}\n\n{task_prompt}\n\nEvidence:\n{evidence}"
+    return generate_recommendation(prompt, timeout=timeout)
+
+
+ALLOWED_TYPES = {"hotel", "hostel", "ryokan", "apartment", "guesthouse"}
+ALLOWED_SORTS = {"price_asc", "price_desc", "rating_desc", "name_asc", "created_at_desc"}
+FILTER_KEYS = ("destination", "accommodation_type", "min_price", "max_price",
+               "min_rating", "amenities", "sort_by")
+
+
+def _coerce_number(value, low=None, high=None):
+    if isinstance(value, bool) or value is None:
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if low is not None and number < low:
+        return None
+    if high is not None and number > high:
+        return None
+    return number
+
+
+def _sanitise_filters(raw: dict) -> dict:
+    """Keep only filters the search tool accepts, with values it can actually use.
+
+    The model is asked for strict JSON but can still return a stray type or an
+    out-of-range rating; anything that does not validate is dropped rather than
+    passed through to the tool.
+    """
+    if not isinstance(raw, dict):
+        return {}
+
+    destination = raw.get("destination")
+    destination = destination.strip() if isinstance(destination, str) and destination.strip() else None
+
+    accommodation_type = raw.get("accommodation_type")
+    accommodation_type = accommodation_type.strip().lower() if isinstance(accommodation_type, str) else None
+    if accommodation_type not in ALLOWED_TYPES:
+        accommodation_type = None
+
+    sort_by = raw.get("sort_by")
+    sort_by = sort_by.strip().lower() if isinstance(sort_by, str) else None
+    if sort_by not in ALLOWED_SORTS:
+        sort_by = None
+
+    amenities = raw.get("amenities")
+    if isinstance(amenities, list):
+        amenities = ",".join(str(item).strip() for item in amenities if str(item).strip())
+    amenities = amenities.strip() if isinstance(amenities, str) and amenities.strip() else None
+
+    filters = {
+        "destination": destination,
+        "accommodation_type": accommodation_type,
+        "min_price": _coerce_number(raw.get("min_price"), low=0),
+        "max_price": _coerce_number(raw.get("max_price"), low=0),
+        "min_rating": _coerce_number(raw.get("min_rating"), low=0, high=5),
+        "amenities": amenities,
+        "sort_by": sort_by,
+    }
+    return {key: value for key, value in filters.items() if value is not None}
+
+
+ALLOWED_AMENITIES = {
+    "24-Hour Front Desk", "Air Conditioning", "Bar", "Breakfast Included", "Gym",
+    "Onsen", "Parking", "Pool", "Rooftop Terrace", "WiFi",
+}
+DRAFT_KEYS = ("name", "destination_city", "destination_id", "accommodation_type",
+              "price_per_night", "rating", "location", "description", "amenities")
+
+
+def _parse_json_object(raw, what):
+    """Pull a JSON object out of a model response that may be wrapped in prose."""
+    if isinstance(raw, dict):
+        return raw
+    cleaned = str(raw).replace("```json", "").replace("```", "").strip()
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        match = re.search(r"\{.*\}", cleaned, re.S)
+        if not match:
+            raise LLMServiceError(f"could not parse {what} JSON from model output: {cleaned!r}")
+        try:
+            return json.loads(match.group(0))
+        except json.JSONDecodeError as exc:
+            raise LLMServiceError(f"could not parse {what} JSON from model output: {cleaned!r}") from exc
+
+
+def _sanitise_draft(raw: dict) -> dict:
+    """Keep only accommodation fields the create tool accepts, with usable values."""
+    if not isinstance(raw, dict):
+        return {key: None for key in DRAFT_KEYS} | {"amenities": []}
+
+    def text(key):
+        value = raw.get(key)
+        return value.strip() if isinstance(value, str) and value.strip() else None
+
+    city = text("destination_city")
+    destination_id = text("destination_id")
+    if not destination_id and city:
+        destination_id = "dest-" + city.lower().replace(" ", "-")
+
+    accommodation_type = raw.get("accommodation_type")
+    accommodation_type = accommodation_type.strip().lower() if isinstance(accommodation_type, str) else None
+    if accommodation_type not in ALLOWED_TYPES:
+        accommodation_type = None
+
+    amenities = raw.get("amenities") or []
+    if isinstance(amenities, str):
+        amenities = [item.strip() for item in amenities.split(",")]
+    # Only amenities the database actually knows about; anything else would be
+    # silently dropped at insert time, so drop it here where it is visible.
+    amenities = [item for item in (str(a).strip() for a in amenities) if item in ALLOWED_AMENITIES]
+
+    return {
+        "name": text("name"),
+        "destination_city": city,
+        "destination_id": destination_id,
+        "accommodation_type": accommodation_type,
+        "price_per_night": _coerce_number(raw.get("price_per_night"), low=0),
+        "rating": _coerce_number(raw.get("rating"), low=0, high=5),
+        "location": text("location"),
+        "description": text("description"),
+        "amenities": sorted(set(amenities)),
+    }
+
+
+def draft_accommodation(text: str) -> dict:
+    """Turn a plain-language description into draft accommodation fields."""
+    system_prompt = prompt_loader.load_accommodation_prompt("draft_extraction_system_prompt.txt")
+    context_prompt = prompt_loader.load_accommodation_prompt("context_prompt.txt")
+    task_prompt = prompt_loader.load_accommodation_prompt("draft_extraction_task_prompt.txt")
+
+    prompt = f"{system_prompt}\n\n{context_prompt}\n\n{task_prompt}\n\nDescription: {text}"
+    result = generate_recommendation(prompt, timeout=120)
+    if not isinstance(result, dict):
+        raise LLMServiceError(f"Unexpected Ollama response shape: {result!r}")
+
+    return _sanitise_draft(_parse_json_object(result.get("response", ""), "accommodation draft"))
+
+
+def extract_search_filters(question: str) -> dict:
+    """Turn a plain-language accommodation question into search-tool filters."""
+    system_prompt = prompt_loader.load_accommodation_prompt("filter_extraction_system_prompt.txt")
+    context_prompt = prompt_loader.load_accommodation_prompt("context_prompt.txt")
+    task_prompt = prompt_loader.load_accommodation_prompt("filter_extraction_task_prompt.txt")
+
+    prompt = f"{system_prompt}\n\n{context_prompt}\n\n{task_prompt}\n\nQuestion: {question}"
+    result = generate_recommendation(prompt, timeout=120)
+    if not isinstance(result, dict):
+        raise LLMServiceError(f"Unexpected Ollama response shape: {result!r}")
+
+    raw = result.get("response", "")
+    if isinstance(raw, dict):
+        return _sanitise_filters(raw)
+
+    cleaned = str(raw).replace("```json", "").replace("```", "").strip()
+    try:
+        parsed = json.loads(cleaned)
+    except json.JSONDecodeError:
+        # Models sometimes wrap the object in a sentence; take the first {...} block.
+        match = re.search(r"\{.*\}", cleaned, re.S)
+        if not match:
+            raise LLMServiceError(f"could not parse filter JSON from model output: {cleaned!r}")
+        try:
+            parsed = json.loads(match.group(0))
+        except json.JSONDecodeError as exc:
+            raise LLMServiceError(f"could not parse filter JSON from model output: {cleaned!r}") from exc
+
+    return _sanitise_filters(parsed)
 
 
 def _parse_json_recommendations(value: str) -> Any:
@@ -103,13 +274,23 @@ def _parse_json_recommendations(value: str) -> Any:
         return parsed
 
 
-def rank_accommodations(request_payload: dict, candidates: list[dict]) -> list[dict]:
+def rank_accommodations(
+    system_prompt_file: str,
+    task_prompt_file: str,
+    request_payload: dict,
+    candidates: list[dict],
+) -> list[dict]:
     if not candidates:
         return []
 
-    prompt = _build_ranking_prompt(request_payload, candidates)
     start = time.perf_counter()
-    result = generate_recommendation(prompt, timeout=180)
+    result = call_accommodation_agent(
+        system_prompt_file,
+        task_prompt_file,
+        request_payload,
+        candidates,
+        candidates_label="Candidates",
+    )
     elapsed = time.perf_counter() - start
     if not isinstance(result, dict):
         raise LLMServiceError(f"Unexpected Ollama response shape: {result!r}")
@@ -143,10 +324,20 @@ def rank_accommodations(request_payload: dict, candidates: list[dict]) -> list[d
     return ranked
 
 
-def recommend_accommodation(request_payload: dict, shortlist: list[dict]) -> dict:
-    prompt = _build_prompt(request_payload, shortlist)
+def recommend_accommodation(
+    system_prompt_file: str,
+    task_prompt_file: str,
+    request_payload: dict,
+    shortlist: list[dict],
+) -> dict:
     start = time.perf_counter()
-    result = generate_recommendation(prompt, timeout=180)
+    result = call_accommodation_agent(
+        system_prompt_file,
+        task_prompt_file,
+        request_payload,
+        shortlist,
+        candidates_label="Shortlist candidates",
+    )
     elapsed = time.perf_counter() - start
     if not isinstance(result, dict):
         raise LLMServiceError(f"Unexpected Ollama response shape: {result!r}")

@@ -1,0 +1,9 @@
+# CI override: disables MCP/RAG so the pipeline never depends on the shared
+# local (non-containerised) MCP/RAG servers, which don't run on CI runners.
+# Integration and access remain in the base docker-compose.yml/routes; only
+# the feature flags flip off. Usage: docker-compose -f docker-compose.yml -f docker-compose.ci.yml up -d
+services:
+  backend:
+    environment:
+      - MCP_ENABLED=false
+      - RAG_ENABLED=false

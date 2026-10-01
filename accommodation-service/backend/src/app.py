@@ -11,6 +11,8 @@ from flask_cors import CORS
 
 from routes.accommodations import bp as accommodations_bp
 from routes.ai import bp as ai_bp
+from routes.mcp_mode import mcp_mode_bp
+from routes.rag_mode import rag_mode_bp
 
 logging.basicConfig(
     level=logging.INFO,
@@ -25,6 +27,8 @@ def create_app():
     CORS(app)
     app.register_blueprint(accommodations_bp)
     app.register_blueprint(ai_bp)
+    app.register_blueprint(mcp_mode_bp)
+    app.register_blueprint(rag_mode_bp)
     return app
 
 

@@ -16,10 +16,12 @@ from mcp.types import ToolAnnotations
 from tools import (
     DestinationToolError,
     ci_report,
+    create_accommodation,
     get_accommodation_by_destination,
     list_destinations,
     list_expenses,
     project_files,
+    search_accommodations,
 )
 
 # host.docker.internal is allowed so containerised backends pass the
@@ -48,6 +50,40 @@ def list_expenses_tool(trip_reference: str = None) -> dict[str, Any]:
 @mcp.tool(name="get_accommodation_by_destination")
 def get_accommodation_by_destination_tool(destination: str) -> dict[str, Any]:
     return get_accommodation_by_destination(destination)
+
+
+@mcp.tool(name="search_accommodations")
+def search_accommodations_tool(
+    destination: str | None = None,
+    accommodation_type: str | None = None,
+    min_price: float | None = None,
+    max_price: float | None = None,
+    min_rating: float | None = None,
+    amenities: str | None = None,
+    sort_by: str | None = None,
+    limit: int | None = 20,
+) -> dict[str, Any]:
+    return search_accommodations(
+        destination, accommodation_type, min_price, max_price, min_rating, amenities, sort_by, limit
+    )
+
+
+@mcp.tool(name="create_accommodation")
+def create_accommodation_tool(
+    name: str | None = None,
+    destination_id: str | None = None,
+    price_per_night: float | None = None,
+    destination_city: str | None = None,
+    accommodation_type: str | None = None,
+    rating: float | None = None,
+    location: str | None = None,
+    description: str | None = None,
+    amenities: list[str] | str | None = None,
+) -> dict[str, Any]:
+    return create_accommodation(
+        name, destination_id, price_per_night, destination_city,
+        accommodation_type, rating, location, description, amenities,
+    )
 
 
 @mcp.tool(name="project_files")

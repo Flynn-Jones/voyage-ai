@@ -42,18 +42,194 @@ def get_accommodation_by_destination(destination: str):
     if not destination:
         return {"error": "destination is required"}
 
-    try:
-        response = requests.get(
-            f"{ACCOMMODATION_DB_URL}/accommodations", params={"q": destination}, timeout=5
-        )
+    # Filter on destination_city first: a tool named "by destination" must mean
+    # the city, not a free-text scan. The previous q= lookup searched
+    # name/description/location, so "Tokyo" returned only the one record whose
+    # description happened to mention Tokyo -- 1 of 7 real Tokyo stays, missing
+    # every cheap option. Fall back to q= so a district or property name
+    # ("Shinjuku", "Granbell") still resolves.
+    def _query(params):
+        response = requests.get(f"{ACCOMMODATION_DB_URL}/accommodations", params=params, timeout=5)
         if response.status_code == 404:
-            return {"destination": destination, "count": 0, "accommodations": []}
+            return []
         response.raise_for_status()
-        data = response.json().get("data", [])
+        return response.json().get("data", [])
+
+    try:
+        data = _query({"destination_city": destination, "limit": 100})
+        matched_by = "destination_city"
+        if not data:
+            data = _query({"q": destination, "limit": 100})
+            matched_by = "keyword"
     except requests.exceptions.RequestException as exc:
         return {"error": f"accommodation-db unavailable: {exc}"}
 
-    return {"destination": destination, "count": len(data), "accommodations": data}
+    return {
+        "destination": destination,
+        "count": len(data),
+        "matched_by": matched_by,
+        "accommodations": data,
+    }
+
+
+def search_accommodations(
+    destination: str = None,
+    accommodation_type: str = None,
+    min_price: float = None,
+    max_price: float = None,
+    min_rating: float = None,
+    amenities: str = None,
+    sort_by: str = None,
+    limit: int = 20,
+):
+    """Search accommodation reference records across any combination of filters.
+
+    Every filter is optional, so this answers both "what is there in Tokyo?" and
+    "hostels in Tokyo under $100 rated 4+". `destination` matches the city first
+    and falls back to a keyword search, the same as get_accommodation_by_destination.
+    """
+    filters = {
+        "type": (accommodation_type or "").strip().lower() or None,
+        "min_price": min_price,
+        "max_price": max_price,
+        "min_rating": min_rating,
+        "amenities": (amenities or "").strip() or None,
+        "sort_by": (sort_by or "").strip() or None,
+        "limit": max(1, min(int(limit or 20), 100)),
+    }
+    params = {key: value for key, value in filters.items() if value is not None}
+
+    destination = (destination or "").strip()
+
+    def _query(extra):
+        response = requests.get(
+            f"{ACCOMMODATION_DB_URL}/accommodations", params={**params, **extra}, timeout=5
+        )
+        if response.status_code == 404:
+            return []
+        response.raise_for_status()
+        return response.json().get("data", [])
+
+    try:
+        if destination:
+            data = _query({"destination_city": destination})
+            matched_by = "destination_city"
+            if not data:
+                data = _query({"q": destination})
+                matched_by = "keyword"
+        else:
+            data = _query({})
+            matched_by = "filters_only"
+    except requests.exceptions.RequestException as exc:
+        return {"error": f"accommodation-db unavailable: {exc}"}
+
+    applied = {key: value for key, value in filters.items() if value is not None and key != "limit"}
+    if destination:
+        applied["destination"] = destination
+
+    return {
+        "destination": destination or None,
+        "filters_applied": applied,
+        "matched_by": matched_by,
+        "count": len(data),
+        "accommodations": data,
+    }
+
+
+ACCOMMODATION_TYPES = {"hotel", "hostel", "ryokan", "apartment", "guesthouse"}
+
+
+def create_accommodation(
+    name: str = None,
+    destination_id: str = None,
+    price_per_night: float = None,
+    destination_city: str = None,
+    accommodation_type: str = None,
+    rating: float = None,
+    location: str = None,
+    description: str = None,
+    amenities: list = None,
+):
+    """Create an accommodation record.
+
+    The only write tool on this server: it POSTs to accommodation-db rather than
+    reading. Required fields are name, destination_id and price_per_night; the
+    call is rejected here before it reaches the database if any are missing.
+    """
+    name = (name or "").strip()
+    destination_id = (destination_id or "").strip()
+
+    missing = [
+        field
+        for field, value in (
+            ("name", name),
+            ("destination_id", destination_id),
+            ("price_per_night", price_per_night),
+        )
+        if value in (None, "")
+    ]
+    if missing:
+        return {"error": "missing required field(s): " + ", ".join(missing)}
+
+    try:
+        price = float(price_per_night)
+    except (TypeError, ValueError):
+        return {"error": f"price_per_night must be a number, got {price_per_night!r}"}
+    if price < 0:
+        return {"error": "price_per_night must be >= 0"}
+
+    payload = {"name": name, "destination_id": destination_id, "price_per_night": price}
+
+    if destination_city and str(destination_city).strip():
+        payload["destination_city"] = str(destination_city).strip()
+
+    if accommodation_type:
+        candidate = str(accommodation_type).strip().lower()
+        if candidate not in ACCOMMODATION_TYPES:
+            return {"error": f"type must be one of {sorted(ACCOMMODATION_TYPES)}, got {candidate!r}"}
+        payload["type"] = candidate
+
+    if rating is not None:
+        try:
+            rating_value = float(rating)
+        except (TypeError, ValueError):
+            return {"error": f"rating must be a number, got {rating!r}"}
+        if not 0 <= rating_value <= 5:
+            return {"error": "rating must be between 0 and 5"}
+        payload["rating"] = rating_value
+
+    if location and str(location).strip():
+        payload["location"] = str(location).strip()
+    if description and str(description).strip():
+        payload["description"] = str(description).strip()
+
+    if amenities:
+        if isinstance(amenities, str):
+            amenities = [item.strip() for item in amenities.split(",")]
+        cleaned = [str(item).strip() for item in amenities if str(item).strip()]
+        if cleaned:
+            payload["amenities"] = cleaned
+
+    try:
+        response = requests.post(f"{ACCOMMODATION_DB_URL}/accommodations", json=payload, timeout=5)
+        if response.status_code >= 400:
+            try:
+                detail = response.json()
+            except ValueError:
+                detail = response.text
+            return {"error": f"accommodation-db rejected the record ({response.status_code})", "detail": detail}
+        created = response.json()
+    except requests.exceptions.RequestException as exc:
+        return {"error": f"accommodation-db unavailable: {exc}"}
+
+    # accommodation-db silently drops amenity names it does not know about, so
+    # report which ones actually landed on the record.
+    requested = set(payload.get("amenities", []))
+    stored = set(created.get("amenities") or [])
+    result = {"created": created, "id": created.get("id")}
+    if requested - stored:
+        result["ignored_amenities"] = sorted(requested - stored)
+    return result
 
 
 class DestinationToolError(Exception):

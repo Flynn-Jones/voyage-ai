@@ -611,3 +611,108 @@ textarea {
   outline: 2px solid var(--accent-text);
   outline-offset: 2px;
 }
+
+/* --- Release 1: RAG confidence badges and citation list --- */
+.confidence { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.8rem; font-weight: 600; }
+.confidence--high { background: #d4f7dc; color: #146c2e; }
+.confidence--medium { background: #fff3cd; color: #8a6d00; }
+.confidence--low,
+.confidence--insufficient,
+.confidence--unknown { background: #fde2e1; color: #9b1c1c; }
+.citation-list { font-size: 0.9rem; color: #555; list-style: none; padding-left: 0; }
+.citation-list li { padding: 0.25rem 0; border-bottom: 1px solid #eee; }
+.citation-list small { color: #888; margin-left: 0.5rem; }
+
+/* --- Release 1: MCP stays table --- */
+.accommodation-table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+.accommodation-table th,
+.accommodation-table td { text-align: left; padding: 0.5rem 0.6rem; border-bottom: 1px solid #eee; }
+.accommodation-table thead th { font-weight: 600; color: #444; border-bottom: 2px solid #ddd; }
+.accommodation-table tbody tr:hover { background: #fafafa; }
+
+/* --- Release 1: invalid form field --- */
+input[aria-invalid="true"],
+select[aria-invalid="true"] { border-color: #c0392b; background: #fdf3f2; }
+
+/* --- Release 1: natural-language MCP search --- */
+/* Input + button on one line. Without this the global `input { width: 100% }`
+   pushes the button onto its own line flush against the field, with no gap. */
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.35rem;
+}
+.filter-row > input,
+.filter-row > select {
+  flex: 1 1 18rem;
+  width: auto;
+  min-width: 0;
+}
+.filter-row > .button { flex: 0 0 auto; }
+
+.ask-form label { display: block; margin-bottom: 0.15rem; }
+.ask-form .hint { font-size: 0.85rem; color: #666; margin-top: 0.5rem; }
+.filters-understood { margin: 0.5rem 0 0.75rem; }
+.badge--filter { background: #eef4ff; color: #21457a; margin-right: 0.3rem; }
+
+/* --- Release 1: MCP tool-call trace --- */
+.tool-call-list { list-style: none; counter-reset: call; padding-left: 0; margin: 0.5rem 0 0; }
+.tool-call { counter-increment: call; position: relative; padding: 0.6rem 0.6rem 0.6rem 2.2rem;
+             border: 1px solid #e6e6e6; border-radius: 8px; margin-bottom: 0.5rem; background: #fcfcfc; }
+.tool-call::before { content: counter(call); position: absolute; left: 0.7rem; top: 0.65rem;
+                     font-size: 0.8rem; font-weight: 700; color: #888; }
+.tool-call__head { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+.tool-call__name { font-weight: 600; font-size: 0.9rem; }
+.tool-call__args { margin-top: 0.35rem; }
+.badge--ok { background: #d4f7dc; color: #146c2e; }
+.badge--fail { background: #fde2e1; color: #9b1c1c; }
+.badge--dropped { background: #f0f0f0; color: #777; text-decoration: line-through; margin-right: 0.3rem; }
+
+/* --- Release 1: MCP create-accommodation form --- */
+.draft-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 0.6rem; }
+.draft-grid__wide { grid-column: 1 / -1; }
+.draft-grid label { display: block; font-size: 0.82rem; color: #555; }
+.draft-grid input, .draft-grid select { width: 100%; }
+.req { color: #c0392b; }
+.amenity-set { margin: 0.9rem 0; border: 1px solid #e6e6e6; border-radius: 8px; padding: 0.6rem 0.8rem; }
+.amenity-set legend { font-size: 0.82rem; color: #555; padding: 0 0.3rem; }
+.amenity { display: inline-flex; align-items: center; gap: 0.3rem; margin: 0.15rem 0.7rem 0.15rem 0; font-size: 0.88rem; }
+.amenity input { width: auto; }
+.linklike { background: none; border: none; padding: 0; color: #21457a; text-decoration: underline; cursor: pointer; font-size: inherit; }
+
+/* --- Mode bar: the four feature modes, mirroring Budget's tab strip --- */
+.mode-bar {
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+}
+.mode-bar__container {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.6rem 0;
+}
+.mode-btn {
+  display: inline-block;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-alt);
+  color: var(--text);
+  font-size: 0.92rem;
+  text-decoration: none;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.mode-btn:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.mode-btn.is-active {
+  background: var(--accent);
+  border-color: transparent;
+  font-weight: 600;
+}
