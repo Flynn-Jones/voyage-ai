@@ -1,75 +1,74 @@
-"""HTTP wrapper around the shared MCP tools.
+"""Shared MCP service over Streamable HTTP (port 7001, not containerised).
 
-Runs locally on the host (not containerised). Every feature's Dockerised
-backend reaches this one process via http://host.docker.internal:<PORT>,
-the same pattern already used for Ollama, so all five features hit a single
-real shared MCP instance instead of duplicating tool logic per feature.
+The real MCP endpoint is POST /mcp, served by the FastMCP instance in
+server.py. Dockerised feature backends reach it via
+http://host.docker.internal:7001/mcp, so every call goes through FastMCP's
+tool registry.
+
+POST /<tool_name> is a compatibility shim for the Budget backend's existing
+client: it dispatches through mcp.call_tool (registry + argument validation),
+never by importing tool functions directly.
 """
 import json
-import os
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from tools import ci_report, get_accommodation_by_destination, list_expenses, project_files
+from mcp.server.fastmcp.exceptions import ToolError
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
-TOOLS = {
-    "list_expenses": lambda payload: list_expenses(payload.get("trip_reference")),
-    "get_accommodation_by_destination": lambda payload: get_accommodation_by_destination(
-        payload.get("destination")
-    ),
-    "project_files": lambda payload: project_files(payload.get("directory_path", ".")),
-    "ci_report": lambda payload: ci_report(payload.get("feature", "budget-service")),
-}
+from server import mcp, registered_tool_names
 
 
-class MCPHandler(BaseHTTPRequestHandler):
-    def _send_json(self, status_code: int, payload: dict):
-        response = json.dumps(payload).encode("utf-8")
-        self.send_response(status_code)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(response)))
-        self.end_headers()
-        self.wfile.write(response)
+@mcp.custom_route("/health", methods=["GET"])
+async def health(request: Request) -> JSONResponse:
+    return JSONResponse(
+        {
+            "status": "ok",
+            "service": "mcp-server",
+            "transport": "streamable-http",
+            "mcp_path": mcp.settings.streamable_http_path,
+            "tools": registered_tool_names(),
+        }
+    )
 
-    def _read_json(self):
-        content_length = int(self.headers.get("Content-Length", "0"))
-        if content_length == 0:
-            return {}
-        raw = self.rfile.read(content_length)
-        return json.loads(raw.decode("utf-8")) if raw else {}
 
-    def do_GET(self):
-        if self.path == "/health":
-            self._send_json(200, {"status": "ok", "service": "mcp-server", "tools": list(TOOLS)})
-            return
-        self._send_json(404, {"status": "error", "error": "not_found"})
+@mcp.custom_route("/{tool_name}", methods=["POST"])
+async def legacy_tool_call(request: Request) -> JSONResponse:
+    tool_name = request.path_params["tool_name"]
+    if tool_name not in registered_tool_names():
+        return JSONResponse({"status": "error", "error": f"unknown tool: {tool_name}"}, status_code=404)
 
-    def do_POST(self):
-        tool_name = self.path.lstrip("/")
-        if tool_name not in TOOLS:
-            self._send_json(404, {"status": "error", "error": f"unknown tool: {tool_name}"})
-            return
+    try:
+        raw = await request.body()
+        payload = json.loads(raw.decode("utf-8")) if raw else {}
+    except Exception as exc:
+        return JSONResponse({"status": "error", "error": f"invalid_json: {exc}"}, status_code=400)
+    if not isinstance(payload, dict):
+        return JSONResponse({"status": "error", "error": "invalid_json: body must be an object"}, status_code=400)
 
-        try:
-            payload = self._read_json()
-        except Exception as exc:
-            self._send_json(400, {"status": "error", "error": f"invalid_json: {exc}"})
-            return
+    try:
+        outcome = await mcp.call_tool(tool_name, payload)
+    except ToolError as exc:
+        return JSONResponse({"status": "error", "error": str(exc)}, status_code=502)
+    except Exception as exc:
+        return JSONResponse({"status": "error", "error": str(exc)}, status_code=500)
 
-        try:
-            result = TOOLS[tool_name](payload)
-            status = 200 if "error" not in result else 502
-            self._send_json(status, {"status": "success" if status == 200 else "error", "result": result})
-        except Exception as exc:
-            self._send_json(500, {"status": "error", "error": str(exc)})
+    # call_tool returns (unstructured_content, structured_result) for structured tools.
+    result = outcome[1] if isinstance(outcome, tuple) else outcome
+    failed = isinstance(result, dict) and "error" in result
+    return JSONResponse(
+        {"status": "error" if failed else "success", "result": result},
+        status_code=502 if failed else 200,
+    )
+
+
+def create_app():
+    return mcp.streamable_http_app()
 
 
 def main():
-    host = "0.0.0.0"
-    port = int(os.getenv("PORT", "7001"))
-    server = ThreadingHTTPServer((host, port), MCPHandler)
-    print(f"MCP HTTP server running on {host}:{port}")
-    print(f"Available tools: {', '.join(TOOLS)}")
-    server.serve_forever()
+    print(f"Shared MCP (streamable-http) on {mcp.settings.host}:{mcp.settings.port}{mcp.settings.streamable_http_path}")
+    print(f"Registered tools: {', '.join(registered_tool_names())}")
+    mcp.run(transport="streamable-http")
 
 
 if __name__ == "__main__":

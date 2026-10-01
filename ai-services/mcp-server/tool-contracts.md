@@ -1,8 +1,25 @@
 # MCP Tool Contracts
 
-Shared local MCP server (not containerised). Containerised backends call it at
-`http://host.docker.internal:7001/<tool_name>`; MCP clients can instead launch
-`server.py` over stdio via `mcp-config.json`.
+One shared local MCP server (not containerised), the FastMCP instance in `server.py`.
+Registered tool names equal the names below.
+
+- **MCP endpoint (use this for new consumers):** Streamable HTTP at
+  `http://host.docker.internal:7001/mcp` (`http://localhost:7001/mcp` on the host).
+  Start: `python mcp_http_server.py` (env: `PORT`, `MCP_HOST`, plus `*_DB_URL` below).
+  Probe: `python mcp_probe.py list` / `python mcp_probe.py call <tool> '<json>'`.
+- **Compatibility shim:** `POST http://host.docker.internal:7001/<tool_name>` (Budget's
+  existing client) dispatches through `mcp.call_tool`, so it still hits the FastMCP registry.
+  Returns `{status, result}`; 404 unknown tool, 400 bad JSON, 502 tool error.
+- `GET /health` lists the registered tools.
+- stdio: MCP clients can launch `server.py` via `mcp-config.json`.
+- Tool failures over `/mcp` are `isError=true` results with a message.
+
+## list_destinations
+- Purpose: read destinations from the Destination Database API (`DESTINATION_DB_URL`, default `http://localhost:6001`)
+- Input: `city`, `country`, `travel_style` (all optional strings; trimmed, max 100 chars, control characters rejected; exact-match, case-sensitive filters)
+- Output: `{ source: "destination-database", filters, count, destinations[] }`
+- Errors (isError): invalid input, `destination-db unavailable`, `destination-db returned <code>`, `destination-db returned unexpected payload`
+- Policy class: read-only, cross-feature data access via the Destination Database HTTP API only (never SQLite)
 
 ## list_expenses
 - Purpose: read budget expenses from budget-db
