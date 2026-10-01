@@ -1,36 +1,158 @@
-"""Scans ai-services/rag-server/ for the required files and the 3 required RAG tool functions."""
-from pathlib import Path
+"""Executes supported and unsupported tasks against the shared RAG service (GET /health, POST /answer).
 
-REQUIRED_TOOLS = ["refresh_corpus", "retrieve_context", "answer_question"]
+PLAN - route a knowledge question to the shared RAG /answer endpoint.
+ACT - POST the real request.
+OBSERVE - record status, confidence, citations and retrieval summary.
+ADAPT - deterministic checks against the final R1-P02 contract decide PASS/FAIL.
+rag_pipeline is never imported and the corpus is never refreshed here (operator setup step).
+"""
+import os
+
+import requests
+
+from core.reporter import Trace
+
+RAG_SERVICE_URL = os.environ.get("RAG_SERVICE_URL", "http://localhost:7002").rstrip("/")
+TIMEOUT_SECONDS = float(os.environ.get("AGENTIC_RAG_TIMEOUT_SECONDS", "130"))
+CALLER = "agentic-loop"
+K = 5
+GROUNDED_CONFIDENCE = ("High", "Medium", "Low")
+INSUFFICIENT_ANSWER = "Insufficient evidence to answer this question from the current corpus."
+DESTINATION_SOURCE_PREFIX = "destination-db"
+
+TASKS = [
+    {
+        "name": "supported",
+        "question": "Which destination is known for street food and nightlife?",
+        "expect": "grounded",
+        "mentions": ["Osaka"],
+    },
+    {
+        "name": "unsupported",
+        "question": "What is the capital of Mars?",
+        "expect": "insufficient",
+        "mentions": [],
+    },
+]
 
 
-def collect(app_dir: Path, repo_root: Path) -> tuple:
-    rag_server_dir = repo_root / "ai-services" / "rag-server"
+def _is_str(value):
+    return isinstance(value, str) and bool(value.strip())
 
-    required_paths = [
-        rag_server_dir / "rag_pipeline.py",
-        rag_server_dir / "rag_server.py",
-        rag_server_dir / "rag_http_server.py",
-        rag_server_dir / "requirements.txt",
-        repo_root / "prompts" / "rag" / "implementation" / "rag_implementation_prompt.txt",
-        repo_root / "prompts" / "rag" / "review" / "rag_review_prompt.txt",
-        repo_root / "prompts" / "rag" / "review" / "rag_reasoning_prompt.txt",
-    ]
 
-    missing = [str(path.relative_to(repo_root)) for path in required_paths if not path.exists()]
-    if missing:
-        return False, "RAG evidence incomplete. Missing: " + ", ".join(missing)
+def _retrieved_count(data):
+    summary = data.get("retrieval_summary")
+    value = summary.get("retrieved_count") if isinstance(summary, dict) else None
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
 
-    pipeline_text = (rag_server_dir / "rag_pipeline.py").read_text(encoding="utf-8")
-    missing_tools = [tool for tool in REQUIRED_TOOLS if f"def {tool}" not in pipeline_text]
-    if missing_tools:
-        return False, "rag_pipeline.py missing required tools: " + ", ".join(missing_tools)
 
-    has_confidence = "confidence_category" in pipeline_text
-    has_insufficient = "Insufficient" in pipeline_text
+def evaluate(task, http_status, data):
+    """Return (None, conclusion) when the task is satisfied, else (reason, detail)."""
+    if not isinstance(data, dict):
+        return "malformed", "body is not a JSON object"
+    status = data.get("status")
+    if status == "error":
+        error_type = data.get("error_type")
+        return f"infrastructure:{error_type}", f"http={http_status} error={data.get('error')}"
+    if status not in ("success", "insufficient_context"):
+        return "malformed", f"unknown status {status!r}"
+    if http_status != 200:
+        return "malformed", f"http={http_status} for status {status!r}"
+    citations = data.get("citations")
+    if not isinstance(citations, list):
+        return "malformed", "citations is not a list"
+    retrieved = _retrieved_count(data)
 
-    return True, (
-        "RAG evidence: ai-services/rag-server/ contains rag_pipeline.py, rag_server.py, and rag_http_server.py; "
-        f"{len(REQUIRED_TOOLS)} tools defined (refresh_corpus, retrieve_context, answer_question); "
-        f"confidence_category present={has_confidence}; insufficient-context handling present={has_insufficient}."
+    if task["expect"] == "grounded":
+        if status != "success":
+            return "unsatisfied", f"supported question returned {status}"
+        answer = data.get("answer")
+        if not _is_str(answer) or answer.strip().lower().startswith("insufficient evidence"):
+            return "unsatisfied", "answer missing or an insufficient-evidence answer"
+        if data.get("confidence_category") not in GROUNDED_CONFIDENCE:
+            return "malformed", f"invalid confidence_category {data.get('confidence_category')!r}"
+        if not citations:
+            return "unsatisfied", "no citations for a grounded answer"
+        if not all(isinstance(c, dict) and _is_str(c.get("chunk_id")) and _is_str(c.get("source_id")) for c in citations):
+            return "malformed", "citation missing chunk_id/source_id"
+        if not any(c["source_id"].startswith(DESTINATION_SOURCE_PREFIX) for c in citations):
+            return "unsatisfied", "no Destination DB citation"
+        if retrieved is None or retrieved <= 0 or retrieved != len(citations):
+            return "malformed", f"retrieved_count={retrieved} inconsistent with {len(citations)} citations"
+        missing = [m for m in task["mentions"] if m.lower() not in answer.lower()]
+        if missing:
+            return "unsatisfied", f"answer does not mention {missing}"
+        return None, "grounded answer with Destination citations accepted"
+
+    # unsupported question: only the insufficient-context contract is acceptable
+    if status == "success":
+        return "fabrication_risk", "unsupported question produced a success answer"
+    if citations:
+        return "fabrication_risk", f"insufficient_context carries {len(citations)} citations"
+    if data.get("confidence_category") != "Insufficient":
+        return "malformed", f"confidence_category={data.get('confidence_category')!r}, expected 'Insufficient'"
+    if data.get("answer") != INSUFFICIENT_ANSWER:
+        return "fabrication_risk", "answer is not the fixed insufficient-evidence text"
+    if retrieved != 0:
+        return "fabrication_risk", f"retrieved_count={retrieved}; relevant context was accepted"
+    return None, "cannot be answered from the available grounded knowledge; refused rather than fabricating"
+
+
+def _observe(http_status, data):
+    if not isinstance(data, dict):
+        return f"http={http_status} body={type(data).__name__}"
+    citations = data.get("citations") if isinstance(data.get("citations"), list) else []
+    ids = [f"{c.get('chunk_id')}@{c.get('source_id')}" for c in citations if isinstance(c, dict)]
+    answer = data.get("answer")
+    answer = (answer[:160] + "...") if isinstance(answer, str) and len(answer) > 160 else answer
+    return (
+        f"http={http_status} status={data.get('status')} error_type={data.get('error_type')} "
+        f"confidence={data.get('confidence_category')} citations={len(citations)} {ids} "
+        f"retrieval_summary={data.get('retrieval_summary')} answer={answer!r}"
     )
+
+
+def run_task(task, trace):
+    label = task["name"]
+    trace.step("PLAN", f"[{label}] question {task['question']!r} needs grounded knowledge retrieval; "
+                       f"select shared RAG POST /answer (expect {task['expect']})")
+    trace.step("ACT", f"[{label}] POST {RAG_SERVICE_URL}/answer caller={CALLER!r} k={K}")
+    try:
+        response = requests.post(
+            f"{RAG_SERVICE_URL}/answer",
+            json={"query": task["question"], "k": K, "caller": CALLER},
+            timeout=TIMEOUT_SECONDS,
+        )
+    except requests.exceptions.RequestException as exc:
+        trace.step("OBSERVE", f"[{label}] request failed: {type(exc).__name__}")
+        trace.step("ADAPT", f"[{label}] FAIL unavailable: shared RAG did not answer ({type(exc).__name__})")
+        return False
+    try:
+        data = response.json()
+    except ValueError:
+        data = None
+    trace.step("OBSERVE", f"[{label}] {_observe(response.status_code, data)}")
+    reason, detail = evaluate(task, response.status_code, data)
+    if reason:
+        trace.step("ADAPT", f"[{label}] FAIL {reason}: {detail}")
+        return False
+    trace.step("ADAPT", f"[{label}] PASS: {detail}")
+    return True
+
+
+def collect(app_dir=None, repo_root=None) -> tuple:
+    trace = Trace("RAG")
+    trace.step("PLAN", f"check shared RAG health before running {len(TASKS)} tasks")
+    try:
+        health = requests.get(f"{RAG_SERVICE_URL}/health", timeout=10)
+        body = health.json()
+        healthy = health.status_code == 200 and isinstance(body, dict) and body.get("status") == "ok"
+        detail = f"http={health.status_code} body={body}"
+    except (requests.exceptions.RequestException, ValueError) as exc:
+        healthy, detail = False, type(exc).__name__
+    trace.step("OBSERVE", f"GET {RAG_SERVICE_URL}/health -> {detail}")
+    if not healthy:
+        trace.step("ADAPT", "FAIL unavailable: shared RAG unhealthy; tasks not attempted")
+        return False, trace.text()
+    results = [run_task(task, trace) for task in TASKS]
+    return all(results), trace.text()

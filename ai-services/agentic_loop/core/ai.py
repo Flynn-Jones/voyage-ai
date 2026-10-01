@@ -35,6 +35,9 @@ def call(system_prompt: str, user_prompt: str, review: bool = False):
         return None, f"Ollama returned {response.status_code} for {model}: {response.text}"
 
     try:
-        return response.json()["message"]["content"].strip(), None
-    except (KeyError, TypeError):
-        return None, f"Unexpected Ollama response shape from {model}: {response.text}"
+        content = response.json()["message"]["content"]
+    except Exception as exc:  # malformed 200 body: invalid JSON, wrong shape, missing fields
+        return None, f"Unexpected Ollama response from {model}: {type(exc).__name__}: {response.text[:200]!r}"
+    if not isinstance(content, str):
+        return None, f"Unexpected Ollama response shape from {model}: content is {type(content).__name__}"
+    return content.strip(), None
