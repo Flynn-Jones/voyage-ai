@@ -15,13 +15,15 @@ def refresh_corpus(caller: str = "system"):
 
 
 @mcp.tool()
-def retrieve_context(query: str, k: int = 5, caller: str = "system"):
-    return retrieve_context_impl(query=query, k=k, caller=caller)
+def retrieve_context(query: str, k: int = 5, caller: str = "system", scope: str = None,
+                     trip_reference: str = None, day: int = None):
+    return retrieve_context_impl(query=query, k=k, caller=caller, scope=scope, trip_reference=trip_reference, day=day)
 
 
 @mcp.tool()
-def answer_question(query: str, k: int = 5, caller: str = "system"):
-    return answer_question_impl(query=query, k=k, caller=caller)
+def answer_question(query: str, k: int = 5, caller: str = "system", scope: str = None,
+                    trip_reference: str = None, day: int = None):
+    return answer_question_impl(query=query, k=k, caller=caller, scope=scope, trip_reference=trip_reference, day=day)
 
 
 if __name__ == "__main__":

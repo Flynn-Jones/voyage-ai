@@ -224,3 +224,8 @@ __marimo__/
 # Activity RAG server local state (rebuilt by refresh_corpus)
 activity-service/rag-server/chroma/
 activity-service/rag-server/rag-audit.jsonl
+
+# Student 5 machine-specific and superseded validation artifacts
+itinerary-service/reports/final-runtime/host-processes.json
+itinerary-service/reports/final-runtime/run_agentic.py
+itinerary-service/reports/final-runtime/agentic-loop.txt

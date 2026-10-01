@@ -337,4 +337,54 @@ document.addEventListener("DOMContentLoaded", () => {
   elements.nextDay.addEventListener("click", () => moveDay(1));
   elements.aiReviewForm.addEventListener("submit", submitAiReview);
   loadItinerary();
+  setupRelease1();
 });
+
+function setupRelease1() {
+  for (const kind of ["mcp", "rag"]) {
+    const form = document.getElementById(`${kind}-form`);
+    const output = document.getElementById(`${kind}-result`);
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const data = new FormData(form);
+      const payload = { trip_reference: data.get("trip_reference").trim() };
+      if (data.get("day")) payload.day = Number(data.get("day"));
+      if (kind === "rag") payload.query = data.get("query").trim();
+      const button = form.querySelector("button");
+      button.disabled = true;
+      output.textContent = "Loading…";
+      try {
+        const result = await apiRequest(`/${kind}/${kind === "mcp" ? "itinerary" : "answer"}`, {
+          method: "POST", body: JSON.stringify(payload),
+        });
+        if (kind === "mcp") {
+          output.textContent = JSON.stringify(result.result, null, 2);
+        } else {
+          const answer = makeElement("p", "", result.answer);
+          const confidence = makeElement("p", "", `Confidence: ${result.confidence_category}`);
+          const sources = makeElement("ul", "");
+          result.citations.forEach((citation) => sources.append(makeElement("li", "", `${citation.source_id} — ${citation.chunk_id}`)));
+          output.replaceChildren(answer, confidence, makeElement("p", "", "Sources"), sources);
+        }
+      } catch (error) {
+        output.textContent = error.message;
+      } finally {
+        button.disabled = false;
+      }
+    });
+  }
+  document.getElementById("rag-refresh").addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    const output = document.getElementById("rag-refresh-result");
+    button.disabled = true;
+    output.textContent = "Refreshing shared knowledge…";
+    try {
+      const result = await apiRequest("/rag/refresh", { method: "POST", body: "{}" });
+      output.textContent = result.itinerary_source_error || `Refreshed ${result.itinerary_chunk_count} itinerary records. Snapshot ready.`;
+    } catch (error) {
+      output.textContent = error.message;
+    } finally {
+      button.disabled = false;
+    }
+  });
+}

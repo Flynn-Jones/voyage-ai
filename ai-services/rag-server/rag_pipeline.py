@@ -16,14 +16,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import chromadb
 import requests
+import itinerary_context
 
 BASE_DIR = Path(__file__).resolve().parent
 REPO_ROOT = BASE_DIR.parent.parent  # ai-services/rag-server -> ai-services -> repo root
-CORPUS_PATH = BASE_DIR / "corpus" / "corpus.jsonl"
-AUDIT_PATH = BASE_DIR / "rag-audit.jsonl"
-CHROMA_PATH = BASE_DIR / "chroma"
+DATA_DIR = Path(os.getenv("RAG_DATA_DIR", str(BASE_DIR)))
+CORPUS_PATH = DATA_DIR / "corpus" / "corpus.jsonl"
+AUDIT_PATH = DATA_DIR / "rag-audit.jsonl"
+CHROMA_PATH = DATA_DIR / "chroma"
 
 BUDGET_DB_URL = os.environ.get("BUDGET_DB_URL", "http://localhost:6004")
 ACCOMMODATION_DB_URL = os.environ.get("ACCOMMODATION_DB_URL", "http://localhost:6002")
@@ -43,6 +44,7 @@ EMBED_VECTOR_SIZE = 256
 
 _collection = None
 _last_corpus_chunks: list[dict[str, Any]] = []
+_itinerary_source_error = None
 
 
 def now_iso() -> str:
@@ -77,6 +79,7 @@ def embed_texts(texts: list[str]) -> list[list[float]]:
 
 
 def get_collection():
+    import chromadb
     global _collection
     if _collection is None:
         client = chromadb.PersistentClient(path=str(CHROMA_PATH))
@@ -85,6 +88,7 @@ def get_collection():
 
 
 def reset_collection() -> None:
+    import chromadb
     global _collection
     client = chromadb.PersistentClient(path=str(CHROMA_PATH))
     try:
@@ -234,11 +238,20 @@ def load_repository_chunks() -> list[dict[str, Any]]:
 
 
 def build_corpus() -> list[dict[str, Any]]:
+    global _itinerary_source_error
     chunks: list[dict[str, Any]] = []
     chunks.extend(load_budget_chunks())
     chunks.extend(load_accommodation_chunks())
     chunks.extend(load_doc_chunks())
     chunks.extend(load_repository_chunks())
+    try:
+        itinerary_chunks = itinerary_context.load_chunks()
+        for chunk in itinerary_chunks:
+            chunk["indexed_at"] = now_iso()
+        chunks.extend(itinerary_chunks)
+        _itinerary_source_error = None
+    except (requests.RequestException, ValueError, TypeError):
+        _itinerary_source_error = "itinerary API unavailable or invalid; itinerary records were not indexed"
     return chunks
 
 
@@ -320,6 +333,8 @@ def refresh_corpus(caller: str = "system") -> dict[str, Any]:
             "status": "success",
             "caller": caller,
             "chunk_count": len(chunks),
+            "itinerary_chunk_count": sum(c.get("source_id") == itinerary_context.SOURCE for c in chunks),
+            "itinerary_source_error": _itinerary_source_error,
             "collection": COLLECTION_NAME,
             "vector_store_status": vector_store_status,
         }
@@ -333,7 +348,12 @@ def refresh_corpus(caller: str = "system") -> dict[str, Any]:
         return output
 
 
-def retrieve_context(query: str, k: int = 5, caller: str = "system") -> dict[str, Any]:
+def retrieve_context(query: str, k: int = 5, caller: str = "system", scope: str = None,
+                     trip_reference: str = None, day: int = None) -> dict[str, Any]:
+    if scope == "itinerary":
+        return itinerary_operation(query, k, caller, trip_reference, day, answer=False)
+    if scope is not None:
+        return {"status": "error", "error": "unknown scope"}
     start = time.time()
     try:
         retrieval_mode = "vector"
@@ -441,7 +461,12 @@ Answer:
         return f"Ollama unavailable: {exc}"
 
 
-def answer_question(query: str, k: int = 5, caller: str = "system") -> dict[str, Any]:
+def answer_question(query: str, k: int = 5, caller: str = "system", scope: str = None,
+                    trip_reference: str = None, day: int = None) -> dict[str, Any]:
+    if scope == "itinerary":
+        return itinerary_operation(query, k, caller, trip_reference, day, answer=True)
+    if scope is not None:
+        return {"status": "error", "error": "unknown scope"}
     start = time.time()
     retrieval = retrieve_context(query=query, k=k, caller=caller)
     if retrieval.get("status") != "success":
@@ -465,6 +490,10 @@ def answer_question(query: str, k: int = 5, caller: str = "system") -> dict[str,
 
     context = "\n\n".join(r.get("text", "") for r in results)
     answer = generate_with_ollama(query, context)
+    if answer.startswith("Ollama unavailable:"):
+        output = {"status": "error", "query": query, "error": "RAG answer model is unavailable"}
+        append_audit("answer_question", {"query": query}, output, "fail", "llm_unavailable", start)
+        return output
     citations = [
         {"chunk_id": r.get("chunk_id"), "source_id": r.get("source_id"), "authority_tier": r.get("authority_tier")}
         for r in results
@@ -486,6 +515,55 @@ def answer_question(query: str, k: int = 5, caller: str = "system") -> dict[str,
         "answer_generated",
         start,
     )
+    return output
+
+
+class ItineraryModelError(Exception):
+    """The scoped RAG model is unavailable or returned an unusable response."""
+
+
+def generate_itinerary_answer(prompt):
+    """Strict local Ollama generation for scoped answers; no deterministic fallback."""
+    try:
+        response = requests.post(
+            OLLAMA_GENERATE_URL,
+            json={"model": OLLAMA_MODEL, "prompt": prompt, "stream": False,
+                  "options": {"temperature": 0, "num_predict": 256}},
+            timeout=90,
+        )
+        response.raise_for_status()
+        body = response.json()
+        if not isinstance(body, dict) or body.get("error"):
+            raise ValueError("invalid model response")
+        answer = body.get("response")
+        if not isinstance(answer, str) or not answer.strip():
+            raise ValueError("empty or invalid model answer")
+        return answer.strip()
+    except (requests.RequestException, ValueError) as exc:
+        raise ItineraryModelError("RAG answer model is unavailable or returned an invalid response") from exc
+
+
+def itinerary_operation(query, k, caller, trip_reference, day, answer):
+    start = time.time()
+    try:
+        itinerary_context.validate(query, k, trip_reference, day)
+        if not CORPUS_PATH.exists() and not _last_corpus_chunks:
+            refreshed = refresh_corpus(caller=caller)
+            if refreshed.get("status") != "success":
+                raise ValueError("corpus unavailable; refresh required")
+        chunks = _last_corpus_chunks or read_corpus()
+        retrieval, evidence = itinerary_context.retrieve(chunks, query, k, trip_reference, day)
+        output = itinerary_context.answer(retrieval, evidence, generate_itinerary_answer) if answer else retrieval
+        if output.get("answer_source") == "llm":
+            output["model"] = OLLAMA_MODEL
+    except ItineraryModelError as exc:
+        output = {"status": "error", "error": str(exc), "error_type": "llm_unavailable"}
+    except (ValueError, TypeError, OSError) as exc:
+        output = {"status": "error", "error": str(exc)}
+    append_audit("answer_question" if answer else "retrieve_context",
+                 {"query": query, "scope": "itinerary", "trip_reference": trip_reference, "day": day},
+                 {"status": output["status"], "confidence_category": output.get("confidence_category")},
+                 "pass" if output["status"] == "success" else "fail", "itinerary_context", start)
     return output
 
 

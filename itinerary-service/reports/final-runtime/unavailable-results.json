@@ -1,0 +1,16 @@
+{
+  "mcp/itinerary": {
+    "http_status": 502,
+    "body": {
+      "error": "MCP service is unavailable or returned invalid JSON",
+      "status": "error"
+    }
+  },
+  "rag/answer": {
+    "http_status": 502,
+    "body": {
+      "error": "RAG service is unavailable or returned invalid JSON",
+      "status": "error"
+    }
+  }
+}

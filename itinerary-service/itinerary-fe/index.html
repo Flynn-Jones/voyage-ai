@@ -78,6 +78,29 @@
       <div id="ai-review-error" class="field-error" role="alert" hidden></div>
       <div id="ai-review-results" class="workflow-grid" aria-live="polite" hidden></div>
     </section>
+    <section class="panel" aria-labelledby="mcp-title">
+      <h2 id="mcp-title">MCP itinerary lookup</h2>
+      <p>Read a trip's stored itinerary through the shared tool. This does not change any records.</p>
+      <form id="mcp-form" class="ai-form">
+        <label>Trip reference<input name="trip_reference" required maxlength="120" placeholder="TRIP-1001"></label>
+        <label>Day (optional)<input name="day" type="number" min="1" step="1"></label>
+        <button class="button button--primary">Look up itinerary</button>
+      </form>
+      <pre id="mcp-result" class="release1-result" aria-live="polite"></pre>
+    </section>
+    <section class="panel" aria-labelledby="rag-title">
+      <h2 id="rag-title">RAG itinerary questions</h2>
+      <p>Ask about planned activities or estimated costs for one trip. Answers use an indexed snapshot; refresh after editing your itinerary.</p>
+      <form id="rag-form" class="ai-form">
+        <label>Trip reference<input name="trip_reference" required maxlength="120" placeholder="TRIP-1001"></label>
+        <label>Day (optional)<input name="day" type="number" min="1" step="1"></label>
+        <label class="ai-form__prompt">Question<textarea name="query" required maxlength="1000" rows="2" placeholder="What activities are planned? Or: What is the estimated itinerary cost?"></textarea></label>
+        <button class="button button--primary">Ask about itinerary</button>
+      </form>
+      <button id="rag-refresh" class="button button--secondary" type="button">Refresh shared knowledge</button>
+      <p id="rag-refresh-result" role="status"></p>
+      <div id="rag-result" class="release1-result" aria-live="polite"></div>
+    </section>
   </main>
   <footer class="voyage-footer">VoyageAI &mdash; ASD 2026 Group 50</footer>
 </body>

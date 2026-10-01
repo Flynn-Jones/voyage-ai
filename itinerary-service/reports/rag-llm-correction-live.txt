@@ -1,0 +1,62 @@
+{
+  "live_itinerary_rag_answer": {
+    "answer": "The estimated itinerary cost is 199.50 across 6 item(s).",
+    "answer_source": "llm",
+    "citations": [
+      {
+        "authority_tier": "tier_1",
+        "chunk_id": "itinerary_1",
+        "source_id": "itinerary-db:/itinerary-items"
+      },
+      {
+        "authority_tier": "tier_1",
+        "chunk_id": "itinerary_2",
+        "source_id": "itinerary-db:/itinerary-items"
+      },
+      {
+        "authority_tier": "tier_1",
+        "chunk_id": "itinerary_3",
+        "source_id": "itinerary-db:/itinerary-items"
+      },
+      {
+        "authority_tier": "tier_1",
+        "chunk_id": "itinerary_4",
+        "source_id": "itinerary-db:/itinerary-items"
+      },
+      {
+        "authority_tier": "tier_1",
+        "chunk_id": "itinerary_5",
+        "source_id": "itinerary-db:/itinerary-items"
+      },
+      {
+        "authority_tier": "tier_1",
+        "chunk_id": "itinerary_6",
+        "source_id": "itinerary-db:/itinerary-items"
+      }
+    ],
+    "confidence_category": "High",
+    "day": null,
+    "model": "qwen2.5:0.5b",
+    "query": "What is the estimated itinerary cost?",
+    "retrieval_summary": {
+      "complete_scope": true,
+      "k": 1,
+      "retrieval_mode": "itinerary_metadata",
+      "retrieved_count": 6
+    },
+    "status": "success",
+    "trip_reference": "TRIP-1001"
+  }
+}
+{
+  "passed_checks": [
+    "four real local HTTP services healthy",
+    "Release 0 CRUD and day filtering over HTTP",
+    "backend -> shared MCP -> real itinerary database HTTP path",
+    "backend -> shared RAG -> local Ollama: grounded total, citations, confidence, unsupported-question abstention"
+  ],
+  "count": 4,
+  "failures": []
+}
+
+Collector outcome: FAILED (process exit 1). The subsequent schedule question returned model-generated Insufficient evidence despite available records. The four passed checks above do not represent a full live-suite pass. The failures array was empty because this run preceded exception-summary reporting in the validator.

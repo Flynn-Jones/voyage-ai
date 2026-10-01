@@ -1,10 +1,14 @@
 """Scans ai-services/rag-server/ for the required files and the 3 required RAG tool functions."""
 from pathlib import Path
+import os
 
 REQUIRED_TOOLS = ["refresh_corpus", "retrieve_context", "answer_question"]
 
 
 def collect(app_dir: Path, repo_root: Path) -> tuple:
+    if os.getenv("AGENTIC_ITINERARY_TRIP"):
+        from collectors.itinerary_evidence import collect as collect_itinerary
+        return collect_itinerary("RAG")
     rag_server_dir = repo_root / "ai-services" / "rag-server"
 
     required_paths = [

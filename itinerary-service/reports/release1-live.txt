@@ -1,0 +1,87 @@
+Prompt families:
+  MCP -> C:\Users\61451\Documents\GitHub\voyage-ai\prompts\mcp
+  RAG -> C:\Users\61451\Documents\GitHub\voyage-ai\prompts\rag
+  Activity RAG -> C:\Users\61451\Documents\GitHub\voyage-ai\activity-service\prompts\lab8
+
+======================================================================
+VOYAGEAI SHARED AGENTIC LOOP - VALIDATION MENU
+1 - MCP
+2 - RAG
+3 - Activity RAG
+0 - Exit
+======================================================================
+Choose a validation target: [MCP][START] Starting review flow
+[MCP][OBSERVE] Collecting evidence
+[MCP][OBSERVE] Complete
+[MCP][PROMPTS] Loading prompt family: mcp
+[MCP][PROMPTS] Loaded MCP implementation prompt
+[MCP][LLM] Running MCP implementation model
+[MCP][LLM] MCP implementation model complete
+[MCP][PROMPTS] Loaded MCP review prompt(s)
+[MCP][LLM] Running MCP review model
+[MCP][LLM] Review model complete
+[MCP][DONE] Review complete
+
+=== MCP Result ===
+
+OBSERVE: {"shared_health": {"status": "ok", "service": "mcp-server", "tools": ["get_itinerary", "list_expenses", "get_accommodation_by_destination", "project_files", "ci_report"]}, "itinerary": {"result": {"count": 6, "day": null, "items": [{"activity_id": 101, "day": 1, "destination_id": 1, "end_time": "10:30", "estimated_cost": 24.0, "itinerary_item_id": 1, "notes": "Guided historic centre walk", "start_time": "09:00", "trip_reference": "TRIP-1001"}, {"activity_id": 102, "day": 1, "destination_id": 1, "end_time": "12:30", "estimated_cost": 18.5, "itinerary_item_id": 2, "notes": "Visit the local art museum", "start_time": "11:00", "trip_reference": "TRIP-1001"}, {"activity_id": 103, "day": 1, "destination_id": 1, "end_time": "15:30", "estimated_cost": 32.0, "itinerary_item_id": 3, "notes": "Riverside food tour", "start_time": "14:00", "trip_reference": "TRIP-1001"}, {"activity_id": 104, "day": 2, "destination_id": 1, "end_time": "10:00", "estimated_cost": 12.0, "itinerary_item_id": 4, "notes": "Breakfast market visit", "start_time": "08:30", "trip_reference": "TRIP-1001"}, {"activity_id": 105, "day": 2, "destination_id": 1, "end_time": "13:00", "estimated_cost": 45.0, "itinerary_item_id": 5, "notes": "Architecture and gardens tour", "start_time": "10:30", "trip_reference": "TRIP-1001"}, {"activity_id": 106, "day": 2, "destination_id": 1, "end_time": "20:00", "estimated_cost": 68.0, "itinerary_item_id": 6, "notes": "Evening cooking class", "start_time": "18:00", "trip_reference": "TRIP-1001"}], "read_only": true, "source": "itinerary-db:/itinerary-items", "trip_reference": "TRIP-1001"}, "status": "success"}, "invalid_input": {"http_status": 400, "body": {"error": "day must be a positive integer", "status": "error"}}}
+
+IMPLEMENTATION: Assessment: The shared MCP server's tools are correctly implemented. The "get_itinerary" tool is used to read the trip's itinerary records, and the "project_files" tool lists files/folders in the repository. The "ci_report" tool reads a feature's local CI evidence report.json. The "list_expenses" tool reads budget expenses from the budget-db. The "get_accommodation_by_destination" tool reads accommodation records from the accommodation-db. The "itinerary" tool reads the trip's itinerary records through its database HTTP API. The "status" and "read_only" fields indicate that the tools are used in the correct manner.
+REVIEW: Strengths: The shared MCP server's tools are correctly implemented.
+Risks: The "get_itinerary" tool is used incorrectly, and the "list_expenses" tool reads budget expenses from the budget-db.
+Recommendations: Update the "get_itinerary" tool to read budget expenses from the budget-db and update the "list_expenses" tool to read budget expenses from the budget-db.
+
+
+======================================================================
+VOYAGEAI SHARED AGENTIC LOOP - VALIDATION MENU
+1 - MCP
+2 - RAG
+3 - Activity RAG
+0 - Exit
+======================================================================
+Choose a validation target: [RAG][START] Starting review flow
+[RAG][OBSERVE] Collecting evidence
+[RAG][OBSERVE] Complete
+[RAG][PROMPTS] Loading prompt family: rag
+[RAG][PROMPTS] Loaded RAG implementation prompt
+[RAG][LLM] Running RAG implementation model
+[RAG][LLM] RAG implementation model complete
+[RAG][PROMPTS] Loaded RAG review prompt(s)
+[RAG][LLM] Running RAG review model
+[RAG][LLM] Review model complete
+[RAG][DONE] Review complete
+
+=== RAG Result ===
+
+OBSERVE: {"shared_health": {"status": "ok", "service": "rag-server"}, "refresh": {"caller": "itinerary-service", "chunk_count": 37, "collection": "voyageai_shared_context", "itinerary_chunk_count": 12, "itinerary_source_error": null, "status": "success", "vector_store_error": "No module named 'chromadb'", "vector_store_status": "degraded"}, "retrieval": {"day": null, "intent": "schedule", "k": 5, "matched_count": 6, "query": "What activities are planned?", "results": [{"authority_tier": "tier_1", "chunk_id": "itinerary_1", "distance": 0.0, "indexed_at": "2026-09-30T15:58:16.052770+00:00", "metadata": {"day": 1, "source_type": "itinerary_db", "trip_reference": "TRIP-1001"}, "rank": 1, "record": {"activity_id": 101, "day": 1, "destination_id": 1, "end_time": "10:30", "estimated_cost": 24.0, "itinerary_item_id": 1, "notes": "Guided historic centre walk", "start_time": "09:00", "trip_reference": "TRIP-1001"}, "source_id": "itinerary-db:/itinerary-items", "text": "Itinerary record: {\"activity_id\": 101, \"day\": 1, \"destination_id\": 1, \"end_time\": \"10:30\", \"estimated_cost\": 24.0, \"itinerary_item_id\": 1, \"notes\": \"Guided historic centre walk\", \"start_time\": \"09:00\", \"trip_reference\": \"TRIP-1001\"}"}, {"authority_tier": "tier_1", "chunk_id": "itinerary_2", "distance": 0.0, "indexed_at": "2026-09-30T15:58:16.052770+00:00", "metadata": {"day": 1, "source_type": "itinerary_db", "trip_reference": "TRIP-1001"}, "rank": 2, "record": {"activity_id": 102, "day": 1, "destination_id": 1, "end_time": "12:30", "estimated_cost": 18.5, "itinerary_item_id": 2, "notes": "Visit the local art museum", "start_time": "11:00", "trip_reference": "TRIP-1001"}, "source_id": "itinerary-db:/itinerary-items", "text": "Itinerary record: {\"activity_id\": 102, \"day\": 1, \"destination_id\": 1, \"end_time\": \"12:30\", \"estimated_cost\": 18.5, \"itinerary_item_id\": 2, \"notes\": \"Visit the local art museum\", \"start_time\": \"11:00\", \"trip_reference\": \"TRIP-1001\"}"}, {"authority_tier": "tier_1", "chunk_id": "itinerary_3", "distance": 0.0, "indexed_at": "2026-09-30T15:58:16.052770+00:00", "metadata": {"day": 1, "source_type": "itinerary_db", "trip_reference": "TRIP-1001"}, "rank": 3, "record": {"activity_id": 103, "day": 1, "destination_id": 1, "end_time": "15:30", "estimated_cost": 32.0, "itinerary_item_id": 3, "notes": "Riverside food tour", "start_time": "14:00", "trip_reference": "TRIP-1001"}, "source_id": "itinerary-db:/itinerary-items", "text": "Itinerary record: {\"activity_id\": 103, \"day\": 1, \"destination_id\": 1, \"end_time\": \"15:30\", \"estimated_cost\": 32.0, \"itinerary_item_id\": 3, \"notes\": \"Riverside food tour\", \"start_time\": \"14:00\", \"trip_reference\": \"TRIP-1001\"}"}, {"authority_tier": "tier_1", "chunk_id": "itinerary_4", "distance": 0.0, "indexed_at": "2026-09-30T15:58:16.052770+00:00", "metadata": {"day": 2, "source_type": "itinerary_db", "trip_reference": "TRIP-1001"}, "rank": 4, "record": {"activity_id": 104, "day": 2, "destination_id": 1, "end_time": "10:00", "estimated_cost": 12.0, "itinerary_item_id": 4, "notes": "Breakfast market visit", "start_time": "08:30", "trip_reference": "TRIP-1001"}, "source_id": "itinerary-db:/itinerary-items", "text": "Itinerary record: {\"activity_id\": 104, \"day\": 2, \"destination_id\": 1, \"end_time\": \"10:00\", \"estimated_cost\": 12.0, \"itinerary_item_id\": 4, \"notes\": \"Breakfast market visit\", \"start_time\": \"08:30\", \"trip_reference\": \"TRIP-1001\"}"}, {"authority_tier": "tier_1", "chunk_id": "itinerary_5", "distance": 0.0, "indexed_at": "2026-09-30T15:58:16.052770+00:00", "metadata": {"day": 2, "source_type": "itinerary_db", "trip_reference": "TRIP-1001"}, "rank": 5, "record": {"activity_id": 105, "day": 2, "destination_id": 1, "end_time": "13:00", "estimated_cost": 45.0, "itinerary_item_id": 5, "notes": "Architecture and gardens tour", "start_time": "10:30", "trip_reference": "TRIP-1001"}, "source_id": "itinerary-db:/itinerary-items", "text": "Itinerary record: {\"activity_id\": 105, \"day\": 2, \"destination_id\": 1, \"end_time\": \"13:00\", \"estimated_cost\": 45.0, \"itinerary_item_id\": 5, \"notes\": \"Architecture and gardens tour\", \"start_time\": \"10:30\", \"trip_reference\": \"TRIP-1001\"}"}], "retrieval_mode": "itinerary_metadata", "status": "success", "trip_reference": "TRIP-1001"}, "answer": {"answer": "Day 1, 09:00-10:30: activity 101, destination 1. Guided historic centre walk\nDay 1, 11:00-12:30: activity 102, destination 1. Visit the local art museum\nDay 1, 14:00-15:30: activity 103, destination 1. Riverside food tour\nDay 2, 08:30-10:00: activity 104, destination 1. Breakfast market visit\nDay 2, 10:30-13:00: activity 105, destination 1. Architecture and gardens tour\nDay 2, 18:00-20:00: activity 106, destination 1. Evening cooking class", "answer_source": "deterministic", "citations": [{"authority_tier": "tier_1", "chunk_id": "itinerary_1", "source_id": "itinerary-db:/itinerary-items"}, {"authority_tier": "tier_1", "chunk_id": "itinerary_2", "source_id": "itinerary-db:/itinerary-items"}, {"authority_tier": "tier_1", "chunk_id": "itinerary_3", "source_id": "itinerary-db:/itinerary-items"}, {"authority_tier": "tier_1", "chunk_id": "itinerary_4", "source_id": "itinerary-db:/itinerary-items"}, {"authority_tier": "tier_1", "chunk_id": "itinerary_5", "source_id": "itinerary-db:/itinerary-items"}, {"authority_tier": "tier_1", "chunk_id": "itinerary_6", "source_id": "itinerary-db:/itinerary-items"}], "confidence_category": "High", "day": null, "query": "What activities are planned?", "retrieval_summary": {"complete_scope": true, "k": 5, "retrieval_mode": "itinerary_metadata", "retrieved_count": 6}, "status": "success", "trip_reference": "TRIP-1001"}, "unsupported": {"answer": "Insufficient evidence. Ask about the planned activities or estimated itinerary cost for the selected trip/day.", "answer_source": "deterministic", "citations": [], "confidence_category": "Insufficient", "day": null, "query": "What is tomorrow's weather?", "retrieval_summary": {"complete_scope": true, "k": 5, "retrieval_mode": "itinerary_metadata", "retrieved_count": 0}, "status": "success", "trip_reference": "TRIP-1001"}}
+
+IMPLEMENTATION: The shared RAG pipeline is correctly implemented, with all 3 RAG tools defined and callable. The answer_question tool returns citations and a confidence category. Insufficient-context handling is present, with no fabricated answers.
+REVIEW: Strengths: The shared RAG pipeline is correctly implemented, with all 3 RAG tools defined and callable. The answer_question tool returns citations and a confidence category. The retrieval mode is "itinerary_metadata", which is suitable for the given evidence.
+
+Risks: Insufficient evidence for the planned activities or estimated itinerary cost for the selected trip/day. The retrieval summary is incomplete, missing the day and query.
+
+
+======================================================================
+VOYAGEAI SHARED AGENTIC LOOP - VALIDATION MENU
+1 - MCP
+2 - RAG
+3 - Activity RAG
+0 - Exit
+======================================================================
+Choose a validation target: Exiting.
+
+{
+  "passed_checks": [
+    "four real local HTTP services healthy",
+    "Release 0 CRUD and day filtering over HTTP",
+    "backend -> shared MCP -> real itinerary database HTTP path",
+    "backend -> shared RAG: refresh, exact total, citations, confidence, unsupported-question abstention",
+    "existing shared MCP/RAG collectors: real itinerary evidence passed",
+    "Release 0 AI review with real Ollama",
+    "shared agentic loop MCP and RAG implementation/review using real Ollama",
+    "stopped MCP/RAG return 502; Release 0 reads still work",
+    "CI flags: all optional routes 403; Release 0 reads still work"
+  ],
+  "count": 9,
+  "failures": []
+}
