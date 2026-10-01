@@ -1,6 +1,6 @@
 # R1-P04 — Release 1 Compose, environment, timeout and CI integration (evidence)
 
-Scope: Student 1 standalone Compose, the Destination services in the root Compose, `student-1/**`, and `.github/workflows/student-1.yml`. No shared MCP/RAG, Activity or teammate changes. Nothing committed; no remote CI run.
+Scope: Student 1 standalone Compose, the Destination services in the root Compose, `student-1/**`, and `.github/workflows/student-1.yml`. No shared MCP/RAG, Activity or teammate changes. Nothing committed. Remote CI result recorded in the CI section.
 
 ## Architecture established
 browser -> destination-frontend (:3001) -> destination-backend -> `host.docker.internal:7001` (shared MCP) / `host.docker.internal:7002` (shared RAG). MCP, RAG, Ollama and the agentic loop remain host-local; none is a Compose service. Host access uses the existing `extra_hosts: host.docker.internal:host-gateway` pattern (already present in both Compose files).
@@ -69,8 +69,36 @@ Results:
 - No failures; no code or config changed during this re-validation.
 
 ## CI
-Not run. The workflow is prepared for `workflow_dispatch`; remote execution (push + `gh workflow run student-1.yml --ref student-1-release-1`) needs approval and has not been performed. No CI result is claimed.
+Remote GitHub Actions run completed successfully.
+
+- Workflow: `student-1.yml`
+- Branch: `student-1-release-1`
+- Event: `workflow_dispatch`
+- Run ID: `36819083400`
+- Run URL: https://github.com/Flynn-Jones/voyage-ai/actions/runs/36819083400
+- Overall conclusion: **success**
+
+| Job | Result |
+|---|---|
+| `offline-tests` | success |
+| `compose-validate` | success |
+| `build-and-smoke` | success |
+| `evidence-pack` | success |
+
+Behaviour proven by this run:
+- Offline tests passed.
+- Student 1 Compose validation passed.
+- Exact expected service validation passed.
+- Release 1 shared-service rendered configuration assertion passed.
+- All three Student 1 images built.
+- The stack started successfully and health checks passed.
+- Release 1 configuration inspection inside the running containers passed.
+- Live-stack tests passed.
+- Public route smoke checks passed.
+- Evidence artifacts were generated and uploaded.
+
+The local validation results recorded above are historical and are unchanged by this run.
 
 ## Notes
 - Containers exit 137 on `stop` (Flask is PID 1 and ignores SIGTERM until the grace period elapses); this is pre-existing and unrelated.
-- Not verified: the GitHub-hosted runner behaviour of the new workflow steps (only the underlying commands, `jq` expression and YAML were verified locally).
+- Non-blocking GitHub runner warnings in run `36819083400`: a Node.js 20 deprecation notice and a notice about the future `ubuntu-latest` migration. Neither affected the run's success.
