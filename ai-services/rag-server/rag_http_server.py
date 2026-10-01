@@ -64,7 +64,7 @@ class RAGHandler(BaseHTTPRequestHandler):
                     self._send_json(400, {"status": "error", "error": "query is required"})
                     return
                 result = answer_question(
-                    query=query, k=int(payload.get("k", 5)), caller=(payload.get("caller") or "system").strip()
+                    query=query, k=int(payload.get("k", 8)), caller=(payload.get("caller") or "system").strip()
                 )
                 self._send_json(200 if result.get("status") == "success" else 500, result)
                 return

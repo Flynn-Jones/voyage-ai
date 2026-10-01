@@ -43,5 +43,5 @@ def retrieve_context(query: str, k: int = 5, caller: str = "budget-service") -> 
     return _post("/retrieve", {"query": query, "k": k, "caller": caller})
 
 
-def answer_question(query: str, k: int = 5, caller: str = "budget-service") -> dict:
+def answer_question(query: str, k: int = 8, caller: str = "budget-service") -> dict:
     return _post("/answer", {"query": query, "k": k, "caller": caller})
