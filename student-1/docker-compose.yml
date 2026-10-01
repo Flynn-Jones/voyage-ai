@@ -32,6 +32,15 @@ services:
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:0.5b}
       OLLAMA_TIMEOUT_SECONDS: ${OLLAMA_TIMEOUT_SECONDS:-60}
+      # Release 1: ONE shared local MCP (:7001) and RAG (:7002) on the host.
+      # Literal URLs on purpose (not ${MCP_SERVICE_URL}): the root compose uses
+      # that shell var for Activity's 7003/6013 servers.
+      MCP_SERVICE_URL: http://host.docker.internal:7001
+      MCP_ENABLED: ${DESTINATION_MCP_ENABLED:-true}
+      MCP_TIMEOUT_SECONDS: "10"
+      RAG_SERVICE_URL: http://host.docker.internal:7002
+      RAG_ENABLED: ${DESTINATION_RAG_ENABLED:-true}
+      RAG_TIMEOUT_SECONDS: "120"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

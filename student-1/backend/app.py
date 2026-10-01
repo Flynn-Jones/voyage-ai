@@ -15,6 +15,8 @@ import requests
 from flask import Flask, jsonify, request
 
 import llm_client
+import mcp_client
+import rag_client
 
 PORT = int(os.environ.get("PORT", "5001"))
 DATABASE_SERVICE_URL = os.environ.get("DATABASE_SERVICE_URL", "http://localhost:6001")
@@ -66,6 +68,41 @@ def _request(method, path, **kwargs):
         raise DatabaseServiceError(f"database returned {response.status_code} for {path}")
 
     return response
+
+MCP_FILTER_KEYS = ("city", "country", "travel_style")
+FILTER_MAX_LENGTH = 100
+QUESTION_MIN_LENGTH = 3
+QUESTION_MAX_LENGTH = 500
+ERROR_HTTP_STATUS = {
+    "unavailable": 503,
+    "timeout": 504,
+    "tool_error": 502,
+    "infrastructure": 502,
+    "malformed": 502,
+}
+
+
+def _has_control_chars(value, allow_whitespace=False):
+    for ch in value:
+        if allow_whitespace and ch in "\n\r\t":
+            continue
+        if ord(ch) < 32 or ord(ch) == 127:
+            return True
+    return False
+
+
+def _client_error_response(exc):
+    """Map a shared-service client error to the safe JSON envelope."""
+    logger.warning("[SHARED] %s: %s", exc.kind, exc.detail or exc.message)
+    status = "infrastructure_error" if exc.kind == "infrastructure" else exc.kind
+    body = {"status": status, "error": exc.message}
+    if getattr(exc, "error_type", None):
+        body["error_type"] = exc.error_type
+    return jsonify(body), ERROR_HTTP_STATUS[exc.kind]
+
+
+def _invalid(message):
+    return jsonify({"status": "invalid_request", "error": message}), 400
 
 
 def create_app():
@@ -217,6 +254,75 @@ def create_app():
                 "destinations": [row_a, row_b],
             }
         )
+
+    @app.route("/api/destinations/mcp-search", methods=["POST"])
+    def mcp_search_destinations():
+        if not mcp_client.MCP_ENABLED:
+            return jsonify({"status": "disabled", "error": "MCP lookup is disabled."}), 503
+
+        body = request.get_json(silent=True)
+        if not isinstance(body, dict):
+            return _invalid("request body must be a JSON object")
+        unknown = sorted(set(body) - set(MCP_FILTER_KEYS))
+        if unknown:
+            return _invalid(f"unknown field: {unknown[0]}")
+        filters = {}
+        for key in MCP_FILTER_KEYS:
+            value = body.get(key)
+            if value is None:
+                continue
+            if not isinstance(value, str):
+                return _invalid(f"{key} must be a string")
+            value = value.strip()
+            if not value:
+                continue
+            if len(value) > FILTER_MAX_LENGTH:
+                return _invalid(f"{key} must be at most {FILTER_MAX_LENGTH} characters")
+            if _has_control_chars(value):
+                return _invalid(f"{key} contains invalid characters")
+            filters[key] = value
+
+        logger.info("[MCP] list_destinations filters=%r", filters)
+        try:
+            result = mcp_client.list_destinations(filters)
+        except mcp_client.MCPClientError as exc:
+            return _client_error_response(exc)
+        return jsonify(
+            {
+                "status": "success",
+                "source": "shared-mcp",
+                "tool": mcp_client.TOOL_NAME,
+                "filters": result["filters"],
+                "count": result["count"],
+                "destinations": result["destinations"],
+            }
+        )
+
+    @app.route("/api/destinations/rag-answer", methods=["POST"])
+    def rag_answer_destinations():
+        if not rag_client.RAG_ENABLED:
+            return jsonify({"status": "disabled", "error": "RAG questions are disabled."}), 503
+
+        body = request.get_json(silent=True)
+        if not isinstance(body, dict):
+            return _invalid("request body must be a JSON object")
+        question = body.get("question")
+        if not isinstance(question, str):
+            return _invalid("question is required")
+        question = question.strip()
+        if len(question) < QUESTION_MIN_LENGTH:
+            return _invalid(f"question must be at least {QUESTION_MIN_LENGTH} characters")
+        if len(question) > QUESTION_MAX_LENGTH:
+            return _invalid(f"question must be at most {QUESTION_MAX_LENGTH} characters")
+        if _has_control_chars(question, allow_whitespace=True):
+            return _invalid("question contains invalid characters")
+
+        logger.info("[RAG] answer question_chars=%d", len(question))
+        try:
+            result = rag_client.answer(question)
+        except rag_client.RAGClientError as exc:
+            return _client_error_response(exc)
+        return jsonify({"question": question, **result})
 
     return app
 

@@ -1,0 +1,29 @@
+{% if result %}
+{% if result.status == 'success' %}
+  <p class="description-box comparison-text">{{ result.answer }}</p>
+  <p><span class="badge">Confidence: {{ result.confidence_category }}</span></p>
+  {% if result.citations %}
+  <h3>Citations</h3>
+  <ul class="citation-list">
+    {% for c in result.citations %}
+    <li>{{ c.chunk_id }} &middot; {{ c.source_id }}{% if c.authority_tier %} &middot; {{ c.authority_tier }}{% endif %}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+{% elif result.status == 'insufficient_context' %}
+  <div class="alert">Not enough grounded evidence to answer this question from the current knowledge base.</div>
+  <p><span class="badge">Confidence: {{ result.confidence_category or 'Insufficient' }}</span></p>
+{% elif result.status == 'disabled' %}
+  <div class="alert alert--error">RAG questions are disabled for Destination Manager.</div>
+{% elif result.status == 'timeout' %}
+  <div class="alert alert--error">{{ result.error or 'The shared RAG service timed out. Please try again.' }}</div>
+{% elif result.status == 'unavailable' %}
+  <div class="alert alert--error">{{ result.error or 'The shared RAG service is unavailable. Please try again.' }}</div>
+{% elif result.status == 'infrastructure_error' %}
+  <div class="alert alert--error">Infrastructure failure: {{ result.error or 'the shared RAG service reported an error.' }}</div>
+{% elif result.status == 'malformed' %}
+  <div class="alert alert--error">The shared service returned an unexpected response.</div>
+{% else %}
+  <div class="alert alert--error">{{ result.error or 'The question could not be answered.' }}</div>
+{% endif %}
+{% endif %}

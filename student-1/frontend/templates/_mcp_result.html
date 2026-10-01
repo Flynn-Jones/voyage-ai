@@ -1,0 +1,35 @@
+{% if result %}
+{% if result.status == 'success' %}
+  {% if result.destinations %}
+  <table class="data-table">
+    <thead>
+      <tr><th>City</th><th>Country</th><th>Travel style</th><th>Avg daily cost</th><th>Trip length</th></tr>
+    </thead>
+    <tbody>
+      {% for d in result.destinations %}
+      <tr>
+        <td>{{ d.city }}</td>
+        <td>{{ d.country }}</td>
+        <td>{{ d.travel_style or '—' }}</td>
+        <td>{{ '$%.2f'|format(d.average_daily_cost) if d.average_daily_cost is not none else '—' }}</td>
+        <td>{{ (d.recommended_trip_length ~ ' days') if d.recommended_trip_length is not none else '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty-state">No destinations matched. Filters are exact-match and case-sensitive.</p>
+  {% endif %}
+  <p class="comparison-meta">Via shared MCP tool <code>{{ result.tool or 'list_destinations' }}</code> &middot; {{ result.count }} result{{ '' if result.count == 1 else 's' }}</p>
+{% elif result.status == 'disabled' %}
+  <div class="alert alert--error">MCP lookup is disabled for Destination Manager.</div>
+{% elif result.status == 'timeout' %}
+  <div class="alert alert--error">{{ result.error or 'The shared MCP service timed out. Please try again.' }}</div>
+{% elif result.status == 'unavailable' %}
+  <div class="alert alert--error">{{ result.error or 'The shared MCP service is unavailable. Please try again.' }}</div>
+{% elif result.status == 'malformed' %}
+  <div class="alert alert--error">The shared service returned an unexpected response.</div>
+{% else %}
+  <div class="alert alert--error">{{ result.error or 'The lookup could not be completed.' }}</div>
+{% endif %}
+{% endif %}
