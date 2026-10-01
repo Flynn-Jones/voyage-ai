@@ -169,6 +169,11 @@ textarea {
   align-items: center;
 }
 
+/* Bare field directly above actions (Ask form) — other forms use .field-grid spacing */
+.stacked-form > label + .form-actions {
+  margin-top: 16px;
+}
+
 /* Buttons */
 .button {
   display: inline-block;
