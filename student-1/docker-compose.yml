@@ -15,6 +15,10 @@ services:
     environment:
       - PORT=3001
       - BACKEND_SERVICE_URL=http://destination-backend:5001
+      # Release 1: frontend -> backend read timeouts (seconds); keep them
+      # above the backend's own MCP 10 / RAG 120 so its envelope arrives first.
+      - MCP_REQUEST_TIMEOUT_SECONDS=${MCP_REQUEST_TIMEOUT_SECONDS:-15}
+      - RAG_REQUEST_TIMEOUT_SECONDS=${RAG_REQUEST_TIMEOUT_SECONDS:-130}
     depends_on:
       - destination-backend
     networks:

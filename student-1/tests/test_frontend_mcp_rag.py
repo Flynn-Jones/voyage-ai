@@ -47,7 +47,7 @@ def backend(monkeypatch):
     state = {"resp": Resp(200, {}), "exc": None, "calls": calls}
 
     def fake_post(url, json=None, timeout=None, **kw):
-        calls.append({"url": url, "json": json})
+        calls.append({"url": url, "json": json, "timeout": timeout})
         if state["exc"]:
             raise state["exc"]
         return state["resp"]
@@ -160,3 +160,71 @@ def test_frontend_only_calls_destination_backend(client, backend):
     assert backend["calls"]
     assert all(c["url"].startswith(fe.BACKEND_SERVICE_URL) for c in backend["calls"])
     assert not any(":7001" in c["url"] or ":7002" in c["url"] for c in backend["calls"])
+
+
+# --- hop timeouts (MCP_REQUEST_TIMEOUT_SECONDS / RAG_REQUEST_TIMEOUT_SECONDS) ---
+
+BACKEND_DEFAULT_TIMEOUTS = {"mcp": 10.0, "rag": 120.0}  # docker-compose.yml backend values
+
+
+def _load_with_env(monkeypatch, mcp=None, rag=None):
+    for name, value in (("MCP_REQUEST_TIMEOUT_SECONDS", mcp), ("RAG_REQUEST_TIMEOUT_SECONDS", rag)):
+        if value is None:
+            monkeypatch.delenv(name, raising=False)
+        else:
+            monkeypatch.setenv(name, value)
+    return _load()
+
+
+def test_hop_timeout_defaults(monkeypatch):
+    mod = _load_with_env(monkeypatch)
+    assert mod.MCP_REQUEST_TIMEOUT == (3, 15.0)
+    assert mod.RAG_REQUEST_TIMEOUT == (3, 130.0)
+    # Release 0 timeouts are untouched.
+    assert mod.REQUEST_TIMEOUT == (3, 10)
+    assert mod.AI_REQUEST_TIMEOUT == (3, 120)
+
+
+def test_hop_timeout_positive_override(monkeypatch):
+    mod = _load_with_env(monkeypatch, mcp="20", rag="200.5")
+    assert mod.MCP_REQUEST_TIMEOUT == (3, 20.0)
+    assert mod.RAG_REQUEST_TIMEOUT == (3, 200.5)
+
+
+@pytest.mark.parametrize("bad", ["abc", "", "0", "-5", "-0.1", "nan", "inf"])
+def test_hop_timeout_invalid_values_fall_back(monkeypatch, bad):
+    mod = _load_with_env(monkeypatch, mcp=bad, rag=bad)
+    assert mod.MCP_REQUEST_TIMEOUT == (3, 15.0)
+    assert mod.RAG_REQUEST_TIMEOUT == (3, 130.0)
+
+
+def test_default_hop_timeouts_exceed_backend_timeouts(monkeypatch):
+    mod = _load_with_env(monkeypatch)
+    assert mod.MCP_REQUEST_TIMEOUT[1] > BACKEND_DEFAULT_TIMEOUTS["mcp"]
+    assert mod.RAG_REQUEST_TIMEOUT[1] > BACKEND_DEFAULT_TIMEOUTS["rag"]
+
+
+def test_configured_timeouts_are_passed_to_backend_requests(monkeypatch):
+    mod = _load_with_env(monkeypatch, mcp="21", rag="222")
+    mod.app.testing = True
+    calls = []
+
+    def fake_post(url, json=None, timeout=None, **kw):
+        calls.append({"url": url, "timeout": timeout})
+        return Resp(200, {"status": "disabled", "error": "x"})
+
+    monkeypatch.setattr(mod.requests, "post", fake_post)
+    c = mod.app.test_client()
+    c.post("/mcp-lookup", data={"country": "Japan"})
+    c.post("/ask", data={"question": "hello"})
+    by_path = {call["url"].rsplit("/", 1)[-1]: call["timeout"] for call in calls}
+    assert by_path == {"mcp-search": (3, 21.0), "rag-answer": (3, 222.0)}
+
+
+def test_default_timeouts_are_passed_to_backend_requests(client, backend):
+    backend["resp"] = Resp(200, {"status": "disabled", "error": "x"})
+    client.post("/mcp-lookup", data={})
+    client.post("/ask", data={"question": "hello"})
+    timeouts = {c["url"].rsplit("/", 1)[-1]: c["timeout"] for c in backend["calls"]}
+    assert timeouts["mcp-search"] == fe.MCP_REQUEST_TIMEOUT
+    assert timeouts["rag-answer"] == fe.RAG_REQUEST_TIMEOUT

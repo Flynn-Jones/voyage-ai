@@ -236,3 +236,31 @@ def test_frontend_to_backend_bad_cost_renders_controlled_alert(client, monkeypat
 def test_default_url_is_shared_mcp_port():
     assert mcp_client.MCP_SERVICE_URL.endswith(":7001") or "MCP_SERVICE_URL" in os.environ
     assert "7003" not in mcp_client.MCP_SERVICE_URL
+
+
+def _fresh_mcp_client(monkeypatch, value):
+    monkeypatch.setenv("MCP_ENABLED", value)
+    spec = importlib.util.spec_from_file_location(
+        "destination_mcp_client_env", os.path.join(BACKEND_DIR, "mcp_client.py"))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.mark.parametrize("value", ["false", "0", "no", "off", "FALSE", "Off", "", "garbage"])
+def test_enabled_flag_false_spellings_disable(monkeypatch, value):
+    assert _fresh_mcp_client(monkeypatch, value).MCP_ENABLED is False
+
+
+@pytest.mark.parametrize("value", ["true", "1", "yes", "on", "TRUE", " true "])
+def test_enabled_flag_true_spellings_enable(monkeypatch, value):
+    assert _fresh_mcp_client(monkeypatch, value).MCP_ENABLED is True
+
+
+def test_enabled_flag_unset_defaults_to_enabled(monkeypatch):
+    monkeypatch.delenv("MCP_ENABLED", raising=False)
+    spec = importlib.util.spec_from_file_location(
+        "destination_mcp_client_env", os.path.join(BACKEND_DIR, "mcp_client.py"))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert module.MCP_ENABLED is True

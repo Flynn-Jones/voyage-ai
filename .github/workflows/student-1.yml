@@ -12,6 +12,14 @@ concurrency:
   group: student-1-${{ github.ref }}
   cancel-in-progress: true
 
+# Release 1: the shared MCP/RAG servers and Ollama run host-local and are not
+# available on GitHub runners, so CI deliberately runs Student 1 with both
+# integrations disabled. The code stays in source and is covered by offline
+# tests; compose interpolates these into destination-backend.
+env:
+  DESTINATION_MCP_ENABLED: "false"
+  DESTINATION_RAG_ENABLED: "false"
+
 jobs:
 
   offline-tests:
@@ -54,6 +62,21 @@ jobs:
             echo "$services"
             exit 1
           fi
+
+      - name: Assert Release 1 shared-service config in rendered Compose
+        run: |
+          docker compose -f student-1/docker-compose.yml config --format json > rendered.json
+          jq -e '
+            .services["destination-backend"].environment as $b
+            | .services["destination-frontend"].environment as $f
+            | $b.MCP_SERVICE_URL == "http://host.docker.internal:7001"
+              and $b.RAG_SERVICE_URL == "http://host.docker.internal:7002"
+              and $b.MCP_ENABLED == "false"
+              and $b.RAG_ENABLED == "false"
+              and $f.MCP_REQUEST_TIMEOUT_SECONDS == "15"
+              and $f.RAG_REQUEST_TIMEOUT_SECONDS == "130"
+          ' rendered.json
+          jq '{backend: (.services["destination-backend"].environment | {MCP_SERVICE_URL, MCP_ENABLED, RAG_SERVICE_URL, RAG_ENABLED}), frontend: (.services["destination-frontend"].environment | {MCP_REQUEST_TIMEOUT_SECONDS, RAG_REQUEST_TIMEOUT_SECONDS})}' rendered.json
 
   build-and-smoke:
     runs-on: ubuntu-latest
@@ -105,11 +128,30 @@ jobs:
           wait_for "http://localhost:5001/health"
           wait_for "http://localhost:3001/health"
 
+      - name: Inspect Release 1 config inside the running containers
+        working-directory: student-1
+        run: |
+          docker compose --project-name student-1 exec -T destination-backend python -c "
+          import mcp_client as m, rag_client as r
+          print('backend MCP', m.MCP_ENABLED, m.MCP_SERVICE_URL, m.MCP_TIMEOUT_SECONDS)
+          print('backend RAG', r.RAG_ENABLED, r.RAG_SERVICE_URL, r.RAG_TIMEOUT_SECONDS)
+          assert m.MCP_ENABLED is False and r.RAG_ENABLED is False
+          assert m.MCP_SERVICE_URL.endswith(':7001') and r.RAG_SERVICE_URL.endswith(':7002')
+          "
+          docker compose --project-name student-1 exec -T destination-frontend python -c "
+          import app
+          print('frontend MCP', app.MCP_REQUEST_TIMEOUT, 'RAG', app.RAG_REQUEST_TIMEOUT)
+          assert app.MCP_REQUEST_TIMEOUT == (3, 15.0) and app.RAG_REQUEST_TIMEOUT == (3, 130.0)
+          "
+
       # No Ollama in CI: test_ai_compare_live.py's own
       # _ollama_available() guard detects the unreachable localhost:11434
       # here and self-skips — nothing is downloaded or pulled. The AI path
       # itself is already proven by test_ai_compare.py and
       # test_llm_client.py, which mock Ollama entirely.
+      # MCP/RAG are intentionally disabled in CI (workflow env above), so
+      # test_shared_disabled_live.py runs here and asserts the 503 `disabled`
+      # responses.
       - name: Run live-stack tests
         run: |
           mkdir -p student-1/reports

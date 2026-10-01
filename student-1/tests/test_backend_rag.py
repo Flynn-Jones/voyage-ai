@@ -147,3 +147,29 @@ def test_malformed(client, post, resp):
 def test_default_url_is_shared_rag_port():
     assert rag_client.RAG_SERVICE_URL.endswith(":7002") or "RAG_SERVICE_URL" in os.environ
     assert "6013" not in rag_client.RAG_SERVICE_URL
+
+
+def _fresh_rag_client(monkeypatch, value):
+    if value is None:
+        monkeypatch.delenv("RAG_ENABLED", raising=False)
+    else:
+        monkeypatch.setenv("RAG_ENABLED", value)
+    spec = importlib.util.spec_from_file_location(
+        "destination_rag_client_env", os.path.join(BACKEND_DIR, "rag_client.py"))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.mark.parametrize("value", ["false", "0", "no", "off", "FALSE", "Off", "", "garbage"])
+def test_enabled_flag_false_spellings_disable(monkeypatch, value):
+    assert _fresh_rag_client(monkeypatch, value).RAG_ENABLED is False
+
+
+@pytest.mark.parametrize("value", ["true", "1", "yes", "on", "TRUE", " true "])
+def test_enabled_flag_true_spellings_enable(monkeypatch, value):
+    assert _fresh_rag_client(monkeypatch, value).RAG_ENABLED is True
+
+
+def test_enabled_flag_unset_defaults_to_enabled(monkeypatch):
+    assert _fresh_rag_client(monkeypatch, None).RAG_ENABLED is True

@@ -5,6 +5,7 @@ service never opens SQLite and never talks to the database API directly:
 all persistence goes through destination-backend on port 5001, matching
 the required data path frontend -> backend -> database API -> SQLite.
 """
+import math
 import os
 
 import requests
@@ -18,10 +19,20 @@ REQUEST_TIMEOUT = (3, 10)  # (connect, read) seconds
 # takes far longer than any CRUD round trip — give it its own read timeout.
 AI_REQUEST_TIMEOUT = (3, 120)
 
+
+def _read_timeout(name, default):
+    """Positive float read timeout from the environment, else the default."""
+    try:
+        value = float(os.environ.get(name, default))
+    except ValueError:
+        return default
+    return value if math.isfinite(value) and value > 0 else default
+
+
 # Shared-service calls: read timeouts exceed the backend's own (10s MCP, 120s
 # RAG) so the backend's structured timeout envelope reaches the UI first.
-MCP_REQUEST_TIMEOUT = (3, 15)
-RAG_REQUEST_TIMEOUT = (3, 130)
+MCP_REQUEST_TIMEOUT = (3, _read_timeout("MCP_REQUEST_TIMEOUT_SECONDS", 15.0))
+RAG_REQUEST_TIMEOUT = (3, _read_timeout("RAG_REQUEST_TIMEOUT_SECONDS", 130.0))
 
 DEFAULT_COMPARE_PREFERENCES = "nightlife and food"
 
