@@ -9,14 +9,42 @@ import json
 import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from tools import ci_report, get_accommodation_by_destination, list_expenses, project_files
-from tools import get_itinerary
+from tools import (
+    ci_report,
+    create_accommodation,
+    get_accommodation_by_destination,
+    get_itinerary,
+    list_expenses,
+    project_files,
+    search_accommodations,
+)
 
 TOOLS = {
     "get_itinerary": lambda payload: get_itinerary(payload.get("trip_reference"), payload.get("day")),
     "list_expenses": lambda payload: list_expenses(payload.get("trip_reference")),
     "get_accommodation_by_destination": lambda payload: get_accommodation_by_destination(
         payload.get("destination")
+    ),
+    "search_accommodations": lambda payload: search_accommodations(
+        payload.get("destination"),
+        payload.get("accommodation_type"),
+        payload.get("min_price"),
+        payload.get("max_price"),
+        payload.get("min_rating"),
+        payload.get("amenities"),
+        payload.get("sort_by"),
+        payload.get("limit", 20),
+    ),
+    "create_accommodation": lambda payload: create_accommodation(
+        payload.get("name"),
+        payload.get("destination_id"),
+        payload.get("price_per_night"),
+        payload.get("destination_city"),
+        payload.get("accommodation_type"),
+        payload.get("rating"),
+        payload.get("location"),
+        payload.get("description"),
+        payload.get("amenities"),
     ),
     "project_files": lambda payload: project_files(payload.get("directory_path", ".")),
     "ci_report": lambda payload: ci_report(payload.get("feature", "budget-service")),

@@ -13,7 +13,6 @@
       <span class="voyage-nav__brand">VoyageAI &mdash; Accommodation</span>
       <div class="voyage-nav__links">
         <a href="{{ url_for('index') }}">List</a>
-        <a href="{{ url_for('recommend_page') }}">Recommend</a>
         <a href="{{ url_for('new_accommodation_form') }}">New</a>
       </div>
       <div class="voyage-nav__switcher">
@@ -24,6 +23,27 @@
         <a href="http://localhost:3004">Budget</a>
         <a href="http://localhost:3005">Itinerary</a>
       </div>
+    </div>
+  </nav>
+
+  {# Mode bar, mirroring the Budget feature's tab strip. Accommodation is
+     server-rendered rather than iframe-tabbed, so each mode is its own page
+     and the active state comes from the current endpoint. #}
+  {% set mode_tabs = [
+       ('Normal UI', url_for('index'),
+        ['index', 'accommodation_detail', 'new_accommodation_form',
+         'edit_accommodation_form', 'create_accommodation', 'update_accommodation']),
+       ('AI Mode', url_for('recommend_page'), ['recommend_page', 'recommend']),
+       ('MCP Mode', url_for('mcp_page'), ['mcp_page']),
+       ('RAG Mode', url_for('rag_page'), ['rag_page'])
+     ] %}
+  <nav class="mode-bar" aria-label="Application modes">
+    <div class="mode-bar__container">
+      {% for label, href, endpoints in mode_tabs %}
+        <a class="mode-btn {% if request.endpoint in endpoints %}is-active{% endif %}"
+           href="{{ href }}"
+           {% if request.endpoint in endpoints %}aria-current="page"{% endif %}>{{ label }}</a>
+      {% endfor %}
     </div>
   </nav>
 

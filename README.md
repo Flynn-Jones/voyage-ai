@@ -69,16 +69,116 @@ is in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Running the project locally
 
-```
-docker network create microservices-net    # one-time setup
-docker compose up --build                  # brings up all services via the root compose file
+### Prerequisites
+
+- Docker Desktop (Compose v2)
+- [Ollama](https://ollama.com) running on the host with the project model pulled:
+  ```bash
+  ollama pull qwen2.5:7b
+  ```
+  Every backend reaches it at `host.docker.internal:11434`, so it stays on the
+  host and is never containerised.
+
+### 1. Start the containerised microservices
+
+From the repo root — this builds and runs all six stacks (18 containers):
+
+```bash
+docker compose up -d --build
 ```
 
-Each feature can also be run independently from its own folder:
+The root compose file creates its own `voyage-net` bridge network, so **no
+`docker network create` step is needed**. (That one-time setup is only required
+when running a feature from its own folder — see below.)
 
-```
-cd destination-service && docker compose up --build
+### 2. Start the shared AI servers
+
+The AI-Mode, MCP, and RAG layers are deliberately **not containerised** — the
+brief calls for one shared local MCP server and one shared local RAG server used
+by every feature. Containerised backends reach them over
+`host.docker.internal`, the same way they reach Ollama.
+
+One-time setup:
+
+```bash
+cd ai-services
+python3 -m venv venv
+./venv/bin/pip install -r mcp-server/requirements.txt -r rag-server/requirements.txt
 ```
 
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full port map and
-networking rules.
+Then run each in its own terminal:
+
+```bash
+cd ai-services/mcp-server && ../venv/bin/python mcp_http_server.py   # :7001
+cd ai-services/rag-server && ../venv/bin/python rag_http_server.py   # :7002
+```
+
+Without these two running, the feature UIs still work; only their MCP and RAG
+modes return an unavailable error.
+
+### 3. Open the app
+
+| Feature | Frontend | Backend/API | Database |
+| --- | --- | --- | --- |
+| Shared (homepage) | [3000](http://localhost:3000) | 5000 | 6000 |
+| Destination (student-1) | [3001](http://localhost:3001) | 5011 &rarr; 5001 | 6001 |
+| Accommodation | [3002](http://localhost:3002) | 5002 | 6002 |
+| Activity | [3003](http://localhost:3003) | 5003 | 6003 |
+| Budget | [3004](http://localhost:3004) | 5004 | 6004 |
+| Itinerary | [3005](http://localhost:3005) | 5005 | 6005 |
+
+Shared, non-containerised: **MCP server 7001**, **RAG server 7002**, Ollama 11434.
+
+The destination backend is the one exception to the `X00N` port convention: its
+host port is remapped to 5011 because another process on some dev machines owns
+5001. Container-to-container traffic still uses 5001.
+
+### 4. Smoke-test
+
+```bash
+curl localhost:7001/health          # MCP server + its registered tools
+curl localhost:7002/health          # RAG server
+curl localhost:5002/health          # a feature backend
+curl localhost:6002/health          # a feature database
+
+# one MCP call and one RAG call through a feature's backend/API
+curl -X POST localhost:5002/accommodation/mcp/by-destination \
+  -H 'Content-Type: application/json' -d '{"destination":"Tokyo"}'
+curl -X POST localhost:5002/accommodation/rag/answer \
+  -H 'Content-Type: application/json' -d '{"query":"What stays are logged for Tokyo?"}'
+```
+
+The first RAG call builds the corpus and can take up to a minute while the model
+loads.
+
+Every tier answers `/health` except the budget backend and budget database, which
+do not expose it yet — check those with `curl localhost:5004/` and
+`curl localhost:6004/expenses` instead.
+
+### Running one feature on its own
+
+Each feature folder keeps a standalone compose file. These share the external
+`microservices-net` network for cross-feature calls, so create it once:
+
+```bash
+docker network create microservices-net     # one-time, standalone mode only
+cd accommodation-service && docker compose up -d --build
+```
+
+Feature folders: `shared/`, `student-1/`, `accommodation-service/`,
+`activity-service/`, `budget-service/`, `itinerary-service/`. The helper scripts
+`./up-all.sh` and `./down-all.sh` start and stop every folder this way.
+
+To run a feature with MCP and RAG disabled the way CI does:
+
+```bash
+cd accommodation-service
+docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d --build
+```
+
+### Stopping
+
+```bash
+docker compose down        # from the repo root
+docker compose down -v     # also wipes the SQLite volumes
+```

@@ -9,6 +9,17 @@
         body { margin: 0; min-height: auto; background: transparent; }
         .app-shell, .voyage-main { max-width: none; padding: 0; }
         pre { white-space: pre-wrap; word-break: break-word; }
+        .rate-table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+        .rate-table th, .rate-table td { text-align: left; padding: 0.45rem 0.6rem; border-bottom: 1px solid #eee; }
+        .rate-table thead th { font-weight: 600; color: #444; border-bottom: 2px solid #ddd; }
+        .rate-table td.rate { font-variant-numeric: tabular-nums; font-weight: 600; }
+        .rate-table tbody tr:hover { background: #fafafa; }
+        .prefill { margin-top: 0.75rem; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; background: #fbfbfb; }
+        .prefill .filter-row { flex-wrap: wrap; gap: 0.5rem; align-items: flex-end; }
+        .prefill label { display: block; font-size: 0.8rem; color: #555; }
+        .prefill input, .prefill select { min-width: 8rem; }
+        .prefill .derived { font-size: 0.85rem; color: #146c2e; font-weight: 600; }
+        .hint { font-size: 0.85rem; color: #666; }
     </style>
 </head>
 <body>
@@ -28,15 +39,23 @@
     </section>
 
     <section class="card">
-        <h2>MCP: Accommodation by Destination</h2>
-        <form id="mcp-accommodation-form">
+        <h2>Log a Stay as an Expense</h2>
+        <p class="rag-helper">
+            Looks up nightly rates for a destination through the shared MCP server
+            (Student 2's accommodation data), then pre-fills a budget expense from the
+            stay you pick. Browse accommodation in full on the
+            <a href="http://localhost:3002/mcp" target="_blank" rel="noopener">Accommodation feature</a>.
+        </p>
+
+        <form id="mcp-rates-form">
             <label for="mcp-destination">Destination</label>
             <div class="filter-row">
                 <input id="mcp-destination" name="destination" type="text" placeholder="e.g. Tokyo" required>
-                <button type="submit" class="button button--primary">Run get_accommodation_by_destination</button>
+                <button type="submit" class="button button--primary">Find nightly rates</button>
             </div>
         </form>
-        <div id="mcp-accommodation-result" class="panel"></div>
+        <div id="mcp-rates-result" class="panel"></div>
+        <div id="mcp-prefill" class="panel"></div>
     </section>
 </main>
 
@@ -49,16 +68,24 @@ function escapeHtml(value) {
     return div.innerHTML;
 }
 
+function money(value) {
+    return typeof value === "number" ? `$${value.toFixed(2)}` : "-";
+}
+
+async function postMcp(url, payload) {
+    const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-MCP-Mode": "on" },
+        body: JSON.stringify(payload || {}),
+    });
+    return { ok: response.ok, data: await response.json() };
+}
+
 async function callMcpTool(panel, url, payload) {
     panel.innerHTML = "<p>Calling MCP tool...</p>";
     try {
-        const response = await fetch(url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "X-MCP-Mode": "on" },
-            body: JSON.stringify(payload || {}),
-        });
-        const data = await response.json();
-        if (!response.ok || data.status === "error") {
+        const { ok, data } = await postMcp(url, payload);
+        if (!ok || data.status === "error") {
             panel.innerHTML = `<p class="error">${escapeHtml(data.error || "MCP tool call failed.")}</p>`;
             return;
         }
@@ -78,14 +105,170 @@ document.getElementById("mcp-expenses-form").addEventListener("submit", (event) 
     );
 });
 
-document.getElementById("mcp-accommodation-form").addEventListener("submit", (event) => {
+// --- Nightly rates -> pre-filled expense -------------------------------------
+
+let currentStays = [];
+
+async function loadTripOptions(selectEl) {
+    try {
+        const response = await fetch(`${API_BASE}/budget/trips`);
+        if (!response.ok) return;
+        const { trips } = await response.json();
+        (trips || []).forEach((trip) => {
+            const option = document.createElement("option");
+            option.value = trip;
+            option.textContent = trip;
+            selectEl.appendChild(option);
+        });
+    } catch (error) {
+        /* trip list is a convenience; the field stays free-text if it fails */
+    }
+}
+
+function renderRates(panel, result) {
+    currentStays = result.stays || [];
+    if (!currentStays.length) {
+        panel.innerHTML = `<p class="empty">No stays found for ${escapeHtml(result.destination || "")}.</p>`;
+        return;
+    }
+
+    const matchNote = result.matched_by === "keyword"
+        ? ` <span class="hint">(no city match &mdash; matched by keyword)</span>`
+        : "";
+
+    const rows = currentStays.map((stay, index) => `
+        <tr>
+            <td>${escapeHtml(stay.name || "-")}</td>
+            <td>${escapeHtml(stay.destination_city || stay.destination_id || "-")}</td>
+            <td>${escapeHtml(stay.type || "-")}</td>
+            <td>${stay.rating != null ? escapeHtml(String(stay.rating)) : "-"}</td>
+            <td class="rate">${money(stay.price_per_night)}</td>
+            <td><button type="button" class="button" data-stay-index="${index}">Log as expense</button></td>
+        </tr>
+    `).join("");
+
+    panel.innerHTML = `
+        <p><strong>${currentStays.length}</strong> stay(s) in ${escapeHtml(result.destination || "")}, cheapest first.${matchNote}</p>
+        <table class="rate-table">
+            <thead><tr><th>Stay</th><th>City</th><th>Type</th><th>Rating</th><th>Per night</th><th></th></tr></thead>
+            <tbody>${rows}</tbody>
+        </table>
+    `;
+
+    panel.querySelectorAll("button[data-stay-index]").forEach((button) => {
+        button.addEventListener("click", () => showPrefill(Number(button.dataset.stayIndex)));
+    });
+}
+
+function showPrefill(index) {
+    const stay = currentStays[index];
+    if (!stay) return;
+
+    const suggested = stay.suggested_expense || {};
+    const panel = document.getElementById("mcp-prefill");
+
+    panel.innerHTML = `
+        <div class="prefill">
+            <h3>Log &ldquo;${escapeHtml(stay.name || "")}&rdquo; as an expense</h3>
+            <form id="prefill-form">
+                <div class="filter-row">
+                    <div>
+                        <label for="pf-trip">Trip</label>
+                        <select id="pf-trip" required><option value="">Select a trip</option></select>
+                    </div>
+                    <div>
+                        <label for="pf-expense">Expense</label>
+                        <input id="pf-expense" type="text" value="${escapeHtml(suggested.expense || "")}" required>
+                    </div>
+                    <div>
+                        <label for="pf-category">Category</label>
+                        <input id="pf-category" type="text" value="${escapeHtml(suggested.category || "Accommodation")}" required>
+                    </div>
+                    <div>
+                        <label for="pf-nights">Nights</label>
+                        <input id="pf-nights" type="number" min="1" step="1" value="1" required>
+                    </div>
+                    <div>
+                        <label for="pf-destination">Destination ID</label>
+                        <input id="pf-destination" type="text" value="${escapeHtml(suggested.destination_id || "")}" required>
+                    </div>
+                    <div>
+                        <label for="pf-status">Status</label>
+                        <select id="pf-status">
+                            <option value="Planned" selected>Planned</option>
+                            <option value="Paid">Paid</option>
+                            <option value="Cancelled">Cancelled</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="button button--primary">Create expense</button>
+                </div>
+                <p class="derived">
+                    Estimated cost: <span id="pf-derived">${money(stay.price_per_night)}</span>
+                    <span class="hint">(${money(stay.price_per_night)} &times; <span id="pf-derived-nights">1</span> night)</span>
+                </p>
+            </form>
+            <div id="prefill-result" class="panel"></div>
+        </div>
+    `;
+
+    loadTripOptions(document.getElementById("pf-trip"));
+
+    const nightsInput = document.getElementById("pf-nights");
+    const rate = typeof stay.price_per_night === "number" ? stay.price_per_night : 0;
+    const recalc = () => {
+        const nights = Math.max(1, parseInt(nightsInput.value, 10) || 1);
+        document.getElementById("pf-derived").textContent = money(rate * nights);
+        document.getElementById("pf-derived-nights").textContent = String(nights);
+    };
+    nightsInput.addEventListener("input", recalc);
+
+    document.getElementById("prefill-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const resultPanel = document.getElementById("prefill-result");
+        const nights = Math.max(1, parseInt(nightsInput.value, 10) || 1);
+        const payload = {
+            trip_reference: document.getElementById("pf-trip").value.trim(),
+            expense: document.getElementById("pf-expense").value.trim(),
+            category: document.getElementById("pf-category").value.trim(),
+            estimated_cost: Number((rate * nights).toFixed(2)),
+            destination_id: document.getElementById("pf-destination").value.trim(),
+            status: document.getElementById("pf-status").value,
+        };
+
+        resultPanel.innerHTML = "<p>Creating expense...</p>";
+        try {
+            const response = await fetch(`${API_BASE}/expenses`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+            const html = await response.text();
+            resultPanel.innerHTML = response.ok
+                ? `<p class="derived">Expense created.</p>${html}`
+                : `<p class="error">${html}</p>`;
+        } catch (error) {
+            resultPanel.innerHTML = `<p class="error">Request failed: ${escapeHtml(String(error))}</p>`;
+        }
+    });
+}
+
+document.getElementById("mcp-rates-form").addEventListener("submit", async (event) => {
     event.preventDefault();
+    const panel = document.getElementById("mcp-rates-result");
+    document.getElementById("mcp-prefill").innerHTML = "";
     const destination = document.getElementById("mcp-destination").value.trim();
-    callMcpTool(
-        document.getElementById("mcp-accommodation-result"),
-        `${API_BASE}/budget/mcp/accommodation-by-destination`,
-        { destination }
-    );
+
+    panel.innerHTML = "<p>Looking up nightly rates...</p>";
+    try {
+        const { ok, data } = await postMcp(`${API_BASE}/budget/mcp/accommodation-by-destination`, { destination });
+        if (!ok || data.status === "error") {
+            panel.innerHTML = `<p class="error">${escapeHtml(data.error || "Rate lookup failed.")}</p>`;
+            return;
+        }
+        renderRates(panel, data.result || {});
+    } catch (error) {
+        panel.innerHTML = `<p class="error">Request failed: ${escapeHtml(String(error))}</p>`;
+    }
 });
 </script>
 </body>

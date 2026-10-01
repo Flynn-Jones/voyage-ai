@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}MCP Mode &mdash; Accommodation{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <h1>MCP Mode &mdash; Add an accommodation</h1>
+  <p>
+    Describe a place to stay in plain language. The local model turns it into record
+    fields for you to check, then the shared MCP server's
+    <code>create_accommodation</code> tool writes it to the database.
+  </p>
+
+  {% if field_error %}
+    <div class="alert alert--warning"><strong>Check your input</strong><p>{{ field_error }}</p></div>
+  {% elif error %}
+    <div class="alert alert--error"><strong>MCP call failed</strong><p>{{ error }}</p></div>
+  {% endif %}
+
+  <form method="post" action="{{ url_for('mcp_page') }}" class="ask-form">
+    <input type="hidden" name="action" value="draft">
+    <label for="text">Describe the accommodation</label>
+    <div class="filter-row">
+      <input id="text" name="text" type="text" value="{{ text or '' }}"
+             placeholder="e.g. Add a hostel called Sakura House in Osaka, $45 a night, rated 4.2, with wifi and a pool"
+             {% if field_error and not draft %}aria-invalid="true"{% endif %} autofocus>
+      <button type="submit" class="button button--primary">Draft the record</button>
+    </div>
+    <p class="hint">Nothing is saved at this step &mdash; you review the fields first.</p>
+  </form>
+</section>
+
+{% if draft %}
+<section class="panel">
+  <h2>Review before creating</h2>
+  {% if missing %}
+    <p class="hint">The description didn't cover
+      {% for f in missing %}<span class="badge badge--dropped">{{ f }}</span>{% endfor %}
+      &mdash; fill them in below.</p>
+  {% else %}
+    <p class="hint">All required fields were found. Edit anything that looks wrong.</p>
+  {% endif %}
+
+  <form method="post" action="{{ url_for('mcp_page') }}" class="draft-form">
+    <input type="hidden" name="action" value="create">
+    <input type="hidden" name="text" value="{{ text or '' }}">
+
+    <div class="draft-grid">
+      <div>
+        <label for="name">Name <span class="req">*</span></label>
+        <input id="name" name="name" type="text" value="{{ draft.name or '' }}" required>
+      </div>
+      <div>
+        <label for="destination_city">City</label>
+        <input id="destination_city" name="destination_city" type="text" value="{{ draft.destination_city or '' }}">
+      </div>
+      <div>
+        <label for="destination_id">Destination ID <span class="req">*</span></label>
+        <input id="destination_id" name="destination_id" type="text" value="{{ draft.destination_id or '' }}" required>
+      </div>
+      <div>
+        <label for="accommodation_type">Type</label>
+        <select id="accommodation_type" name="accommodation_type">
+          <option value="">(none)</option>
+          {% for option in types %}
+            <option value="{{ option }}" {% if draft.accommodation_type == option %}selected{% endif %}>{{ option }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="price_per_night">Price / night <span class="req">*</span></label>
+        <input id="price_per_night" name="price_per_night" type="number" step="0.01" min="0"
+               value="{{ draft.price_per_night if draft.price_per_night is not none else '' }}" required>
+      </div>
+      <div>
+        <label for="rating">Rating (0&ndash;5)</label>
+        <input id="rating" name="rating" type="number" step="0.1" min="0" max="5"
+               value="{{ draft.rating if draft.rating is not none else '' }}">
+      </div>
+      <div>
+        <label for="location">Location / district</label>
+        <input id="location" name="location" type="text" value="{{ draft.location or '' }}">
+      </div>
+      <div class="draft-grid__wide">
+        <label for="description">Description</label>
+        <input id="description" name="description" type="text" value="{{ draft.description or '' }}">
+      </div>
+    </div>
+
+    <fieldset class="amenity-set">
+      <legend>Amenities</legend>
+      {% for amenity in amenity_options %}
+        <label class="amenity">
+          <input type="checkbox" name="amenities" value="{{ amenity }}"
+                 {% if draft.amenities and amenity in draft.amenities %}checked{% endif %}>
+          {{ amenity }}
+        </label>
+      {% endfor %}
+    </fieldset>
+
+    <button type="submit" class="button button--primary">Create accommodation</button>
+  </form>
+</section>
+{% endif %}
+
+{% if created %}
+<section class="panel">
+  <h2>Created</h2>
+  <p>
+    <span class="badge badge--ok">id {{ created.id }}</span>
+    <a href="{{ url_for('accommodation_detail', accommodation_id=created.id) }}">View record</a>
+  </p>
+  <table class="accommodation-table">
+    <thead><tr><th>Name</th><th>City</th><th>Type</th><th>Price / night</th><th>Rating</th><th>Amenities</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>{{ created.name }}</td>
+        <td>{{ created.destination_city or created.destination_id or '-' }}</td>
+        <td>{{ created.type or '-' }}</td>
+        <td>{% if created.price_per_night is not none %}${{ '%.2f' | format(created.price_per_night) }}{% else %}-{% endif %}</td>
+        <td>{{ created.rating if created.rating is not none else '-' }}</td>
+        <td>{{ (created.amenities or []) | join(', ') or '-' }}</td>
+      </tr>
+    </tbody>
+  </table>
+  {% if ignored_amenities %}
+    <p class="hint">Not stored (unknown to the database):
+      {% for a in ignored_amenities %}<span class="badge badge--dropped">{{ a }}</span>{% endfor %}
+    </p>
+  {% endif %}
+</section>
+{% endif %}
+
+{% if tool_calls %}
+<section class="panel">
+  <h2>MCP tool calls</h2>
+  <ol class="tool-call-list">
+    {% for call in tool_calls %}
+      <li class="tool-call">
+        <div class="tool-call__head">
+          <code class="tool-call__name">{{ call.tool }}</code>
+          {% if call.status == 'success' %}
+            <span class="badge badge--ok">created id {{ call.created_id }}</span>
+          {% else %}
+            <span class="badge badge--fail">{{ call.status }}</span>
+          {% endif %}
+          {% if call.duration_ms is not none %}<span class="badge">{{ call.duration_ms }}ms</span>{% endif %}
+        </div>
+        <div class="tool-call__args">
+          {% for key, value in (call.arguments or {}).items() %}
+            <span class="badge badge--filter">{{ key }} = {{ value }}</span>
+          {% endfor %}
+        </div>
+        {% if call.error %}<p class="error">{{ call.error }}</p>{% endif %}
+      </li>
+    {% endfor %}
+  </ol>
+</section>
+{% endif %}
+{% endblock %}

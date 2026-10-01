@@ -9,10 +9,12 @@ from mcp.server.fastmcp import FastMCP
 
 from tools import (
     ci_report,
+    create_accommodation,
     get_accommodation_by_destination,
     list_expenses,
     project_files,
     get_itinerary,
+    search_accommodations,
 )
 
 mcp = FastMCP("VoyageAI Shared MCP")
@@ -20,6 +22,8 @@ AVAILABLE_TOOLS = [
     "get_itinerary",
     "list_expenses",
     "get_accommodation_by_destination",
+    "search_accommodations",
+    "create_accommodation",
     "project_files",
     "ci_report",
 ]
@@ -39,6 +43,38 @@ def list_expenses_tool(trip_reference: str = None):
 @mcp.tool()
 def get_accommodation_by_destination_tool(destination: str):
     return get_accommodation_by_destination(destination)
+
+
+@mcp.tool()
+def search_accommodations_tool(
+    destination: str = None,
+    accommodation_type: str = None,
+    min_price: float = None,
+    max_price: float = None,
+    min_rating: float = None,
+    amenities: str = None,
+    sort_by: str = None,
+    limit: int = 20,
+):
+    return search_accommodations(
+        destination, accommodation_type, min_price, max_price, min_rating, amenities, sort_by, limit
+    )
+
+
+@mcp.tool()
+def create_accommodation_tool(
+    name: str = None,
+    destination_id: str = None,
+    price_per_night: float = None,
+    destination_city: str = None,
+    accommodation_type: str = None,
+    rating: float = None,
+    location: str = None,
+    description: str = None,
+    amenities: list = None,
+):
+    return create_accommodation(name, destination_id, price_per_night, destination_city,
+                                accommodation_type, rating, location, description, amenities)
 
 
 @mcp.tool()

@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}RAG Mode &mdash; Accommodation{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <h1>RAG Mode &mdash; Ask about accommodation</h1>
+  <p>
+    Ask in plain language. The answer is grounded in retrieved context from the shared
+    knowledge base &mdash; with source citations and a confidence category &mdash; and the
+    matching accommodation records are listed underneath.
+  </p>
+
+  {% if error %}
+    <div class="alert alert--error"><strong>RAG call failed</strong><p>{{ error }}</p></div>
+  {% endif %}
+
+  <form method="post" action="{{ url_for('rag_page') }}" class="ask-form">
+    <label for="query">Ask about accommodation</label>
+    <div class="filter-row">
+      <input id="query" name="query" type="text" value="{{ query or '' }}"
+             placeholder="e.g. What stays are there in Tokyo under $150?" autofocus>
+      <button type="submit" name="action" value="ask" class="button button--primary">Ask</button>
+    </div>
+    <p class="hint">
+      Or <button type="submit" name="action" value="retrieve" class="linklike">retrieve raw context</button>
+      &middot; <button type="submit" name="action" value="refresh" class="linklike">refresh the corpus</button>
+    </p>
+  </form>
+</section>
+
+{% if answer %}
+<section class="panel">
+  <h2>Grounded answer</h2>
+  <p>
+    <span class="badge confidence confidence--{{ (confidence or 'unknown') | lower }}">
+      {{ confidence or 'Unknown' }} confidence
+    </span>
+  </p>
+  <div class="reason-text">{{ answer }}</div>
+
+  <h3>Sources</h3>
+  {% if citations %}
+    <ul class="citation-list">
+      {% for citation in citations %}
+        <li>
+          {{ citation.source_id or 'unknown' }}
+          <span class="badge">{{ citation.authority_tier or 'untiered' }}</span>
+          <small>{{ citation.chunk_id }}</small>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>No sources cited.</p>
+  {% endif %}
+</section>
+{% endif %}
+
+{% if stays %}
+<section class="panel">
+  <h2>Matching records</h2>
+  <p>
+    <span class="badge">{{ stays | length }} found</span>
+    {% if matched_by %}<span class="badge">matched by {{ matched_by }}</span>{% endif %}
+  </p>
+  {% if filters %}
+    <p class="filters-understood">
+      <strong>Understood as:</strong>
+      {% for key, value in filters.items() %}
+        <span class="badge badge--filter">{{ key }} = {{ value }}</span>
+      {% endfor %}
+    </p>
+  {% endif %}
+  <table class="accommodation-table">
+    <thead>
+      <tr><th>Name</th><th>City</th><th>Type</th><th>Price / night</th><th>Rating</th><th>Amenities</th></tr>
+    </thead>
+    <tbody>
+      {% for stay in stays %}
+      <tr>
+        <td>
+          {% if stay.id %}
+            <a href="{{ url_for('accommodation_detail', accommodation_id=stay.id) }}">{{ stay.name }}</a>
+          {% else %}{{ stay.name }}{% endif %}
+        </td>
+        <td>{{ stay.destination_city or stay.destination_id or '-' }}</td>
+        <td>{{ stay.type or '-' }}</td>
+        <td>{% if stay.price_per_night is not none %}${{ '%.2f' | format(stay.price_per_night) }}{% else %}-{% endif %}</td>
+        <td>{{ stay.rating if stay.rating is not none else '-' }}</td>
+        <td>{{ (stay.amenities or []) | join(', ') or '-' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% elif answer %}
+<section class="panel">
+  <h2>Matching records</h2>
+  {% if records_error %}
+    <p class="hint">Record lookup unavailable: {{ records_error }}</p>
+  {% else %}
+    <p class="empty">No accommodation records matched this question.</p>
+  {% endif %}
+</section>
+{% endif %}
+
+{% if raw_result %}
+<section class="panel">
+  <h2>{{ raw_title }}</h2>
+  <pre>{{ raw_result }}</pre>
+</section>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,41 @@
+Application Name:
+VoyageAI Accommodation Manager
+
+Database Schema (accommodations table):
+- id (integer, primary key)
+- name (text, required)
+- destination_id (text, required) - opaque destination identifier, not owned by this service (e.g. 'dest-tokyo')
+- destination_city (text, optional) - human-readable city name (e.g. 'Tokyo')
+- type (text: hotel, hostel, ryokan, apartment, or guesthouse)
+- price_per_night (real, required, must be >= 0)
+- rating (real, optional, between 0 and 5)
+- location (text, optional) - suburb or district within the city
+- latitude / longitude (real, optional)
+- description (text, optional)
+- created_at / updated_at (text, ISO timestamps)
+- amenities (list of amenity names, e.g. WiFi, Pool, Onsen, Bar, Gym)
+
+Endpoints (ONLY these exist):
+
+GET Endpoints:
+- GET /accommodations
+- GET /accommodations/{id}
+- GET /destinations
+- GET /health
+- GET /ai/health
+
+POST Endpoints:
+- POST /accommodations
+- POST /ai/recommend
+
+Other Endpoints:
+- PATCH /accommodations/{id}
+- PUT /accommodations/{id}
+- DELETE /accommodations/{id}
+
+Supported filters on GET /accommodations:
+q, destination_id, destination_city, type, min_price, max_price, min_rating,
+amenities, sort_by, limit, offset
+
+Forbidden Operations:
+Do not suggest adding fields, endpoints, or functionality that are not listed above.
