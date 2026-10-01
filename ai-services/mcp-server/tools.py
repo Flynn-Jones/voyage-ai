@@ -19,6 +19,28 @@ ACCOMMODATION_DB_URL = os.environ.get("ACCOMMODATION_DB_URL", "http://localhost:
 IGNORED_DIRS = {".git", ".venv", "venv", "__pycache__", "node_modules", "chroma"}
 
 
+def get_itinerary(trip_reference: str, day: int = None):
+    """Read one trip, optionally one day, through the itinerary database HTTP API."""
+    if not isinstance(trip_reference, str) or not trip_reference.strip() or len(trip_reference) > 120:
+        return {"error": "trip_reference must be a non-empty string of at most 120 characters"}
+    if day is not None and (type(day) is not int or day < 1):
+        return {"error": "day must be a positive integer"}
+    trip_reference = trip_reference.strip()
+    base = os.getenv("ITINERARY_DB_URL", "http://localhost:6005").rstrip("/")
+    try:
+        response = requests.get(f"{base}/itinerary-items", timeout=5)
+        response.raise_for_status()
+        items = response.json()
+        if not isinstance(items, list) or any(not isinstance(i, dict) for i in items):
+            return {"error": "itinerary API returned invalid records"}
+        items = [i for i in items if i.get("trip_reference") == trip_reference
+                 and (day is None or i.get("day") == day)]
+        return {"trip_reference": trip_reference, "day": day, "count": len(items),
+                "items": items, "source": "itinerary-db:/itinerary-items", "read_only": True}
+    except (requests.RequestException, ValueError):
+        return {"error": "itinerary API unavailable or returned invalid JSON"}
+
+
 def list_expenses(trip_reference: str = None):
     """Return budget expenses, optionally filtered to one trip."""
     params = {"trip_reference": trip_reference} if trip_reference else {}

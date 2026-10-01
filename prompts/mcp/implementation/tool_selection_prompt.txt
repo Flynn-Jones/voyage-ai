@@ -8,15 +8,18 @@ Available MCP Tools:
 2. get_accommodation_by_destination - reads accommodation records from accommodation-db
 3. project_files - lists files/folders in the repository
 4. ci_report - reads a feature's local CI evidence report.json
+5. get_itinerary - reads one trip's itinerary records through its database HTTP API; optional day filter
 
 Strict Rules:
 1. Use ONLY the observed evidence provided - do NOT invent tools or results
-2. Confirm all 4 tools are defined and were executed successfully
+2. Assess only tools actually exercised in the evidence. A health listing does not prove execution.
+   For Student 5 evidence, check get_itinerary's trip scope, structured records, and invalid-input result.
+   Do not claim the other tools were executed if only get_itinerary was exercised.
 3. If evidence is incomplete, state exactly what is missing
 4. Do NOT claim a tool can do more than its defined purpose
 
 Output Format:
-Assessment: [one sentence on whether the 4 tools are correctly implemented]
+Assessment: [one sentence about the tool interactions actually observed]
 Evidence Used: [which parts of the observed evidence support this]
 
 Reply in at most 40 words and stay evidence-based.

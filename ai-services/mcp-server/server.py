@@ -13,11 +13,13 @@ from tools import (
     get_accommodation_by_destination,
     list_expenses,
     project_files,
+    get_itinerary,
     search_accommodations,
 )
 
 mcp = FastMCP("VoyageAI Shared MCP")
 AVAILABLE_TOOLS = [
+    "get_itinerary",
     "list_expenses",
     "get_accommodation_by_destination",
     "search_accommodations",
@@ -25,6 +27,12 @@ AVAILABLE_TOOLS = [
     "project_files",
     "ci_report",
 ]
+
+
+@mcp.tool(name="get_itinerary")
+def get_itinerary_tool(trip_reference: str, day: int = None):
+    """Read itinerary records for exactly one trip, optionally restricted to one day."""
+    return get_itinerary(trip_reference, day)
 
 
 @mcp.tool()

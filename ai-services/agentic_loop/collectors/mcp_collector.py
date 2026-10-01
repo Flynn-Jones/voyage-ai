@@ -1,6 +1,7 @@
 """Scans ai-services/mcp-server/ for the required files, tools, and a successful test call."""
 import importlib.util
 import sys
+import os
 from pathlib import Path
 
 REQUIRED_TOOLS = ["list_expenses", "get_accommodation_by_destination", "project_files", "ci_report"]
@@ -15,6 +16,9 @@ def _load_tools_module(mcp_server_dir: Path):
 
 
 def collect(app_dir: Path, repo_root: Path) -> tuple:
+    if os.getenv("AGENTIC_ITINERARY_TRIP"):
+        from collectors.itinerary_evidence import collect as collect_itinerary
+        return collect_itinerary("MCP")
     mcp_server_dir = repo_root / "ai-services" / "mcp-server"
 
     required_paths = [

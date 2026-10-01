@@ -1,0 +1,335 @@
+{
+  "health_3005": "PASS",
+  "health_5005": "PASS",
+  "health_6005": "PASS",
+  "health_7001": "PASS",
+  "health_7002": "PASS",
+  "/": {
+    "status": 200,
+    "content_type": "text/html",
+    "bytes": 7104
+  },
+  "/js/app.js": {
+    "status": 200,
+    "content_type": "application/javascript",
+    "bytes": 15894
+  },
+  "/css/styles.css": {
+    "status": 200,
+    "content_type": "text/css",
+    "bytes": 8678
+  },
+  "crud_and_day_filter_cleanup": "PASS",
+  "ai_review": {
+    "act": {
+      "records_retrieved": 7,
+      "requested_day": 1,
+      "source": "itinerary database API over HTTP"
+    },
+    "adapt": {
+      "advisory_only": true,
+      "model": "qwen2.5:0.5b",
+      "recommendation": "Day 1 Review\n\n- The traveler requested a brief review in the second sentence."
+    },
+    "observe": {
+      "day_span_minutes": 450,
+      "earliest_start": "08:00",
+      "gaps": [],
+      "invalid_cost_items": [],
+      "invalid_schedule_items": [],
+      "item_count": 7,
+      "latest_end": "15:30",
+      "long_continuous_day": false,
+      "overlaps": [
+        {
+          "first_item_id": 10,
+          "overlap_minutes": 30,
+          "second_item_id": 1
+        },
+        {
+          "first_item_id": 1,
+          "overlap_minutes": 60,
+          "second_item_id": 7
+        },
+        {
+          "first_item_id": 7,
+          "overlap_minutes": 30,
+          "second_item_id": 2
+        },
+        {
+          "first_item_id": 7,
+          "overlap_minutes": 30,
+          "second_item_id": 11
+        },
+        {
+          "first_item_id": 2,
+          "overlap_minutes": 90,
+          "second_item_id": 11
+        },
+        {
+          "first_item_id": 11,
+          "overlap_minutes": 30,
+          "second_item_id": 8
+        },
+        {
+          "first_item_id": 8,
+          "overlap_minutes": 60,
+          "second_item_id": 3
+        }
+      ],
+      "short_gaps": [],
+      "total_estimated_cost": 192.0,
+      "total_scheduled_minutes": 750,
+      "valid_schedule_item_count": 7
+    },
+    "plan": {
+      "checks": [
+        "schedule coverage and duration",
+        "overlapping itinerary items",
+        "short gaps and continuous-day intensity",
+        "estimated cost",
+        "missing or invalid schedule values"
+      ],
+      "data_required": "all itinerary records for the requested day",
+      "requested_day": 1
+    }
+  },
+  "mcp_day_None": {
+    "result": {
+      "count": 6,
+      "day": null,
+      "items": [
+        {
+          "activity_id": 101,
+          "day": 1,
+          "destination_id": 1,
+          "end_time": "10:30",
+          "estimated_cost": 24.0,
+          "itinerary_item_id": 1,
+          "notes": "Guided historic centre walk",
+          "start_time": "09:00",
+          "trip_reference": "TRIP-1001"
+        },
+        {
+          "activity_id": 102,
+          "day": 1,
+          "destination_id": 1,
+          "end_time": "12:30",
+          "estimated_cost": 18.5,
+          "itinerary_item_id": 2,
+          "notes": "Visit the local art museum",
+          "start_time": "11:00",
+          "trip_reference": "TRIP-1001"
+        },
+        {
+          "activity_id": 103,
+          "day": 1,
+          "destination_id": 1,
+          "end_time": "15:30",
+          "estimated_cost": 32.0,
+          "itinerary_item_id": 3,
+          "notes": "Riverside food tour",
+          "start_time": "14:00",
+          "trip_reference": "TRIP-1001"
+        },
+        {
+          "activity_id": 104,
+          "day": 2,
+          "destination_id": 1,
+          "end_time": "10:00",
+          "estimated_cost": 12.0,
+          "itinerary_item_id": 4,
+          "notes": "Breakfast market visit",
+          "start_time": "08:30",
+          "trip_reference": "TRIP-1001"
+        },
+        {
+          "activity_id": 105,
+          "day": 2,
+          "destination_id": 1,
+          "end_time": "13:00",
+          "estimated_cost": 45.0,
+          "itinerary_item_id": 5,
+          "notes": "Architecture and gardens tour",
+          "start_time": "10:30",
+          "trip_reference": "TRIP-1001"
+        },
+        {
+          "activity_id": 106,
+          "day": 2,
+          "destination_id": 1,
+          "end_time": "20:00",
+          "estimated_cost": 68.0,
+          "itinerary_item_id": 6,
+          "notes": "Evening cooking class",
+          "start_time": "18:00",
+          "trip_reference": "TRIP-1001"
+        }
+      ],
+      "read_only": true,
+      "source": "itinerary-db:/itinerary-items",
+      "trip_reference": "TRIP-1001"
+    },
+    "status": "success"
+  },
+  "mcp_day_2": {
+    "result": {
+      "count": 3,
+      "day": 2,
+      "items": [
+        {
+          "activity_id": 104,
+          "day": 2,
+          "destination_id": 1,
+          "end_time": "10:00",
+          "estimated_cost": 12.0,
+          "itinerary_item_id": 4,
+          "notes": "Breakfast market visit",
+          "start_time": "08:30",
+          "trip_reference": "TRIP-1001"
+        },
+        {
+          "activity_id": 105,
+          "day": 2,
+          "destination_id": 1,
+          "end_time": "13:00",
+          "estimated_cost": 45.0,
+          "itinerary_item_id": 5,
+          "notes": "Architecture and gardens tour",
+          "start_time": "10:30",
+          "trip_reference": "TRIP-1001"
+        },
+        {
+          "activity_id": 106,
+          "day": 2,
+          "destination_id": 1,
+          "end_time": "20:00",
+          "estimated_cost": 68.0,
+          "itinerary_item_id": 6,
+          "notes": "Evening cooking class",
+          "start_time": "18:00",
+          "trip_reference": "TRIP-1001"
+        }
+      ],
+      "read_only": true,
+      "source": "itinerary-db:/itinerary-items",
+      "trip_reference": "TRIP-1001"
+    },
+    "status": "success"
+  },
+  "mcp_invalid": {
+    "error": "day must be a positive integer",
+    "status": "error"
+  },
+  "rag_refresh": {
+    "caller": "itinerary-service",
+    "chunk_count": 37,
+    "collection": "voyageai_shared_context",
+    "itinerary_chunk_count": 12,
+    "itinerary_source_error": null,
+    "status": "success",
+    "vector_store_status": "ready"
+  },
+  "rag_retrieve": {
+    "day": null,
+    "intent": "cost",
+    "k": 1,
+    "matched_count": 6,
+    "query": "What is the estimated itinerary cost?",
+    "results": [
+      {
+        "authority_tier": "tier_1",
+        "chunk_id": "itinerary_1",
+        "distance": 0.0,
+        "indexed_at": "2026-09-30T16:48:58.520047+00:00",
+        "metadata": {
+          "day": 1,
+          "source_type": "itinerary_db",
+          "trip_reference": "TRIP-1001"
+        },
+        "rank": 1,
+        "record": {
+          "activity_id": 101,
+          "day": 1,
+          "destination_id": 1,
+          "end_time": "10:30",
+          "estimated_cost": 24.0,
+          "itinerary_item_id": 1,
+          "notes": "Guided historic centre walk",
+          "start_time": "09:00",
+          "trip_reference": "TRIP-1001"
+        },
+        "source_id": "itinerary-db:/itinerary-items",
+        "text": "Itinerary record: {\"activity_id\": 101, \"day\": 1, \"destination_id\": 1, \"end_time\": \"10:30\", \"estimated_cost\": 24.0, \"itinerary_item_id\": 1, \"notes\": \"Guided historic centre walk\", \"start_time\": \"09:00\", \"trip_reference\": \"TRIP-1001\"}"
+      }
+    ],
+    "retrieval_mode": "itinerary_metadata",
+    "status": "success",
+    "trip_reference": "TRIP-1001"
+  },
+  "rag_answer": {
+    "answer": "The estimated itinerary cost is 199.50 across 6 item(s).",
+    "answer_source": "llm",
+    "citations": [
+      {
+        "authority_tier": "tier_1",
+        "chunk_id": "itinerary_1",
+        "source_id": "itinerary-db:/itinerary-items"
+      },
+      {
+        "authority_tier": "tier_1",
+        "chunk_id": "itinerary_2",
+        "source_id": "itinerary-db:/itinerary-items"
+      },
+      {
+        "authority_tier": "tier_1",
+        "chunk_id": "itinerary_3",
+        "source_id": "itinerary-db:/itinerary-items"
+      },
+      {
+        "authority_tier": "tier_1",
+        "chunk_id": "itinerary_4",
+        "source_id": "itinerary-db:/itinerary-items"
+      },
+      {
+        "authority_tier": "tier_1",
+        "chunk_id": "itinerary_5",
+        "source_id": "itinerary-db:/itinerary-items"
+      },
+      {
+        "authority_tier": "tier_1",
+        "chunk_id": "itinerary_6",
+        "source_id": "itinerary-db:/itinerary-items"
+      }
+    ],
+    "confidence_category": "High",
+    "day": null,
+    "model": "qwen2.5:0.5b",
+    "query": "What is the estimated itinerary cost?",
+    "retrieval_summary": {
+      "complete_scope": true,
+      "k": 1,
+      "retrieval_mode": "itinerary_metadata",
+      "retrieved_count": 6
+    },
+    "status": "success",
+    "trip_reference": "TRIP-1001"
+  },
+  "unsupported": {
+    "answer": "Insufficient evidence. Ask about the planned activities or estimated itinerary cost for the selected trip/day.",
+    "answer_source": "retrieval_guard",
+    "citations": [],
+    "confidence_category": "Insufficient",
+    "day": null,
+    "query": "What is tomorrow's weather?",
+    "retrieval_summary": {
+      "complete_scope": true,
+      "k": 1,
+      "retrieval_mode": "itinerary_metadata",
+      "retrieved_count": 0
+    },
+    "status": "success",
+    "trip_reference": "TRIP-1001"
+  },
+  "overall": "PASS"
+}
