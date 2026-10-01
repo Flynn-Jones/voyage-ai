@@ -1,3 +1,4 @@
+import json
 import os
 from typing import Any
 
@@ -206,6 +207,160 @@ def create_app():
             "recommendations": recommendations,
         }
         return render_template("recommend.html", destinations=fetch_destinations(), recommendation=result, error=None)
+
+    ACCOMMODATION_TYPES = ["hotel", "hostel", "ryokan", "apartment", "guesthouse"]
+    AMENITY_OPTIONS = ['24-Hour Front Desk', 'Air Conditioning', 'Bar', 'Breakfast Included', 'Gym', 'Onsen', 'Parking', 'Pool', 'Rooftop Terrace', 'WiFi']
+
+    def _mcp_error_message(data):
+        """Surface the tool's own error and hint instead of a generic failure line."""
+        message = data.get("error")
+        inner = data.get("result")
+        if not message and isinstance(inner, dict):
+            message = inner.get("error")
+        if isinstance(inner, dict) and inner.get("hint"):
+            message = f"{message or 'MCP tool call failed.'} — {inner['hint']}"
+        return message or "MCP tool call failed."
+
+    def render_mcp(**overrides):
+        context = {
+            "text": "",
+            "draft": None,
+            "missing": None,
+            "created": None,
+            "tool_calls": None,
+            "ignored_amenities": None,
+            "error": None,
+            "field_error": None,
+            "types": ACCOMMODATION_TYPES,
+            "amenity_options": AMENITY_OPTIONS,
+        }
+        context.update(overrides)
+        return render_template("mcp.html", **context)
+
+    def _draft_from_form():
+        def number(field):
+            raw = request.form.get(field, "").strip()
+            if not raw:
+                return None
+            try:
+                return float(raw)
+            except ValueError:
+                return None
+
+        return {
+            "name": request.form.get("name", "").strip() or None,
+            "destination_city": request.form.get("destination_city", "").strip() or None,
+            "destination_id": request.form.get("destination_id", "").strip() or None,
+            "accommodation_type": request.form.get("accommodation_type", "").strip() or None,
+            "price_per_night": number("price_per_night"),
+            "rating": number("rating"),
+            "location": request.form.get("location", "").strip() or None,
+            "description": request.form.get("description", "").strip() or None,
+            "amenities": request.form.getlist("amenities"),
+        }
+
+    @app.route("/mcp", methods=["GET", "POST"])
+    def mcp_page():
+        if request.method == "GET":
+            return render_mcp()
+
+        action = request.form.get("action", "draft")
+        text = request.form.get("text", "").strip()
+
+        if action == "create":
+            draft = _draft_from_form()
+            missing = [f for f in ("name", "destination_id", "price_per_night")
+                       if draft.get(f) in (None, "")]
+            if missing:
+                return render_mcp(text=text, draft=draft, missing=missing,
+                                  field_error="Fill in " + ", ".join(missing) + " before creating."), 400
+
+            payload = {k: v for k, v in draft.items() if v not in (None, "", [])}
+            try:
+                response = backend_request("POST", "/accommodation/mcp/create", json_body=payload)
+            except RuntimeError as exc:
+                return render_mcp(text=text, draft=draft, error=str(exc)), 502
+
+            data = response.json() if response.headers.get("Content-Type", "").startswith("application/json") else {}
+            if response.status_code >= 400:
+                return render_mcp(text=text, draft=draft, error=_mcp_error_message(data),
+                                  tool_calls=data.get("tool_calls")), response.status_code
+
+            result = data.get("result", {})
+            return render_mcp(text=text, created=result.get("created"),
+                              tool_calls=result.get("tool_calls"),
+                              ignored_amenities=result.get("ignored_amenities"))
+
+        # default: draft from plain text
+        if not text:
+            return render_mcp(field_error="Describe the accommodation you want to add."), 400
+
+        try:
+            response = backend_request("POST", "/accommodation/mcp/draft", json_body={"text": text})
+        except RuntimeError as exc:
+            return render_mcp(text=text, error=str(exc)), 502
+
+        data = response.json() if response.headers.get("Content-Type", "").startswith("application/json") else {}
+        if response.status_code >= 400:
+            return render_mcp(text=text, error=_mcp_error_message(data)), response.status_code
+
+        result = data.get("result", {})
+        return render_mcp(text=text, draft=result.get("draft"), missing=result.get("missing_required"))
+
+    def render_rag(**overrides):
+        context = {
+            "query": "", "answer": None, "citations": None, "confidence": None,
+            "stays": None, "filters": None, "matched_by": None, "records_error": None,
+            "raw_result": None, "raw_title": None, "error": None,
+        }
+        context.update(overrides)
+        return render_template("rag.html", **context)
+
+    @app.route("/rag", methods=["GET", "POST"])
+    def rag_page():
+        if request.method == "GET":
+            return render_rag()
+
+        action = request.form.get("action", "ask")
+        query = request.form.get("query", "").strip()
+
+        if action in ("ask", "retrieve") and not query:
+            return render_rag(query=query, error="A question is required."), 400
+
+        paths = {"ask": "/accommodation/rag/ask",
+                 "retrieve": "/accommodation/rag/retrieve",
+                 "refresh": "/accommodation/rag/refresh"}
+        if action not in paths:
+            return render_rag(query=query, error=f"Unknown action: {action}"), 400
+
+        body = {} if action == "refresh" else {"query": query, "k": 5}
+        try:
+            response = backend_request("POST", paths[action], json_body=body)
+        except RuntimeError as exc:
+            return render_rag(query=query, error=str(exc)), 502
+
+        data = response.json() if response.headers.get("Content-Type", "").startswith("application/json") else {}
+        if response.status_code >= 400 or data.get("status") == "error":
+            message = data.get("error") or "RAG request failed."
+            status = response.status_code if response.status_code >= 400 else 502
+            return render_rag(query=query, error=message), status
+
+        if action == "ask":
+            result = data.get("result", {})
+            return render_rag(
+                query=query,
+                answer=result.get("answer"),
+                citations=result.get("citations") or [],
+                confidence=result.get("confidence_category"),
+                stays=result.get("accommodations") or [],
+                filters=result.get("filters") or {},
+                matched_by=result.get("matched_by"),
+                records_error=result.get("records_error"),
+            )
+
+        titles = {"retrieve": "Retrieved context", "refresh": "Corpus refresh"}
+        payload = data.get("results") if action == "retrieve" else data
+        return render_rag(query=query, raw_result=json.dumps(payload, indent=2), raw_title=titles[action])
 
     @app.route("/health")
     def health():

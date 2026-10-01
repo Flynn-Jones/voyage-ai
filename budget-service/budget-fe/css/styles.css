@@ -227,6 +227,13 @@ textarea {
     min-height: 2.5rem;
 }
 
+/* A result panel has a border, a background and a min-height, so before any
+   result is injected it renders as an empty box. Collapse it until it holds
+   something -- every tab starts its result panels empty. */
+.panel:empty {
+    display: none;
+}
+
 .panel-mcp {
     border-color: var(--accent);
 }

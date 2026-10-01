@@ -125,6 +125,13 @@ services:
       # Pinned to qwen2.5:7b — the model actually pulled on this host
       # (checked via `ollama list`). Root-only env override, no source edit.
       OLLAMA_MODEL: qwen2.5:7b
+      # Release 1: the shared MCP/RAG servers are NOT containerised (per the
+      # brief). These point at the host-run servers via host.docker.internal,
+      # the same pattern already used for Ollama above — no service is added.
+      MCP_SERVICE_URL: ${MCP_SERVICE_URL:-http://host.docker.internal:7001}
+      MCP_ENABLED: ${MCP_ENABLED:-true}
+      RAG_SERVICE_URL: ${RAG_SERVICE_URL:-http://host.docker.internal:7002}
+      RAG_ENABLED: ${RAG_ENABLED:-true}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -230,6 +237,13 @@ services:
       # Pinned to qwen2.5:7b — the model actually pulled on this host
       # (checked via `ollama list`). Root-only env override, no source edit.
       OLLAMA_MODEL: qwen2.5:7b
+      # Release 1: the shared MCP/RAG servers are NOT containerised (per the
+      # brief). These point at the host-run servers via host.docker.internal,
+      # the same pattern already used for Ollama above — no service is added.
+      MCP_SERVICE_URL: ${MCP_SERVICE_URL:-http://host.docker.internal:7001}
+      MCP_ENABLED: ${MCP_ENABLED:-true}
+      RAG_SERVICE_URL: ${RAG_SERVICE_URL:-http://host.docker.internal:7002}
+      RAG_ENABLED: ${RAG_ENABLED:-true}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
