@@ -38,6 +38,10 @@ DOC_SOURCES = [
 ]
 
 IGNORED_DIRS = {".git", ".venv", "venv", "__pycache__", "node_modules", "chroma"}
+# Share of each result page reserved for tier_1 (live feature-database records),
+# with the remaining slots filled by closest match regardless of tier. Tuned
+# against rag_eval.py -- see the comment in retrieve_context.
+TIER_1_SHARE = 0.6
 COLLECTION_NAME = "voyageai_shared_context"
 EMBED_VECTOR_SIZE = 256
 
@@ -344,7 +348,13 @@ def retrieve_context(query: str, k: int = 5, caller: str = "system") -> dict[str
                 if refresh_corpus(caller="auto_refresh").get("status") != "success":
                     raise RuntimeError("empty_collection")
 
-            results = collection.query(query_embeddings=embed_texts([query]), n_results=k)
+            # Over-fetch, then rank by authority tier and trim to k. Tier ranking can
+            # only reorder what the vector search already returned, so with n_results=k
+            # a question whose wording happens to match prose docs would fill every slot
+            # with tier_2 chunks and never surface the tier_1 database records that
+            # actually answer it.
+            candidate_k = max(k * 4, 20)
+            results = collection.query(query_embeddings=embed_texts([query]), n_results=candidate_k)
             ids = (results.get("ids") or [[]])[0]
             docs = (results.get("documents") or [[]])[0]
             metas = (results.get("metadatas") or [[]])[0]
@@ -363,14 +373,28 @@ def retrieve_context(query: str, k: int = 5, caller: str = "system") -> dict[str
                     }
                 )
 
-            tier_weight = {"tier_1": 3, "tier_2": 2, "tier_3": 1}
-            ranked.sort(
-                key=lambda x: (
-                    tier_weight.get(x.get("authority_tier"), 0),
-                    -(x.get("distance") if isinstance(x.get("distance"), (int, float)) else 1e9),
-                ),
-                reverse=True,
-            )
+            # Reserve slots per authority tier instead of ranking by tier or by
+            # distance alone. The hash embedder returns near-uniform distances, so
+            # distance carries little signal: sorting tier-first buried the tier_2
+            # docs that answer documentation questions, while sorting by distance
+            # alone buried the tier_1 records that answer data questions. Filling a
+            # guaranteed share from tier_1 and then the best of the rest keeps both
+            # reachable from one k.
+            def _distance(row):
+                value = row.get("distance")
+                return value if isinstance(value, (int, float)) else 1e9
+
+            ranked.sort(key=_distance)
+            tier_1 = [row for row in ranked if row.get("authority_tier") == "tier_1"]
+            reserved = tier_1[:max(1, round(k * TIER_1_SHARE))]
+            reserved_ids = {id(row) for row in reserved}
+            remainder = [row for row in ranked if id(row) not in reserved_ids]
+
+            ranked = (reserved + remainder)[:k]
+            ranked.sort(key=_distance)
+            for position, row in enumerate(ranked, start=1):
+                row["rank"] = position
+
         except Exception:
             retrieval_mode = "lexical_fallback"
             if not _last_corpus_chunks and not CORPUS_PATH.exists():
@@ -415,9 +439,13 @@ def confidence_from_results(results: list[dict[str, Any]]) -> str:
 
 def generate_with_ollama(query: str, context: str) -> str:
     prompt = f"""
-You are a retrieval-grounded travel budgeting assistant.
+You are a retrieval-grounded travel assistant for the VoyageAI app.
+The context may hold budget expenses, accommodation records, or project
+documentation -- answer from whichever of these the question is about.
 Use only the provided context.
-If evidence is missing, return exactly: Insufficient evidence.
+If the context genuinely does not contain the answer, return exactly: Insufficient evidence.
+Do not return Insufficient evidence merely because the context is about a
+different part of the app than you expected.
 
 QUESTION:
 {query}

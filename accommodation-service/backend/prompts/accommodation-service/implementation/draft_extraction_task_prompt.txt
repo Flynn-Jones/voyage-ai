@@ -1,0 +1,27 @@
+Extract the accommodation fields from the description below.
+
+Return ONLY this JSON object, with null for every field the description does not state:
+{
+  "name": <string or null>,
+  "destination_city": <city name string or null>,
+  "destination_id": <"dest-<city>" string or null>,
+  "accommodation_type": <"hotel"|"hostel"|"ryokan"|"apartment"|"guesthouse" or null>,
+  "price_per_night": <number or null>,
+  "rating": <number 0-5 or null>,
+  "location": <district/neighbourhood string or null>,
+  "description": <short string or null>,
+  "amenities": <array of allowed amenity names, or []>
+}
+
+Worked examples:
+
+Description: Add a hostel called Sakura House in Osaka, $45 a night, rated 4.2, with free wifi and a pool
+{"name": "Sakura House", "destination_city": "Osaka", "destination_id": "dest-osaka", "accommodation_type": "hostel", "price_per_night": 45, "rating": 4.2, "location": null, "description": null, "amenities": ["WiFi", "Pool"]}
+
+Description: Riverside Ryokan in Kyoto's Gion district, 320 per night, has a hot spring and breakfast
+{"name": "Riverside Ryokan", "destination_city": "Kyoto", "destination_id": "dest-kyoto", "accommodation_type": "ryokan", "price_per_night": 320, "rating": null, "location": "Gion", "description": null, "amenities": ["Onsen", "Breakfast Included"]}
+
+Description: A cheap backpackers place in Bangkok
+{"name": null, "destination_city": "Bangkok", "destination_id": "dest-bangkok", "accommodation_type": "hostel", "price_per_night": null, "rating": null, "location": null, "description": null, "amenities": []}
+
+Output the JSON object and nothing else.
