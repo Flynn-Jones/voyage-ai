@@ -1,12 +1,12 @@
-# STUDENT 4 MICROSERVICE — its own independent project.
-# Ports: frontend 3004, backend 5003, database 6003 (external == internal, per-feature numbered).
+# STUDENT 3 MICROSERVICE — its own independent project.
+# Ports: frontend 3003 (container 3004), backend 5003, database 6003.
 
 services:
   frontend:
     build: ./frontend
     container_name: frontend
     ports:
-      - "3004:3004"            # Flask app listens on 3004 internally (PORT default in app.py)
+      - "3003:3004"            # host 3003 (navbar link); Flask listens on 3004 internally (PORT default in app.py)
     environment:
       # app.py defaults to http://activity-backend:5003 (the root compose's
       # service name); in this standalone file the backend service is "backend".
