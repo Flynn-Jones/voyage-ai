@@ -7,11 +7,20 @@ on:
     paths:
       - "itinerary-service/**"
       - ".github/workflows/student-5.yml"
+      - "ai-services/mcp-server/**"
+      - "ai-services/rag-server/**"
+      - "ai-services/agentic_loop/**"
+      - "prompts/mcp/**"
+      - "prompts/rag/**"
+      - "docker-compose.yml"
 
 jobs:
-  itinerary-release-0:
-    name: Student 5 Release 0 Validation
+  itinerary-release-1:
+    name: Student 5 Release 1 Validation
     runs-on: ubuntu-latest
+    env:
+      MCP_ENABLED: "false"
+      RAG_ENABLED: "false"
 
     steps:
       - name: Check Out Repository
@@ -34,11 +43,14 @@ jobs:
 
       - name: Student 5 Python Validation
         run: |
-          python -m compileall -q itinerary-service/itinerary-be itinerary-service/itinerary-db
+          python -m compileall -q itinerary-service/itinerary-be itinerary-service/itinerary-db ai-services/mcp-server ai-services/rag-server ai-services/agentic_loop
           python -c "import sys; sys.path.insert(0, 'itinerary-service/itinerary-be'); from app import create_app; assert any(str(rule) == '/api/itinerary/ai-review' for rule in create_app().url_map.iter_rules())"
 
       - name: Student 5 Python Tests
         run: python -m pytest itinerary-service/itinerary-be/tests itinerary-service/itinerary-db/tests -q
+
+      - name: Shared Itinerary Contract Tests
+        run: python -m pytest itinerary-service/tests -q
 
       - name: Validate Docker Compose
         run: docker compose -f itinerary-service/docker-compose.yml config --quiet
@@ -114,6 +126,13 @@ jobs:
           test "$status" = "404"
           echo "CRUD smoke test passed for temporary item $item_id"
 
+      - name: Verify Optional Services Disabled
+        run: |
+          for route in mcp/itinerary rag/answer rag/retrieve rag/refresh; do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{}' "http://localhost:5005/api/itinerary/$route")
+            test "$code" = "403"
+          done
+
       - name: Generate Student 5 Evidence
         run: |
           mkdir -p itinerary-service/reports
@@ -125,7 +144,7 @@ jobs:
             "commit_sha": "${{ github.sha }}",
             "branch": "${{ github.ref_name }}",
             "generated_timestamp": "$timestamp",
-            "validation": "Python tests, Compose, container builds, health checks, and CRUD smoke test passed"
+            "validation": "Release 0 and Release 1 Python tests, shared itinerary contracts, Compose, container builds, health checks, CRUD smoke and MCP/RAG disabled checks passed"
           }
           EOF
           cat > itinerary-service/reports/report.md <<EOF
@@ -136,6 +155,7 @@ jobs:
           - Commit SHA: ${{ github.sha }}
           - Branch: ${{ github.ref_name }}
           - AI validation uses mocked Ollama tests; no model is downloaded in CI.
+          - MCP and RAG container routes are explicitly disabled; enabled integration paths are unit tested with mocks.
           EOF
           echo "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" > itinerary-service/reports/run-view.md
 

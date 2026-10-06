@@ -36,11 +36,21 @@ class RAGHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         try:
             payload = self._read_json()
+            if not isinstance(payload, dict):
+                raise ValueError("body must be a JSON object")
         except Exception as exc:
             self._send_json(400, {"status": "error", "error": f"invalid_json: {exc}"})
             return
 
         try:
+            if self.path in ("/retrieve", "/answer") and payload.get("scope") == "itinerary":
+                from itinerary_context import validate
+                try:
+                    validate(payload.get("query"), payload.get("k", 5),
+                             payload.get("trip_reference"), payload.get("day"))
+                except ValueError as exc:
+                    self._send_json(400, {"status": "error", "error": str(exc)})
+                    return
             if self.path == "/refresh":
                 caller = (payload.get("caller") or "system").strip() or "system"
                 result = refresh_corpus(caller=caller)
@@ -53,7 +63,9 @@ class RAGHandler(BaseHTTPRequestHandler):
                     self._send_json(400, {"status": "error", "error": "query is required"})
                     return
                 result = retrieve_context(
-                    query=query, k=int(payload.get("k", 5)), caller=(payload.get("caller") or "system").strip()
+                    query=query, k=payload.get("k", 5) if payload.get("scope") else int(payload.get("k", 5)),
+                    caller=(payload.get("caller") or "system").strip(), scope=payload.get("scope"),
+                    trip_reference=payload.get("trip_reference"), day=payload.get("day")
                 )
                 self._send_json(200 if result.get("status") == "success" else 500, result)
                 return
@@ -64,7 +76,9 @@ class RAGHandler(BaseHTTPRequestHandler):
                     self._send_json(400, {"status": "error", "error": "query is required"})
                     return
                 result = answer_question(
-                    query=query, k=int(payload.get("k", 8)), caller=(payload.get("caller") or "system").strip()
+                    query=query, k=payload.get("k", 5) if payload.get("scope") else int(payload.get("k", 5)),
+                    caller=(payload.get("caller") or "system").strip(), scope=payload.get("scope"),
+                    trip_reference=payload.get("trip_reference"), day=payload.get("day")
                 )
                 self._send_json(200 if result.get("status") == "success" else 500, result)
                 return

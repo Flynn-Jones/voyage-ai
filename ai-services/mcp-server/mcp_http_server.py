@@ -13,12 +13,14 @@ from tools import (
     ci_report,
     create_accommodation,
     get_accommodation_by_destination,
+    get_itinerary,
     list_expenses,
     project_files,
     search_accommodations,
 )
 
 TOOLS = {
+    "get_itinerary": lambda payload: get_itinerary(payload.get("trip_reference"), payload.get("day")),
     "list_expenses": lambda payload: list_expenses(payload.get("trip_reference")),
     "get_accommodation_by_destination": lambda payload: get_accommodation_by_destination(
         payload.get("destination")
@@ -79,6 +81,8 @@ class MCPHandler(BaseHTTPRequestHandler):
 
         try:
             payload = self._read_json()
+            if not isinstance(payload, dict):
+                raise ValueError("body must be a JSON object")
         except Exception as exc:
             self._send_json(400, {"status": "error", "error": f"invalid_json: {exc}"})
             return

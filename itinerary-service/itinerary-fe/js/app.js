@@ -265,28 +265,33 @@ function moveDay(offset) {
   }
 }
 
-function workflowStage(name, content) {
-  const stage = makeElement("section", `workflow-stage workflow-stage--${name.toLowerCase()}`);
-  stage.append(makeElement("h3", "workflow-stage__title", name), content);
-  return stage;
+function reviewSection(title, content, modifier = "") {
+  const section = makeElement("section", `workflow-stage${modifier ? ` workflow-stage--${modifier}` : ""}`);
+  section.append(makeElement("h3", "workflow-stage__title", title), content);
+  return section;
 }
 
 function renderReview(review) {
-  const plan = makeElement("div", "workflow-content");
-  plan.append(makeElement("p", "", `Day ${review.plan.requested_day}`));
+  const summary = makeElement("div", "workflow-content");
+  summary.append(
+    makeElement("p", "", `Day ${review.plan.requested_day}`),
+    makeElement("p", "", `${review.act.records_retrieved} itinerary item(s) reviewed.`),
+  );
   const checks = makeElement("ul", "workflow-list");
   review.plan.checks.forEach((check) => checks.append(makeElement("li", "", check)));
-  plan.append(checks);
-  const act = makeElement("div", "workflow-content");
-  act.append(makeElement("p", "", `${review.act.records_retrieved} record(s) retrieved via the database API.`));
-  const observe = makeElement("div", "workflow-content");
+  summary.append(checks);
+  const analysis = makeElement("div", "workflow-content");
   const facts = [`${review.observe.item_count} itinerary item(s)`, `${review.observe.total_scheduled_minutes} scheduled minutes`, `${review.observe.overlaps.length} overlap(s)`, `${review.observe.short_gaps.length} short gap(s)`, `${formatCost(review.observe.total_estimated_cost)} estimated cost`];
   const factList = makeElement("ul", "workflow-list");
   facts.forEach((fact) => factList.append(makeElement("li", "", fact)));
-  observe.append(factList);
-  const adapt = makeElement("div", "workflow-content");
-  adapt.append(makeElement("p", "ai-recommendation", review.adapt.recommendation), makeElement("p", "ai-disclaimer", `Advisory only — generated locally with ${review.adapt.model}.`));
-  elements.aiReviewResults.replaceChildren(workflowStage("Plan", plan), workflowStage("Act", act), workflowStage("Observe", observe), workflowStage("Adapt", adapt));
+  analysis.append(factList);
+  const recommendation = makeElement("div", "workflow-content");
+  recommendation.append(makeElement("p", "ai-recommendation", review.adapt.recommendation), makeElement("p", "ai-disclaimer", `Advisory only — generated locally with ${review.adapt.model}.`));
+  elements.aiReviewResults.replaceChildren(
+    reviewSection("Review Summary", summary),
+    reviewSection("Schedule Analysis", analysis),
+    reviewSection("AI Recommendation", recommendation, "recommendation"),
+  );
   elements.aiReviewResults.hidden = false;
 }
 
@@ -332,4 +337,54 @@ document.addEventListener("DOMContentLoaded", () => {
   elements.nextDay.addEventListener("click", () => moveDay(1));
   elements.aiReviewForm.addEventListener("submit", submitAiReview);
   loadItinerary();
+  setupRelease1();
 });
+
+function setupRelease1() {
+  for (const kind of ["mcp", "rag"]) {
+    const form = document.getElementById(`${kind}-form`);
+    const output = document.getElementById(`${kind}-result`);
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const data = new FormData(form);
+      const payload = { trip_reference: data.get("trip_reference").trim() };
+      if (data.get("day")) payload.day = Number(data.get("day"));
+      if (kind === "rag") payload.query = data.get("query").trim();
+      const button = form.querySelector("button");
+      button.disabled = true;
+      output.textContent = "Loading…";
+      try {
+        const result = await apiRequest(`/${kind}/${kind === "mcp" ? "itinerary" : "answer"}`, {
+          method: "POST", body: JSON.stringify(payload),
+        });
+        if (kind === "mcp") {
+          output.textContent = JSON.stringify(result.result, null, 2);
+        } else {
+          const answer = makeElement("p", "", result.answer);
+          const confidence = makeElement("p", "", `Confidence: ${result.confidence_category}`);
+          const sources = makeElement("ul", "");
+          result.citations.forEach((citation) => sources.append(makeElement("li", "", `${citation.source_id} — ${citation.chunk_id}`)));
+          output.replaceChildren(answer, confidence, makeElement("p", "", "Sources"), sources);
+        }
+      } catch (error) {
+        output.textContent = error.message;
+      } finally {
+        button.disabled = false;
+      }
+    });
+  }
+  document.getElementById("rag-refresh").addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    const output = document.getElementById("rag-refresh-result");
+    button.disabled = true;
+    output.textContent = "Refreshing shared knowledge…";
+    try {
+      const result = await apiRequest("/rag/refresh", { method: "POST", body: "{}" });
+      output.textContent = result.itinerary_source_error || `Refreshed ${result.itinerary_chunk_count} itinerary records. Snapshot ready.`;
+    } catch (error) {
+      output.textContent = error.message;
+    } finally {
+      button.disabled = false;
+    }
+  });
+}

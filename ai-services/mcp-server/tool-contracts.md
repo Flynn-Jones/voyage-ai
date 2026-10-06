@@ -53,3 +53,11 @@ Shared local MCP server (not containerised). All tools are read-only except
 - Input: `feature` (optional string, defaults to "budget-service")
 - Output: report JSON or `{ error, path, hint }`
 - Policy class: read-only
+# Student 5 extension: get_itinerary
+
+- HTTP: `POST /get_itinerary`; stdio MCP name: **get_itinerary** (explicitly named).
+- Input: required `trip_reference` (non-empty string, max 120 characters), optional positive integer `day`.
+- Output inside the existing HTTP `{status, result}` envelope: `trip_reference`, `day`, `count`, `items`, `source`, `read_only`.
+- Reads `GET /itinerary-items` from `ITINERARY_DB_URL` (default `http://localhost:6005`), then filters exact trip/day. No SQLite access or write tools.
+- Unknown trip/day returns an empty successful result. Invalid input or unavailable/invalid upstream returns a tool error (HTTP wrapper uses 502).
+- Existing legacy stdio names ending in `_tool` are preserved for compatibility; the new tool uses the same name in both transports.

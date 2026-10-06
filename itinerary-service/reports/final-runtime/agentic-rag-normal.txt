@@ -1,0 +1,44 @@
+﻿Prompt families:
+  MCP -> C:\Users\61451\Documents\GitHub\voyage-ai\prompts\mcp
+  RAG -> C:\Users\61451\Documents\GitHub\voyage-ai\prompts\rag
+  Activity RAG -> C:\Users\61451\Documents\GitHub\voyage-ai\activity-service\prompts\lab8
+
+======================================================================
+VOYAGEAI SHARED AGENTIC LOOP - VALIDATION MENU
+1 - MCP
+2 - RAG
+3 - Activity RAG
+0 - Exit
+======================================================================
+Choose a validation target: [RAG][START] Starting review flow
+[RAG][OBSERVE] Collecting evidence
+[RAG][OBSERVE] Complete
+[RAG][PROMPTS] Loading prompt family: rag
+[RAG][PROMPTS] Loaded RAG implementation prompt
+[RAG][LLM] Running RAG implementation model
+[RAG][LLM] RAG implementation model complete
+[RAG][PROMPTS] Loaded RAG review prompt(s)
+[RAG][LLM] Running RAG review model
+[RAG][LLM] Review model complete
+[RAG][DONE] Review complete
+
+=== RAG Result ===
+
+OBSERVE: {"shared_health": {"status": "ok", "service": "rag-server"}, "refresh": {"caller": "itinerary-service", "chunk_count": 37, "collection": "voyageai_shared_context", "itinerary_chunk_count": 12, "itinerary_source_error": null, "status": "success", "vector_store_status": "ready"}, "retrieval": {"day": null, "intent": "cost", "k": 5, "matched_count": 6, "query": "What is the estimated itinerary cost?", "results": [{"authority_tier": "tier_1", "chunk_id": "itinerary_1", "distance": 0.0, "indexed_at": "2026-09-30T17:03:41.941214+00:00", "metadata": {"day": 1, "source_type": "itinerary_db", "trip_reference": "TRIP-1001"}, "rank": 1, "record": {"activity_id": 101, "day": 1, "destination_id": 1, "end_time": "10:30", "estimated_cost": 24.0, "itinerary_item_id": 1, "notes": "Guided historic centre walk", "start_time": "09:00", "trip_reference": "TRIP-1001"}, "source_id": "itinerary-db:/itinerary-items", "text": "Itinerary record: {\"activity_id\": 101, \"day\": 1, \"destination_id\": 1, \"end_time\": \"10:30\", \"estimated_cost\": 24.0, \"itinerary_item_id\": 1, \"notes\": \"Guided historic centre walk\", \"start_time\": \"09:00\", \"trip_reference\": \"TRIP-1001\"}"}, {"authority_tier": "tier_1", "chunk_id": "itinerary_2", "distance": 0.0, "indexed_at": "2026-09-30T17:03:41.941214+00:00", "metadata": {"day": 1, "source_type": "itinerary_db", "trip_reference": "TRIP-1001"}, "rank": 2, "record": {"activity_id": 102, "day": 1, "destination_id": 1, "end_time": "12:30", "estimated_cost": 18.5, "itinerary_item_id": 2, "notes": "Visit the local art museum", "start_time": "11:00", "trip_reference": "TRIP-1001"}, "source_id": "itinerary-db:/itinerary-items", "text": "Itinerary record: {\"activity_id\": 102, \"day\": 1, \"destination_id\": 1, \"end_time\": \"12:30\", \"estimated_cost\": 18.5, \"itinerary_item_id\": 2, \"notes\": \"Visit the local art museum\", \"start_time\": \"11:00\", \"trip_reference\": \"TRIP-1001\"}"}, {"authority_tier": "tier_1", "chunk_id": "itinerary_3", "distance": 0.0, "indexed_at": "2026-09-30T17:03:41.941214+00:00", "metadata": {"day": 1, "source_type": "itinerary_db", "trip_reference": "TRIP-1001"}, "rank": 3, "record": {"activity_id": 103, "day": 1, "destination_id": 1, "end_time": "15:30", "estimated_cost": 32.0, "itinerary_item_id": 3, "notes": "Riverside food tour", "start_time": "14:00", "trip_reference": "TRIP-1001"}, "source_id": "itinerary-db:/itinerary-items", "text": "Itinerary record: {\"activity_id\": 103, \"day\": 1, \"destination_id\": 1, \"end_time\": \"15:30\", \"estimated_cost\": 32.0, \"itinerary_item_id\": 3, \"notes\": \"Riverside food tour\", \"start_time\": \"14:00\", \"trip_reference\": \"TRIP-1001\"}"}, {"authority_tier": "tier_1", "chunk_id": "itinerary_4", "distance": 0.0, "indexed_at": "2026-09-30T17:03:41.941214+00:00", "metadata": {"day": 2, "source_type": "itinerary_db", "trip_reference": "TRIP-1001"}, "rank": 4, "record": {"activity_id": 104, "day": 2, "destination_id": 1, "end_time": "10:00", "estimated_cost": 12.0, "itinerary_item_id": 4, "notes": "Breakfast market visit", "start_time": "08:30", "trip_reference": "TRIP-1001"}, "source_id": "itinerary-db:/itinerary-items", "text": "Itinerary record: {\"activity_id\": 104, \"day\": 2, \"destination_id\": 1, \"end_time\": \"10:00\", \"estimated_cost\": 12.0, \"itinerary_item_id\": 4, \"notes\": \"Breakfast market visit\", \"start_time\": \"08:30\", \"trip_reference\": \"TRIP-1001\"}"}, {"authority_tier": "tier_1", "chunk_id": "itinerary_5", "distance": 0.0, "indexed_at": "2026-09-30T17:03:41.941214+00:00", "metadata": {"day": 2, "source_type": "itinerary_db", "trip_reference": "TRIP-1001"}, "rank": 5, "record": {"activity_id": 105, "day": 2, "destination_id": 1, "end_time": "13:00", "estimated_cost": 45.0, "itinerary_item_id": 5, "notes": "Architecture and gardens tour", "start_time": "10:30", "trip_reference": "TRIP-1001"}, "source_id": "itinerary-db:/itinerary-items", "text": "Itinerary record: {\"activity_id\": 105, \"day\": 2, \"destination_id\": 1, \"end_time\": \"13:00\", \"estimated_cost\": 45.0, \"itinerary_item_id\": 5, \"notes\": \"Architecture and gardens tour\", \"start_time\": \"10:30\", \"trip_reference\": \"TRIP-1001\"}"}], "retrieval_mode": "itinerary_metadata", "status": "success", "trip_reference": "TRIP-1001"}, "answer": {"answer": "The estimated itinerary cost is 199.50 across 6 item(s).", "answer_source": "llm", "citations": [{"authority_tier": "tier_1", "chunk_id": "itinerary_1", "source_id": "itinerary-db:/itinerary-items"}, {"authority_tier": "tier_1", "chunk_id": "itinerary_2", "source_id": "itinerary-db:/itinerary-items"}, {"authority_tier": "tier_1", "chunk_id": "itinerary_3", "source_id": "itinerary-db:/itinerary-items"}, {"authority_tier": "tier_1", "chunk_id": "itinerary_4", "source_id": "itinerary-db:/itinerary-items"}, {"authority_tier": "tier_1", "chunk_id": "itinerary_5", "source_id": "itinerary-db:/itinerary-items"}, {"authority_tier": "tier_1", "chunk_id": "itinerary_6", "source_id": "itinerary-db:/itinerary-items"}], "confidence_category": "High", "day": null, "model": "qwen2.5:0.5b", "query": "What is the estimated itinerary cost?", "retrieval_summary": {"complete_scope": true, "k": 5, "retrieval_mode": "itinerary_metadata", "retrieved_count": 6}, "status": "success", "trip_reference": "TRIP-1001"}, "unsupported": {"answer": "Insufficient evidence. Ask about the planned activities or estimated itinerary cost for the selected trip/day.", "answer_source": "retrieval_guard", "citations": [], "confidence_category": "Insufficient", "day": null, "query": "What is tomorrow's weather?", "retrieval_summary": {"complete_scope": true, "k": 5, "retrieval_mode": "itinerary_metadata", "retrieved_count": 0}, "status": "success", "trip_reference": "TRIP-1001"}}
+
+IMPLEMENTATION: 1. All 3 RAG tools are defined and callable.
+2. answer_question is expected to return citations and a confidence category.
+3. Insufficient-context handling is present (no fabricated answers).
+REVIEW: Strengths: The RAG architecture is well-defined and callable.
+Risks: Insufficient context handling is present.
+Recommendations: Add more context handling and ensure reliable retrieval data.
+
+
+======================================================================
+VOYAGEAI SHARED AGENTIC LOOP - VALIDATION MENU
+1 - MCP
+2 - RAG
+3 - Activity RAG
+0 - Exit
+======================================================================
+Choose a validation target: Exiting.
