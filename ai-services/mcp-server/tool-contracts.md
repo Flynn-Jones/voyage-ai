@@ -1,9 +1,27 @@
 # MCP Tool Contracts
 
-Shared local MCP server (not containerised). All tools are read-only except
-`create_accommodation`, which writes to accommodation-db. Containerised backends call it at
-`http://host.docker.internal:7001/<tool_name>`; MCP clients can instead launch
-`server.py` over stdio via `mcp-config.json`.
+One shared local MCP server (not containerised), the FastMCP instance in `server.py`.
+Registered tool names equal the names below.
+All tools are read-only except `create_accommodation`, which writes to accommodation-db.
+
+- **MCP endpoint (use this for new consumers):** Streamable HTTP at
+  `http://host.docker.internal:7001/mcp` (`http://localhost:7001/mcp` on the host).
+  Start: `python mcp_http_server.py` (env: `PORT`, `MCP_HOST`, plus `*_DB_URL` below).
+  Probe: `python mcp_probe.py list` / `python mcp_probe.py call <tool> '<json>'`.
+- **Compatibility shim:** `POST http://host.docker.internal:7001/<tool_name>` (Budget's and
+  Itinerary's existing clients) dispatches through `mcp.call_tool`, so it still hits the FastMCP registry.
+  Returns `{status, result}`; 404 unknown tool, 400 bad JSON, 502 tool error.
+- `GET /health` lists the registered tools.
+- stdio: MCP clients can launch `server.py` via `mcp-config.json`.
+- `list_destinations` validation/upstream failures over `/mcp` are `isError=true` results.
+  Legacy tools return structured `{ error }` results; the compatibility shim maps those to HTTP 502.
+
+## list_destinations
+- Purpose: read destinations from the Destination Database API (`DESTINATION_DB_URL`, default `http://localhost:6001`)
+- Input: `city`, `country`, `travel_style` (all optional strings; trimmed, max 100 chars, control characters rejected; exact-match, case-sensitive filters)
+- Output: `{ source: "destination-database", filters, count, destinations[] }`
+- Errors (isError): invalid input, `destination-db unavailable`, `destination-db returned <code>`, `destination-db returned unexpected payload`
+- Policy class: read-only, cross-feature data access via the Destination Database HTTP API only (never SQLite)
 
 ## list_expenses
 - Purpose: read budget expenses from budget-db
@@ -20,6 +38,7 @@ Shared local MCP server (not containerised). All tools are read-only except
   path produced the result (`destination_city` or `keyword`).
 - Policy class: read-only, cross-feature data access via accommodation-db HTTP API only
 
+
 ## search_accommodations
 - Purpose: search accommodation records across any combination of filters
 - Input (all optional): `destination` (city name; falls back to keyword), `accommodation_type`
@@ -29,6 +48,7 @@ Shared local MCP server (not containerised). All tools are read-only except
 - Output: `{ destination, filters_applied, matched_by, count, accommodations[] }` or `{ error }`
 - `matched_by`: `destination_city`, `keyword`, or `filters_only` when no destination was given
 - Policy class: read-only, cross-feature data access via accommodation-db HTTP API only
+
 
 ## create_accommodation
 - Purpose: create a new accommodation record (the only write tool on this server)
@@ -42,6 +62,7 @@ Shared local MCP server (not containerised). All tools are read-only except
 - Policy class: **write**, scoped to accommodation-db only. Required fields and value ranges
   are validated here before the database is touched.
 
+
 ## project_files
 - Purpose: list files/folders in a repository directory
 - Input: `directory_path` (optional string, defaults to repo root, must resolve inside the repo)
@@ -53,11 +74,12 @@ Shared local MCP server (not containerised). All tools are read-only except
 - Input: `feature` (optional string, defaults to "budget-service")
 - Output: report JSON or `{ error, path, hint }`
 - Policy class: read-only
-# Student 5 extension: get_itinerary
 
-- HTTP: `POST /get_itinerary`; stdio MCP name: **get_itinerary** (explicitly named).
+## get_itinerary (Student 5)
+
+- HTTP shim: `POST /get_itinerary`; MCP name (`/mcp` and stdio): **get_itinerary**.
 - Input: required `trip_reference` (non-empty string, max 120 characters), optional positive integer `day`.
 - Output inside the existing HTTP `{status, result}` envelope: `trip_reference`, `day`, `count`, `items`, `source`, `read_only`.
 - Reads `GET /itinerary-items` from `ITINERARY_DB_URL` (default `http://localhost:6005`), then filters exact trip/day. No SQLite access or write tools.
-- Unknown trip/day returns an empty successful result. Invalid input or unavailable/invalid upstream returns a tool error (HTTP wrapper uses 502).
-- Existing legacy stdio names ending in `_tool` are preserved for compatibility; the new tool uses the same name in both transports.
+- Unknown trip/day returns an empty successful result. Invalid input or unavailable/invalid upstream returns `{ error }` (HTTP shim uses 502).
+- Policy class: read-only, cross-feature data access via the Itinerary Database HTTP API only.

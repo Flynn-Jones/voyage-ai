@@ -11,6 +11,16 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from rag_pipeline import answer_question, refresh_corpus, retrieve_context
 
 
+def http_status_for(result: dict) -> int:
+    """success and insufficient_context are valid outcomes; infrastructure failures are not."""
+    status = result.get("status")
+    if status in ("success", "insufficient_context"):
+        return 200
+    if result.get("error_type") == "llm_unavailable":
+        return 503
+    return 500
+
+
 class RAGHandler(BaseHTTPRequestHandler):
     def _send_json(self, status_code: int, payload: dict):
         response = json.dumps(payload).encode("utf-8")
@@ -54,7 +64,7 @@ class RAGHandler(BaseHTTPRequestHandler):
             if self.path == "/refresh":
                 caller = (payload.get("caller") or "system").strip() or "system"
                 result = refresh_corpus(caller=caller)
-                self._send_json(200 if result.get("status") == "success" else 500, result)
+                self._send_json(http_status_for(result), result)
                 return
 
             if self.path == "/retrieve":
@@ -67,7 +77,7 @@ class RAGHandler(BaseHTTPRequestHandler):
                     caller=(payload.get("caller") or "system").strip(), scope=payload.get("scope"),
                     trip_reference=payload.get("trip_reference"), day=payload.get("day")
                 )
-                self._send_json(200 if result.get("status") == "success" else 500, result)
+                self._send_json(http_status_for(result), result)
                 return
 
             if self.path == "/answer":
@@ -80,7 +90,7 @@ class RAGHandler(BaseHTTPRequestHandler):
                     caller=(payload.get("caller") or "system").strip(), scope=payload.get("scope"),
                     trip_reference=payload.get("trip_reference"), day=payload.get("day")
                 )
-                self._send_json(200 if result.get("status") == "success" else 500, result)
+                self._send_json(http_status_for(result), result)
                 return
 
             self._send_json(404, {"status": "error", "error": "not_found"})

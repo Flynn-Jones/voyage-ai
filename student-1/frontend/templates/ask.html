@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Ask (RAG){% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="page-header">
+    <div>
+      <h1>Ask about destinations (RAG)</h1>
+      <p>Ask a question answered from the shared knowledge base, with citations and a confidence level.</p>
+    </div>
+  </div>
+
+  <form class="stacked-form"
+        method="post" action="{{ url_for('ask') }}"
+        hx-post="{{ url_for('ask') }}"
+        hx-target="#rag-answer" hx-swap="innerHTML"
+        hx-indicator="#ask-spinner">
+    <label class="full-width">
+      <span>Your question</span>
+      <textarea name="question" rows="3" required maxlength="500" placeholder="Which destination suits street food and nightlife?">{{ question }}</textarea>
+    </label>
+    <div class="form-actions">
+      <button class="button button--primary" type="submit">Ask</button>
+      <span id="ask-spinner" class="htmx-indicator spinner" aria-live="polite">Searching shared knowledge&hellip;</span>
+    </div>
+  </form>
+
+  <div id="rag-answer">
+    {% include "_rag_answer.html" %}
+  </div>
+</section>
+{% endblock %}
