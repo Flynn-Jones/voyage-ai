@@ -48,6 +48,6 @@ def rag_answer():
         return jsonify({"status": "error", "error": "query is required"}), 400
 
     try:
-        return jsonify(rag_api.answer_question(query=query, k=int(body.get("k", 5)), caller="budget-service"))
+        return jsonify(rag_api.answer_question(query=query, k=int(body.get("k", 8)), caller="budget-service"))
     except rag_api.RAGServiceError as exc:
         return jsonify({"status": "error", "error": f"RAG server unavailable: {exc}"}), 502
