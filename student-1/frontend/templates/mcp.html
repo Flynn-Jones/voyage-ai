@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Data lookup (MCP){% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="page-header">
+    <div>
+      <h1>Data lookup (MCP)</h1>
+      <p>Look up destinations through the shared MCP service. Filters are exact-match and case-sensitive; leave all blank to list everything.</p>
+    </div>
+  </div>
+
+  <form class="stacked-form"
+        method="post" action="{{ url_for('mcp_lookup') }}"
+        hx-post="{{ url_for('mcp_lookup') }}"
+        hx-target="#mcp-result" hx-swap="innerHTML"
+        hx-indicator="#mcp-spinner">
+    <div class="field-grid">
+      <label>
+        <span>City</span>
+        <input type="text" name="city" value="{{ form.city }}" maxlength="100" placeholder="e.g. Tokyo">
+      </label>
+      <label>
+        <span>Country</span>
+        <input type="text" name="country" value="{{ form.country }}" maxlength="100" placeholder="e.g. Japan">
+      </label>
+      <label>
+        <span>Travel style</span>
+        <input type="text" name="travel_style" value="{{ form.travel_style }}" maxlength="100" placeholder="e.g. Cultural">
+      </label>
+    </div>
+    <div class="form-actions">
+      <button class="button button--primary" type="submit">Look up</button>
+      <span id="mcp-spinner" class="htmx-indicator spinner" aria-live="polite">Asking shared MCP&hellip;</span>
+    </div>
+  </form>
+
+  <div id="mcp-result">
+    {% include "_mcp_result.html" %}
+  </div>
+</section>
+{% endblock %}

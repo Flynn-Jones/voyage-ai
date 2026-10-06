@@ -1,0 +1,87 @@
+$ ai-services/agentic_loop/.venv/bin/python ai-services/agentic_loop/app_main.py --mode all --no-llm
+[MCP][START] Starting validation
+[MCP][COLLECT] Running collector
+[MCP][PLAN] goal='List seeded destinations in Japan'; live registry: ['ci_report', 'get_accommodation_by_destination', 'list_destinations', 'list_expenses', 'project_files']
+[MCP][PLAN] select list_destinations; arguments {'country': 'Japan'} are supported by its schema
+[MCP][ACT] call_tool list_destinations {'country': 'Japan'} via http://localhost:7001/mcp
+[MCP][OBSERVE] isError=False source='destination-database' filters={'country': 'Japan'} count=3 cities=['Tokyo', 'Kyoto', 'Osaka']
+[MCP][ADAPT] PASS: task satisfied, 3 Japan destinations from destination-database via registered list_destinations
+[MCP][VERDICT] PASS
+
+=== MCP Result ===
+VERDICT PASS
+[RAG][START] Starting validation
+[RAG][COLLECT] Running collector
+[RAG][PLAN] check shared RAG health before running 2 tasks
+[RAG][OBSERVE] GET http://localhost:7002/health -> http=200 body={'status': 'ok', 'service': 'rag-server'}
+[RAG][PLAN] [supported] question 'Which destination is known for street food and nightlife?' needs grounded knowledge retrieval; select shared RAG POST /answer (expect grounded)
+[RAG][ACT] [supported] POST http://localhost:7002/answer caller='agentic-loop' k=5
+[RAG][OBSERVE] [supported] http=200 status=success error_type=None confidence=High citations=3 ['destination_3@destination-db:/destinations', 'destination_5@destination-db:/destinations', 'destination_1@destination-db:/destinations'] retrieval_summary={'k': 5, 'retrieved_count': 3, 'candidate_count': 26, 'rejected_count': 23, 'retrieval_mode': 'hybrid', 'top_score': 1.0} answer='Osaka is known for street food and nightlife.'
+[RAG][ADAPT] [supported] PASS: grounded answer with Destination citations accepted
+[RAG][PLAN] [unsupported] question 'What is the capital of Mars?' needs grounded knowledge retrieval; select shared RAG POST /answer (expect insufficient)
+[RAG][ACT] [unsupported] POST http://localhost:7002/answer caller='agentic-loop' k=5
+[RAG][OBSERVE] [unsupported] http=200 status=insufficient_context error_type=None confidence=Insufficient citations=0 [] retrieval_summary={'k': 5, 'retrieved_count': 0, 'candidate_count': 26, 'rejected_count': 26, 'retrieval_mode': 'hybrid', 'top_score': None} answer='Insufficient evidence to answer this question from the current corpus.'
+[RAG][ADAPT] [unsupported] PASS: cannot be answered from the available grounded knowledge; refused rather than fabricating
+[RAG][VERDICT] PASS
+
+=== RAG Result ===
+VERDICT PASS
+
+OVERALL VERDICT PASS
+exit=0
+
+--- LLM-enabled run (commentary secondary; AGENTIC_IMPLEMENTATION_MODEL and AGENTIC_REVIEW_MODEL set to llama3.1:8b), trace lines omitted (identical to above) ---
+
+$ AGENTIC_IMPLEMENTATION_MODEL=llama3.1:8b AGENTIC_REVIEW_MODEL=llama3.1:8b ... app_main.py --mode all
+[MCP][START] Starting validation
+[MCP][COLLECT] Running collector
+[MCP][VERDICT] PASS
+[MCP][PROMPTS] Loading prompt family: mcp
+[MCP][LLM] Running MCP implementation model (commentary only)
+[MCP][LLM] Running MCP review model (commentary only)
+[MCP][DONE] Validation complete
+
+=== MCP Result ===
+VERDICT PASS
+
+IMPLEMENTATION (LLM commentary): Assessment: The task was satisfied.
+Evidence Used: The ADAPT verdict was PASS, and the OBSERVE recorded isError=False, count=3, and cities=['Tokyo', 'Kyoto', 'Osaka'] for the list_destinations tool.
+REVIEW (LLM commentary): Strengths: List_destinations tool executed successfully with correct arguments and schema.
+Risks: None identified.
+Recommendations: Verify tool schema and argument validation for all supported countries.
+[RAG][START] Starting validation
+[RAG][COLLECT] Running collector
+[RAG][VERDICT] PASS
+[RAG][PROMPTS] Loading prompt family: rag
+[RAG][LLM] Running RAG implementation model (commentary only)
+[RAG][LLM] Running RAG review model (commentary only)
+[RAG][DONE] Validation complete
+
+=== RAG Result ===
+VERDICT PASS
+
+IMPLEMENTATION (LLM commentary): The RAG execution is VALID. The supported question returned a grounded answer with citations, confidence, and accepted retrieval evidence. The unsupported question returned insufficient_context with no citations. ADAPT's PASS/FAIL conclusions are justified by OBSERVE facts.
+REVIEW (LLM commentary): Risk:
+- Unsupported claims may be returned due to insufficient context.
+
+Correction:
+- Improve corpus design to include more diverse and relevant sources.
+
+Retest:
+- Validate RAG's ability to handle out-of-domain questions and provide clear error messages.
+
+OVERALL VERDICT PASS
+exit=0
+
+--- Negative control: shared MCP stopped ---
+$ ... app_main.py --mode mcp --no-llm   (shared MCP stopped)
+[MCP][START] Starting validation
+[MCP][COLLECT] Running collector
+[MCP][ADAPT] FAIL transport: shared MCP at http://localhost:7001/mcp unreachable or protocol error (ExceptionGroup); check that the service is running (dependency)
+[MCP][VERDICT] FAIL
+
+=== MCP Result ===
+VERDICT FAIL
+
+OVERALL VERDICT FAIL (MCP)
+exit=1

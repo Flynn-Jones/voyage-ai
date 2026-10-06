@@ -28,27 +28,44 @@ CHROMA_PATH = DATA_DIR / "chroma"
 
 BUDGET_DB_URL = os.environ.get("BUDGET_DB_URL", "http://localhost:6004")
 ACCOMMODATION_DB_URL = os.environ.get("ACCOMMODATION_DB_URL", "http://localhost:6002")
+DESTINATION_DB_URL = os.environ.get("DESTINATION_DB_URL", "http://localhost:6001")
 OLLAMA_GENERATE_URL = os.environ.get("OLLAMA_GENERATE_URL", "http://localhost:11434/api/generate")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:7b")
 
+# Only factual docs. README.md / student-1/README.md are excluded on purpose: they hold demo
+# prompts and usage examples ("Compare Tokyo and Kyoto for nightlife and food") that are not evidence
+# that any destination has those properties.
 DOC_SOURCES = [
     REPO_ROOT / "docs" / "ARCHITECTURE.md",
-    REPO_ROOT / "README.md",
     REPO_ROOT / "budget-service" / "SUMMARY.md",
     REPO_ROOT / "accommodation-service" / "SUMMARY.md",
 ]
 
+# Legacy persisted corpora may still hold chunks ingested from these (source_id is the repo-relative path).
+# They are rejected at retrieval time so stale README/demo text can never be evidence.
+EXCLUDED_SOURCE_IDS = {"README.md", "student-1/README.md"}
+
 IGNORED_DIRS = {".git", ".venv", "venv", "__pycache__", "node_modules", "chroma"}
-# Share of each result page reserved for tier_1 (live feature-database records),
-# with the remaining slots filled by closest match regardless of tier. Tuned
-# against rag_eval.py -- see the comment in retrieve_context.
-TIER_1_SHARE = 0.6
 COLLECTION_NAME = "voyageai_shared_context"
 EMBED_VECTOR_SIZE = 256
 
 _collection = None
 _last_corpus_chunks: list[dict[str, Any]] = []
 _itinerary_source_error = None
+_source_status: dict[str, str] = {}
+_missing_docs: list[str] = []
+
+# Relevance acceptance (see tool-contracts.md "Retrieval acceptance").
+MIN_MATCHED = 2
+MIN_SCORE = 0.5
+INSUFFICIENT_ANSWER = "Insufficient evidence to answer this question from the current corpus."
+TIER_ORDER = {"tier_1": 0, "tier_2": 1, "tier_3": 2}
+STOPWORDS = set(
+    "a an the is are was were be been am of to in on at for and or with what which who whom where when how why "
+    "do does did can could should would will i me my you your tell about there any some it its this that these those "
+    "from by as if than then so not no yes more most much many very also just into out up over under between near around "
+    "give show list please have has had go known use get want best good top recommend place places destination destinations".split()
+)
 
 
 def now_iso() -> str:
@@ -103,7 +120,6 @@ def reset_collection() -> None:
 
 
 def append_audit(tool_name, tool_input, tool_output, validation_status, outcome, start_time) -> None:
-    AUDIT_PATH.parent.mkdir(parents=True, exist_ok=True)
     record = {
         "request_id": str(uuid.uuid4()),
         "tool_name": tool_name,
@@ -114,8 +130,12 @@ def append_audit(tool_name, tool_input, tool_output, validation_status, outcome,
         "validation_status": validation_status,
         "outcome": outcome,
     }
-    with AUDIT_PATH.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(record) + "\n")
+    try:
+        AUDIT_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with AUDIT_PATH.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(record, default=str) + "\n")
+    except (OSError, TypeError, ValueError):
+        pass  # auditing must never turn a tool call into a failure
 
 
 def chunk_text(text: str, max_words: int = 80) -> list[str]:
@@ -128,17 +148,10 @@ def load_budget_chunks() -> list[dict[str, Any]]:
         response = requests.get(f"{BUDGET_DB_URL}/expenses", timeout=5)
         response.raise_for_status()
         expenses = response.json()
-    except requests.exceptions.RequestException as exc:
-        return [
-            {
-                "chunk_id": "budget_unavailable",
-                "source_id": "budget-db:/expenses",
-                "authority_tier": "tier_1",
-                "text": f"Budget database unavailable: {exc}",
-                "metadata": {"source_type": "budget_db"},
-                "indexed_at": now_iso(),
-            }
-        ]
+    except (requests.exceptions.RequestException, ValueError) as exc:
+        _source_status["budget_db"] = f"unavailable: {exc}"
+        return []
+    _source_status["budget_db"] = "ok"
 
     chunks = [
         {
@@ -173,9 +186,12 @@ def load_accommodation_chunks() -> list[dict[str, Any]]:
     try:
         response = requests.get(f"{ACCOMMODATION_DB_URL}/accommodations", timeout=5)
         response.raise_for_status()
-        records = response.json().get("data", response.json() if isinstance(response.json(), list) else [])
-    except Exception:
+        body = response.json()
+        records = body.get("data", []) if isinstance(body, dict) else body
+    except (requests.exceptions.RequestException, ValueError) as exc:
+        _source_status["accommodation_db"] = f"unavailable: {exc}"
         return []
+    _source_status["accommodation_db"] = "ok"
 
     chunks = []
     for record in records[:200]:
@@ -196,17 +212,74 @@ def load_accommodation_chunks() -> list[dict[str, Any]]:
     return chunks
 
 
+def load_destination_chunks() -> list[dict[str, Any]]:
+    """One tier_1 chunk per record from the Destination Database API (never SQLite)."""
+    try:
+        response = requests.get(f"{DESTINATION_DB_URL}/destinations", timeout=5)
+        response.raise_for_status()
+        records = response.json()
+        if not isinstance(records, list):
+            raise ValueError("unexpected /destinations payload")
+    except (requests.exceptions.RequestException, ValueError) as exc:
+        _source_status["destination_db"] = f"unavailable: {exc}"
+        return []
+    _source_status["destination_db"] = "ok"
+
+    chunks = []
+    for record in records:
+        # Only real destination rows become evidence; anything else is never indexed.
+        if not isinstance(record, dict) or record.get("destination_id") is None or not all(
+            isinstance(record.get(key), str) and record[key].strip() for key in ("city", "country")
+        ):
+            continue
+        parts = [
+            f"Destination record: destination_id={record.get('destination_id')}, "
+            f"city={record.get('city')}, country={record.get('country')}."
+        ]
+        if record.get("description"):
+            parts.append(f"Description: {record['description']}")
+        if record.get("average_daily_cost") is not None:
+            parts.append(f"Average daily cost: {record['average_daily_cost']}.")
+        if record.get("recommended_trip_length") is not None:
+            parts.append(f"Recommended trip length: {record['recommended_trip_length']} days.")
+        if record.get("travel_style"):
+            parts.append(f"Travel style: {record['travel_style']}.")
+        categories = record.get("categories")
+        if categories:
+            parts.append("Categories: " + (", ".join(categories) if isinstance(categories, list) else str(categories)) + ".")
+        chunks.append(
+            {
+                "chunk_id": f"destination_{record.get('destination_id')}",
+                "source_id": "destination-db:/destinations",
+                "authority_tier": "tier_1",
+                "text": " ".join(parts),
+                "metadata": {
+                    "source_type": "destination_db",
+                    "destination_id": record.get("destination_id"),
+                    "city": record.get("city"),
+                    "country": record.get("country"),
+                },
+                "indexed_at": now_iso(),
+            }
+        )
+    return chunks
+
+
 def load_doc_chunks() -> list[dict[str, Any]]:
     chunks = []
     for path in DOC_SOURCES:
         if not path.exists():
+            try:
+                _missing_docs.append(str(path.relative_to(REPO_ROOT)).replace("\\", "/"))
+            except ValueError:
+                _missing_docs.append(str(path))
             continue
         text = path.read_text(encoding="utf-8", errors="ignore")
         rel = path.relative_to(REPO_ROOT)
         for i, chunk in enumerate(chunk_text(text), start=1):
             chunks.append(
                 {
-                    "chunk_id": f"{path.stem}_{i}",
+                    "chunk_id": f"{path.parent.name}_{path.stem}_{i}",
                     "source_id": str(rel).replace("\\", "/"),
                     "authority_tier": "tier_2",
                     "text": chunk,
@@ -243,7 +316,10 @@ def load_repository_chunks() -> list[dict[str, Any]]:
 
 def build_corpus() -> list[dict[str, Any]]:
     global _itinerary_source_error
+    _source_status.clear()
+    _missing_docs.clear()
     chunks: list[dict[str, Any]] = []
+    chunks.extend(load_destination_chunks())
     chunks.extend(load_budget_chunks())
     chunks.extend(load_accommodation_chunks())
     chunks.extend(load_doc_chunks())
@@ -254,8 +330,10 @@ def build_corpus() -> list[dict[str, Any]]:
             chunk["indexed_at"] = now_iso()
         chunks.extend(itinerary_chunks)
         _itinerary_source_error = None
-    except (requests.RequestException, ValueError, TypeError):
+        _source_status["itinerary_db"] = "ok"
+    except (requests.RequestException, ValueError, TypeError) as exc:
         _itinerary_source_error = "itinerary API unavailable or invalid; itinerary records were not indexed"
+        _source_status["itinerary_db"] = f"unavailable: {exc}"
     return chunks
 
 
@@ -281,33 +359,90 @@ def read_corpus() -> list[dict[str, Any]]:
     return chunks
 
 
-def lexical_fallback_retrieve(query: str, k: int) -> list[dict[str, Any]]:
-    corpus = _last_corpus_chunks or read_corpus()
-    query_tokens = set(_TOKEN_RE.findall((query or "").lower()))
-    tier_weight = {"tier_1": 3, "tier_2": 2, "tier_3": 1}
+def _normalise_term(token: str) -> str:
+    if len(token) > 4 and token.endswith("ies"):
+        return token[:-3] + "y"
+    if len(token) > 4 and token.endswith(("ches", "shes", "xes")):
+        return token[:-2]
+    if len(token) > 3 and token.endswith("s") and not token.endswith("ss"):
+        return token[:-1]
+    return token
 
-    scored = []
+
+def query_terms(text: str) -> set[str]:
+    return {
+        _normalise_term(t)
+        for t in _TOKEN_RE.findall((text or "").lower())
+        if len(t) > 1 and t not in STOPWORDS
+    }
+
+
+def _corpus_chunks() -> list[dict[str, Any]]:
+    chunks = _last_corpus_chunks or read_corpus()
+    return [c for c in chunks if str(c.get("source_id", "")).replace("\\", "/") not in EXCLUDED_SOURCE_IDS]
+
+
+def _chroma_distances(query: str, k: int) -> dict[str, float]:
+    collection = get_collection()
+    if collection.count() == 0:
+        if refresh_corpus(caller="auto_refresh").get("status") != "success":
+            raise RuntimeError("empty_collection")
+        collection = get_collection()  # refresh replaces the collection handle
+    count = collection.count()
+    if count == 0:
+        raise RuntimeError("empty_collection")
+    results = collection.query(query_embeddings=embed_texts([query]), n_results=min(count, max(4 * k, 25)))
+    ids = (results.get("ids") or [[]])[0]
+    distances = (results.get("distances") or [[]])[0]
+    return {chunk_id: distances[i] for i, chunk_id in enumerate(ids) if i < len(distances)}
+
+
+def rank_accepted(
+    query: str, corpus: list[dict[str, Any]], distances: dict[str, float], k: int
+) -> tuple[list[dict[str, Any]], int]:
+    """Relevance-first acceptance and ranking. Returns (accepted top-k, accepted total)."""
+    q_terms = query_terms(query)
+    if not q_terms:
+        return [], 0
+    entities: set[str] = set()
     for chunk in corpus:
-        text_tokens = set(_TOKEN_RE.findall(chunk.get("text", "").lower()))
-        overlap = len(query_tokens.intersection(text_tokens))
-        scored.append(
+        meta = chunk.get("metadata") or {}
+        if meta.get("source_type") == "destination_db":
+            entities |= query_terms(f"{meta.get('city') or ''} {meta.get('country') or ''}")
+
+    accepted = []
+    for chunk in corpus:
+        matched = q_terms & query_terms(chunk.get("text", ""))
+        if not matched:
+            continue
+        score = len(matched) / len(q_terms)
+        if not ((len(matched) >= min(MIN_MATCHED, len(q_terms)) and score >= MIN_SCORE) or matched & entities):
+            continue
+        accepted.append(
             {
                 "rank": 0,
                 "chunk_id": chunk.get("chunk_id"),
                 "source_id": chunk.get("source_id"),
                 "authority_tier": chunk.get("authority_tier"),
-                "distance": None,
+                "distance": distances.get(chunk.get("chunk_id")),
                 "text": chunk.get("text", ""),
-                "_score": overlap,
+                "relevance_score": round(score, 4),
+                "matched_terms": sorted(matched),
             }
         )
 
-    scored.sort(key=lambda r: (tier_weight.get(r.get("authority_tier"), 0), r.get("_score", 0)), reverse=True)
-    top = scored[: max(k, 1)]
+    accepted.sort(
+        key=lambda r: (
+            -r["relevance_score"],
+            -len(r["matched_terms"]),
+            r["distance"] if isinstance(r["distance"], (int, float)) else 1e9,
+            TIER_ORDER.get(r["authority_tier"], 9),
+        )
+    )
+    top = accepted[: max(k, 1)]
     for i, row in enumerate(top, start=1):
         row["rank"] = i
-        row.pop("_score", None)
-    return top
+    return top, len(accepted)
 
 
 def refresh_corpus(caller: str = "system") -> dict[str, Any]:
@@ -341,6 +476,8 @@ def refresh_corpus(caller: str = "system") -> dict[str, Any]:
             "itinerary_source_error": _itinerary_source_error,
             "collection": COLLECTION_NAME,
             "vector_store_status": vector_store_status,
+            "source_status": dict(_source_status),
+            "missing_docs": list(_missing_docs),
         }
         if vector_store_error:
             output["vector_store_error"] = vector_store_error
@@ -360,117 +497,85 @@ def retrieve_context(query: str, k: int = 5, caller: str = "system", scope: str 
         return {"status": "error", "error": "unknown scope"}
     start = time.time()
     try:
-        retrieval_mode = "vector"
-        ranked = []
+        retrieval_mode = "hybrid"
+        distances: dict[str, float] = {}
         try:
-            collection = get_collection()
-            if collection.count() == 0:
-                if refresh_corpus(caller="auto_refresh").get("status") != "success":
-                    raise RuntimeError("empty_collection")
-
-            # Over-fetch, then rank by authority tier and trim to k. Tier ranking can
-            # only reorder what the vector search already returned, so with n_results=k
-            # a question whose wording happens to match prose docs would fill every slot
-            # with tier_2 chunks and never surface the tier_1 database records that
-            # actually answer it.
-            candidate_k = max(k * 4, 20)
-            results = collection.query(query_embeddings=embed_texts([query]), n_results=candidate_k)
-            ids = (results.get("ids") or [[]])[0]
-            docs = (results.get("documents") or [[]])[0]
-            metas = (results.get("metadatas") or [[]])[0]
-            distances = (results.get("distances") or [[]])[0]
-
-            for i, chunk_id in enumerate(ids):
-                meta = metas[i] if i < len(metas) and isinstance(metas[i], dict) else {}
-                ranked.append(
-                    {
-                        "rank": i + 1,
-                        "chunk_id": chunk_id,
-                        "source_id": meta.get("source_id"),
-                        "authority_tier": meta.get("authority_tier"),
-                        "distance": distances[i] if i < len(distances) else None,
-                        "text": docs[i] if i < len(docs) else "",
-                    }
-                )
-
-            # Reserve slots per authority tier instead of ranking by tier or by
-            # distance alone. The hash embedder returns near-uniform distances, so
-            # distance carries little signal: sorting tier-first buried the tier_2
-            # docs that answer documentation questions, while sorting by distance
-            # alone buried the tier_1 records that answer data questions. Filling a
-            # guaranteed share from tier_1 and then the best of the rest keeps both
-            # reachable from one k.
-            def _distance(row):
-                value = row.get("distance")
-                return value if isinstance(value, (int, float)) else 1e9
-
-            ranked.sort(key=_distance)
-            tier_1 = [row for row in ranked if row.get("authority_tier") == "tier_1"]
-            reserved = tier_1[:max(1, round(k * TIER_1_SHARE))]
-            reserved_ids = {id(row) for row in reserved}
-            remainder = [row for row in ranked if id(row) not in reserved_ids]
-
-            ranked = (reserved + remainder)[:k]
-            ranked.sort(key=_distance)
-            for position, row in enumerate(ranked, start=1):
-                row["rank"] = position
-
+            distances = _chroma_distances(query, k)
         except Exception:
             retrieval_mode = "lexical_fallback"
-            if not _last_corpus_chunks and not CORPUS_PATH.exists():
-                if refresh_corpus(caller="auto_refresh").get("status") != "success":
-                    return {"status": "error", "error": "corpus_unavailable"}
-            ranked = lexical_fallback_retrieve(query, k)
 
+        corpus = _corpus_chunks()
+        if not corpus and refresh_corpus(caller="auto_refresh").get("status") == "success":
+            corpus = _corpus_chunks()
+        if not corpus:
+            output = {"status": "error", "error_type": "retrieval_failed", "error": "corpus_unavailable", "query": query}
+            append_audit("retrieve_context", {"query": query, "k": k, "caller": caller}, output, "fail", "error", start)
+            return output
+
+        ranked, accepted_total = rank_accepted(query, corpus, distances, k)
         output = {
             "status": "success",
             "query": query,
             "caller": caller,
             "k": k,
             "retrieval_mode": retrieval_mode,
+            "candidate_count": len(corpus),
+            "rejected_count": len(corpus) - accepted_total,
             "results": ranked,
         }
         append_audit(
             "retrieve_context",
             {"query": query, "k": k, "caller": caller},
-            {"result_count": len(ranked)},
+            {
+                "result_count": len(ranked),
+                "chunk_ids": [r["chunk_id"] for r in ranked],
+                "scores": [r["relevance_score"] for r in ranked],
+                "rejected_count": output["rejected_count"],
+                "retrieval_mode": retrieval_mode,
+            },
             "pass",
-            "context_retrieved",
+            "context_retrieved" if ranked else "no_relevant_context",
             start,
         )
         return output
     except Exception as exc:
-        output = {"status": "error", "error": str(exc), "query": query}
+        output = {"status": "error", "error_type": "retrieval_failed", "error": str(exc), "query": query}
         append_audit("retrieve_context", {"query": query, "k": k, "caller": caller}, output, "fail", "error", start)
         return output
 
 
 def confidence_from_results(results: list[dict[str, Any]]) -> str:
+    """Confidence from accepted retrieval quality (relevance scores), not tier or count alone."""
     if not results:
-        return "Unknown"
-    tier_1 = sum(1 for r in results if r.get("authority_tier") == "tier_1")
-    tier_2 = sum(1 for r in results if r.get("authority_tier") == "tier_2")
-    if tier_1 >= 2 and len(results) >= 3:
+        return "Insufficient"
+    top = max(r.get("relevance_score", 0) for r in results)
+    if all(r.get("authority_tier") == "tier_3" for r in results):
+        return "Low"
+    if top >= 0.75 and len(results) >= 2:
         return "High"
-    if tier_1 >= 1 or tier_2 >= 2:
+    if top >= MIN_SCORE and max(len(r.get("matched_terms", [])) for r in results) >= MIN_MATCHED:
         return "Medium"
     return "Low"
 
 
+class LLMUnavailable(Exception):
+    """Ollama unreachable, errored, or returned nothing usable."""
+
+
 def generate_with_ollama(query: str, context: str) -> str:
     prompt = f"""
-You are a retrieval-grounded travel assistant for the VoyageAI app.
-The context may hold budget expenses, accommodation records, or project
-documentation -- answer from whichever of these the question is about.
+You are a retrieval-grounded VoyageAI travel assistant.
 Use only the provided context.
+Each context item starts with a [chunk_id] label. The labels are references only: never answer with a label.
+Answer in complete, natural, conversational sentences for a traveller that name the relevant
+destinations or facts; keep it to one or two sentences unless the question asks for a list.
 If the question asks for a list (e.g. "what accommodation options" or "what
 expenses"), list every matching record present in the context -- do not stop
 after the first one you find.
-Write the answer as natural, conversational sentences for a traveller, not as
-raw "Accommodation record: name=X, ..." or "Expense record: ..." lines copied
+Do not copy raw "Accommodation record: name=X, ..." or "Expense record: ..." lines
 from the context -- rephrase each fact in plain language while keeping every
 name and number exact.
-If the context genuinely does not contain the answer, return exactly: Insufficient evidence.
+If evidence is missing, return exactly: Insufficient evidence.
 Do not return Insufficient evidence merely because the context is about a
 different part of the app than you expected.
 
@@ -487,13 +592,32 @@ Answer:
     try:
         resp = requests.post(
             OLLAMA_GENERATE_URL,
-            json={"model": OLLAMA_MODEL, "prompt": prompt, "stream": False},
+            json={"model": OLLAMA_MODEL, "prompt": prompt, "stream": False, "options": {"temperature": 0}},
             timeout=120,
         )
         resp.raise_for_status()
-        return resp.json().get("response", "Insufficient evidence.")
-    except Exception as exc:
-        return f"Ollama unavailable: {exc}"
+        body = resp.json()
+    except (requests.exceptions.RequestException, ValueError) as exc:
+        raise LLMUnavailable(f"Ollama unavailable ({OLLAMA_MODEL}): {exc}") from exc
+    if not isinstance(body, dict) or body.get("error"):
+        raise LLMUnavailable(f"Ollama error ({OLLAMA_MODEL}): {body.get('error') if isinstance(body, dict) else body}")
+    text = (body.get("response") or "").strip()
+    if not text:
+        raise LLMUnavailable(f"Ollama returned an empty response ({OLLAMA_MODEL})")
+    return text
+
+
+def _failure(query: str, error_type: str, error: str, **extra: Any) -> dict[str, Any]:
+    return {
+        "status": "error",
+        "error_type": error_type,
+        "error": error,
+        "query": query,
+        "answer": None,
+        "citations": [],
+        "confidence_category": None,
+        **extra,
+    }
 
 
 def answer_question(query: str, k: int = 5, caller: str = "system", scope: str = None,
@@ -503,49 +627,68 @@ def answer_question(query: str, k: int = 5, caller: str = "system", scope: str =
     if scope is not None:
         return {"status": "error", "error": "unknown scope"}
     start = time.time()
+    audit_input = {"query": query, "k": k, "caller": caller}
     retrieval = retrieve_context(query=query, k=k, caller=caller)
     if retrieval.get("status") != "success":
-        output = {"status": "error", "query": query, "error": retrieval.get("error", "retrieval_failed")}
-        append_audit("answer_question", {"query": query, "k": k, "caller": caller}, output, "fail", "retrieval_failed", start)
+        output = _failure(query, "retrieval_failed", retrieval.get("error", "retrieval_failed"))
+        append_audit("answer_question", audit_input, output, "fail", "retrieval_failed", start)
         return output
 
     results = retrieval.get("results", [])
-    confidence = confidence_from_results(results)
+    summary = {
+        "k": k,
+        "retrieved_count": len(results),
+        "candidate_count": retrieval.get("candidate_count", 0),
+        "rejected_count": retrieval.get("rejected_count", 0),
+        "retrieval_mode": retrieval.get("retrieval_mode"),
+        "top_score": results[0].get("relevance_score") if results else None,
+    }
 
-    if confidence == "Unknown" or not results:
+    def insufficient(outcome: str) -> dict[str, Any]:
         output = {
-            "status": "success",
+            "status": "insufficient_context",
             "query": query,
-            "answer": "Insufficient evidence to answer this question from the current corpus.",
+            "answer": INSUFFICIENT_ANSWER,
             "citations": [],
             "confidence_category": "Insufficient",
+            "retrieval_summary": summary,
         }
-        append_audit("answer_question", {"query": query, "k": k, "caller": caller}, output, "pass", "insufficient_context", start)
+        append_audit("answer_question", audit_input, {"confidence_category": "Insufficient", "citation_count": 0}, "pass", outcome, start)
         return output
 
-    context = "\n\n".join(r.get("text", "") for r in results)
-    answer = generate_with_ollama(query, context)
-    if answer.startswith("Ollama unavailable:"):
-        output = {"status": "error", "query": query, "error": "RAG answer model is unavailable"}
-        append_audit("answer_question", {"query": query}, output, "fail", "llm_unavailable", start)
+    if not results:
+        return insufficient("insufficient_context")
+
+    context = "\n\n".join(f"[{r['chunk_id']}] {r['text']}" for r in results)
+    try:
+        answer = generate_with_ollama(query, context)
+    except LLMUnavailable as exc:
+        output = _failure(query, "llm_unavailable", str(exc), retrieval_summary=summary)
+        append_audit("answer_question", audit_input, output, "fail", "llm_unavailable", start)
         return output
+
+    if answer.lower().startswith("insufficient evidence"):
+        return insufficient("llm_declined")
+    if answer.lower().startswith("answer:"):
+        answer = answer[len("answer:"):].strip()
+
+    confidence = confidence_from_results(results)
     citations = [
         {"chunk_id": r.get("chunk_id"), "source_id": r.get("source_id"), "authority_tier": r.get("authority_tier")}
         for r in results
     ]
-
     output = {
         "status": "success",
         "query": query,
         "answer": answer,
         "citations": citations,
         "confidence_category": confidence,
-        "retrieval_summary": {"k": k, "retrieved_count": len(results)},
+        "retrieval_summary": summary,
     }
     append_audit(
         "answer_question",
-        {"query": query, "k": k, "caller": caller},
-        {"confidence_category": confidence, "citation_count": len(citations)},
+        audit_input,
+        {"confidence_category": confidence, "citation_ids": [c["chunk_id"] for c in citations]},
         "pass",
         "answer_generated",
         start,
@@ -605,4 +748,4 @@ def itinerary_operation(query, k, caller, trip_reference, day, answer):
 if __name__ == "__main__":
     print(json.dumps(refresh_corpus(), indent=2))
     print(json.dumps(retrieve_context("budget expenses over estimate", 5), indent=2))
-    print(json.dumps(answer_question("What accommodation options are logged for Tokyo?", 5), indent=2))
+    print(json.dumps(answer_question("Which destination is known for street food?", 5), indent=2))

@@ -5,6 +5,7 @@ service never opens SQLite and never talks to the database API directly:
 all persistence goes through destination-backend on port 5001, matching
 the required data path frontend -> backend -> database API -> SQLite.
 """
+import math
 import os
 
 import requests
@@ -17,6 +18,21 @@ REQUEST_TIMEOUT = (3, 10)  # (connect, read) seconds
 # The AI comparison call chains through to a single Ollama request, which
 # takes far longer than any CRUD round trip — give it its own read timeout.
 AI_REQUEST_TIMEOUT = (3, 120)
+
+
+def _read_timeout(name, default):
+    """Positive float read timeout from the environment, else the default."""
+    try:
+        value = float(os.environ.get(name, default))
+    except ValueError:
+        return default
+    return value if math.isfinite(value) and value > 0 else default
+
+
+# Shared-service calls: read timeouts exceed the backend's own (10s MCP, 120s
+# RAG) so the backend's structured timeout envelope reaches the UI first.
+MCP_REQUEST_TIMEOUT = (3, _read_timeout("MCP_REQUEST_TIMEOUT_SECONDS", 15.0))
+RAG_REQUEST_TIMEOUT = (3, _read_timeout("RAG_REQUEST_TIMEOUT_SECONDS", 130.0))
 
 DEFAULT_COMPARE_PREFERENCES = "nightlife and food"
 
@@ -78,6 +94,27 @@ def backend_request(method, path, *, json_body=None, params=None, timeout=None):
         raise BackendError(f"backend returned {response.status_code} for {path}")
 
     return response
+
+
+def backend_ai_request(path, json_body, timeout):
+    """POST to a backend shared-service route and return its JSON envelope.
+
+    Unlike backend_request, a 4xx/5xx is not an exception: the backend's
+    {status, error} body is what the UI renders. Anything that is not such
+    an envelope collapses to a generic unavailable result."""
+    try:
+        response = requests.post(f"{BACKEND_SERVICE_URL}{path}", json=json_body, timeout=timeout)
+    except requests.exceptions.Timeout:
+        return {"status": "timeout", "error": "The request timed out. Please try again."}
+    except requests.exceptions.RequestException:
+        return {"status": "unavailable", "error": UNAVAILABLE_MESSAGE}
+    try:
+        payload = response.json()
+    except ValueError:
+        payload = None
+    if not isinstance(payload, dict) or not isinstance(payload.get("status"), str):
+        return {"status": "unavailable", "error": UNAVAILABLE_MESSAGE}
+    return payload
 
 
 def fetch_all():
@@ -326,6 +363,31 @@ def create_app():
         if request.headers.get("HX-Request") == "true":
             return render_template("_comparison.html", **context)
         return render_template("compare.html", **context)
+
+    @app.route("/mcp-lookup", methods=["GET", "POST"])
+    def mcp_lookup():
+        form = {key: (request.form.get(key) or "").strip() for key in ("city", "country", "travel_style")}
+        result = None
+        if request.method == "POST":
+            filters = {key: value for key, value in form.items() if value}
+            result = backend_ai_request("/api/destinations/mcp-search", filters, MCP_REQUEST_TIMEOUT)
+        context = dict(form=form, result=result)
+        if request.headers.get("HX-Request") == "true":
+            return render_template("_mcp_result.html", **context)
+        return render_template("mcp.html", **context)
+
+    @app.route("/ask", methods=["GET", "POST"])
+    def ask():
+        question = (request.form.get("question") or "").strip() if request.method == "POST" else ""
+        result = None
+        if request.method == "POST":
+            result = backend_ai_request(
+                "/api/destinations/rag-answer", {"question": question}, RAG_REQUEST_TIMEOUT
+            )
+        context = dict(question=question, result=result)
+        if request.headers.get("HX-Request") == "true":
+            return render_template("_rag_answer.html", **context)
+        return render_template("ask.html", **context)
 
     @app.route("/health")
     def health():

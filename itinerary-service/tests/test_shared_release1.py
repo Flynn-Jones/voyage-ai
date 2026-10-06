@@ -131,8 +131,14 @@ def test_refresh_missing_source_not_indexed_as_evidence(monkeypatch, corpus):
 
 def test_legacy_model_failure_is_error(monkeypatch, corpus):
     monkeypatch.setattr(rag, "retrieve_context", lambda **kw: {"status": "success", "results": corpus})
-    monkeypatch.setattr(rag, "generate_with_ollama", lambda *a: "Ollama unavailable: refused")
-    assert rag.answer_question("budget cost")["status"] == "error"
+    monkeypatch.setattr(
+        rag,
+        "generate_with_ollama",
+        Mock(side_effect=rag.LLMUnavailable("Ollama unavailable: refused")),
+    )
+    result = rag.answer_question("budget cost")
+    assert result["status"] == "error"
+    assert result["error_type"] == "llm_unavailable"
 
 
 def test_persisted_snapshot(monkeypatch, corpus):

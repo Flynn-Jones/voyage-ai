@@ -20,3 +20,18 @@ def print_prompt_map(prompt_map: dict) -> None:
     print("Prompt families:")
     for key, path in prompt_map.items():
         print(f"  {key} -> {path}")
+
+
+class Trace:
+    """Ordered PLAN/ACT/OBSERVE/ADAPT record; each step is printed via stage()."""
+
+    def __init__(self, label: str):
+        self.label = label
+        self.steps: list[tuple[str, str]] = []
+
+    def step(self, phase: str, message: str) -> None:
+        self.steps.append((phase, message))
+        stage(self.label, phase, message)
+
+    def text(self) -> str:
+        return "\n".join(f"[{self.label}][{phase}] {message}" for phase, message in self.steps)

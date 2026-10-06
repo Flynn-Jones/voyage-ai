@@ -15,6 +15,10 @@ REPO_ROOT = BASE_DIR.parent.parent  # ai-services/mcp-server -> ai-services -> r
 
 BUDGET_DB_URL = os.environ.get("BUDGET_DB_URL", "http://localhost:6004")
 ACCOMMODATION_DB_URL = os.environ.get("ACCOMMODATION_DB_URL", "http://localhost:6002")
+DESTINATION_DB_URL = os.environ.get("DESTINATION_DB_URL", "http://localhost:6001")
+
+DESTINATION_FILTERS = ("city", "country", "travel_style")
+DESTINATION_FILTER_MAX_LENGTH = 100
 
 IGNORED_DIRS = {".git", ".venv", "venv", "__pycache__", "node_modules", "chroma"}
 
@@ -248,6 +252,63 @@ def create_accommodation(
     if requested - stored:
         result["ignored_amenities"] = sorted(requested - stored)
     return result
+
+
+class DestinationToolError(Exception):
+    """Explicit list_destinations failure (bad input or destination-db problem)."""
+
+
+def _clean_destination_filter(field, value):
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise DestinationToolError(f"invalid {field}: must be a string")
+    value = value.strip()
+    if not value:
+        return None
+    if len(value) > DESTINATION_FILTER_MAX_LENGTH:
+        raise DestinationToolError(
+            f"invalid {field}: must be at most {DESTINATION_FILTER_MAX_LENGTH} characters"
+        )
+    if any(ord(ch) < 32 or ord(ch) == 127 for ch in value):
+        raise DestinationToolError(f"invalid {field}: control characters are not allowed")
+    return value
+
+
+def list_destinations(city: str = None, country: str = None, travel_style: str = None):
+    """Return destinations from the Destination Database API, optionally filtered.
+
+    Filters are exact-match, as implemented by GET /destinations. Raises
+    DestinationToolError on invalid input or any destination-db failure.
+    """
+    raw = {"city": city, "country": country, "travel_style": travel_style}
+    filters = {}
+    for field in DESTINATION_FILTERS:
+        cleaned = _clean_destination_filter(field, raw[field])
+        if cleaned is not None:
+            filters[field] = cleaned
+
+    try:
+        response = requests.get(f"{DESTINATION_DB_URL}/destinations", params=filters, timeout=5)
+    except requests.exceptions.RequestException as exc:
+        raise DestinationToolError(f"destination-db unavailable: {exc}") from exc
+
+    if not 200 <= response.status_code < 300:
+        raise DestinationToolError(f"destination-db returned {response.status_code}")
+
+    try:
+        destinations = response.json()
+    except ValueError as exc:
+        raise DestinationToolError("destination-db returned unexpected payload") from exc
+    if not isinstance(destinations, list):
+        raise DestinationToolError("destination-db returned unexpected payload")
+
+    return {
+        "source": "destination-database",
+        "filters": filters,
+        "count": len(destinations),
+        "destinations": destinations,
+    }
 
 
 def project_files(directory_path: str = "."):
