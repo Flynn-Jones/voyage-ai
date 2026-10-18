@@ -120,7 +120,8 @@ def test_refresh_includes_itinerary(monkeypatch, corpus):
 
 
 def test_refresh_missing_source_not_indexed_as_evidence(monkeypatch, corpus):
-    for name in ("load_budget_chunks", "load_accommodation_chunks", "load_doc_chunks", "load_repository_chunks"):
+    for name in ("load_budget_chunks", "load_accommodation_chunks", "load_doc_chunks", "load_repository_chunks",
+                 "load_activity_chunks"):
         monkeypatch.setattr(rag, name, lambda: [])
     monkeypatch.setattr(context, "load_chunks", Mock(side_effect=requests.ConnectionError()))
     monkeypatch.setattr(rag, "reset_collection", Mock(side_effect=RuntimeError()))

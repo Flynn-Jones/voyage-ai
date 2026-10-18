@@ -1,0 +1,30 @@
+# Test suites — 2026-10-18T08:03:05Z, branch integrate/shared-ai-release-1 (uncommitted changes)
+# python: Python 3.11.9; pytest -m 'not live', each suite in its own process
+# baseline (post-merge, pre-change):
+#   SUITE accommodation-service/backend::tests : 47 passed in 1.89s
+#   SUITE accommodation-service/frontend::tests : 2 passed in 0.41s
+#   SUITE activity-service/backend/tests : 30 passed in 0.69s
+#   SUITE activity-service/database-service/tests : 12 passed in 0.28s
+#   SUITE activity-service/frontend/tests : 32 passed in 0.69s
+#   SUITE activity-service/tests : 131 passed in 2.69s
+#   SUITE ai-services/mcp-server/tests : 20 passed in 0.84s
+#   SUITE ai-services/rag-server/tests : 41 passed in 3.36s
+#   SUITE ai-services/agentic_loop/tests : 71 passed in 17.51s
+#   SUITE itinerary-service/itinerary-be/tests : 105 passed in 0.74s
+#   SUITE itinerary-service/itinerary-db/tests : 16 passed in 0.43s
+#   SUITE itinerary-service/tests : 49 passed in 0.49s
+#   SUITE student-1/tests : 209 passed, 26 deselected in 7.12s
+
+SUITE accommodation-service/backend::tests : 47 passed in 1.92s
+SUITE accommodation-service/frontend::tests : 2 passed in 0.43s
+SUITE activity-service/backend/tests : 30 passed in 0.71s
+SUITE activity-service/database-service/tests : 12 passed in 0.28s
+SUITE activity-service/frontend/tests : 34 passed in 0.74s
+SUITE activity-service/tests : 54 passed in 4.75s
+SUITE ai-services/mcp-server/tests : 71 passed in 0.20s
+SUITE ai-services/rag-server/tests : 75 passed in 6.17s
+SUITE ai-services/agentic_loop/tests : 71 passed in 17.57s
+SUITE itinerary-service/itinerary-be/tests : 105 passed in 0.76s
+SUITE itinerary-service/itinerary-db/tests : 16 passed in 0.45s
+SUITE itinerary-service/tests : 49 passed in 0.48s
+SUITE student-1/tests : 209 passed, 26 deselected in 7.34s

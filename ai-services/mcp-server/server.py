@@ -18,7 +18,12 @@ from tools import (
     ci_report,
     create_accommodation,
     get_accommodation_by_destination,
+    get_activity,
+    get_activity_assignments,
+    get_assignment,
     get_itinerary,
+    list_activities,
+    list_assignments,
     list_destinations,
     list_expenses,
     project_files,
@@ -50,7 +55,9 @@ def get_itinerary_tool(trip_reference: str, day: int | None = None) -> dict[str,
 
 
 @mcp.tool(name="list_expenses")
-def list_expenses_tool(trip_reference: str = None) -> dict[str, Any]:
+def list_expenses_tool(trip_reference: str | None = None) -> dict[str, Any]:
+    # Optional *and nullable*: Budget's backend sends {"trip_reference": null}
+    # when no trip is selected, which a bare `str` hint rejects as invalid input.
     return list_expenses(trip_reference)
 
 
@@ -116,6 +123,39 @@ def list_destinations_tool(
         return list_destinations(city=city, country=country, travel_style=travel_style)
     except DestinationToolError as exc:
         raise ToolError(str(exc)) from exc
+
+
+# ---------------- Activity (Student 3) ----------------
+# FastMCP builds each tool's schema from the signature and docstring, so the
+# docstrings below are what an LLM client actually sees when choosing a tool.
+@mcp.tool(name="list_activities", annotations=ToolAnnotations(readOnlyHint=True))
+def list_activities_tool() -> dict[str, Any]:
+    """List every travel activity with its id, name, type, cost, and duration. Read-only."""
+    return list_activities()
+
+
+@mcp.tool(name="get_activity", annotations=ToolAnnotations(readOnlyHint=True))
+def get_activity_tool(activity_id: int) -> dict[str, Any]:
+    """Get one travel activity by its numeric activity_id. Read-only."""
+    return get_activity(activity_id)
+
+
+@mcp.tool(name="get_activity_assignments", annotations=ToolAnnotations(readOnlyHint=True))
+def get_activity_assignments_tool(activity_id: int) -> dict[str, Any]:
+    """Get the scheduled time assignment(s) for one activity by its numeric activity_id. Read-only."""
+    return get_activity_assignments(activity_id)
+
+
+@mcp.tool(name="list_assignments", annotations=ToolAnnotations(readOnlyHint=True))
+def list_assignments_tool() -> dict[str, Any]:
+    """List every activity time assignment (assignment_id, activity_id, assignment_time). Read-only."""
+    return list_assignments()
+
+
+@mcp.tool(name="get_assignment", annotations=ToolAnnotations(readOnlyHint=True))
+def get_assignment_tool(assignment_id: int) -> dict[str, Any]:
+    """Get one time assignment by its numeric assignment_id. Read-only."""
+    return get_assignment(assignment_id)
 
 
 def registered_tool_names() -> list[str]:

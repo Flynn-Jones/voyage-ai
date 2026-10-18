@@ -1,0 +1,52 @@
+[destination] Which destination is known for street food?  (scope=None, mode=hybrid)
+  Retrieved: ['destination_5', 'destination_3']
+  Relevant:  ['destination_5', 'destination_3'] of 2 in corpus
+  P@5: 0.4  R@5: 1.0
+[destination] beach destinations in Australia  (scope=None, mode=hybrid)
+  Retrieved: ['destination_7', 'destination_8']
+  Relevant:  ['destination_7', 'destination_8'] of 2 in corpus
+  P@5: 0.4  R@5: 1.0
+[accommodation] accommodation options  (scope=None, mode=hybrid)
+  Retrieved: []
+  Relevant:  [] of 34 in corpus
+  P@5: 0.0  R@5: 0.0
+[accommodation] accommodation in Tokyo price per night  (scope=None, mode=hybrid)
+  Retrieved: ['accommodation_4', 'accommodation_1', 'accommodation_3', 'accommodation_2', 'accommodation_19']
+  Relevant:  ['accommodation_4', 'accommodation_1', 'accommodation_3', 'accommodation_2'] of 4 in corpus
+  P@5: 0.8  R@5: 1.0
+[activity] harbour sunset kayak  (scope=activity, mode=hybrid)
+  Retrieved: ['activity_category_water_sports', 'activity_12']
+  Relevant:  ['activity_category_water_sports', 'activity_12'] of 2 in corpus
+  P@5: 0.4  R@5: 1.0
+[activity] adventure activities  (scope=activity, mode=hybrid)
+  Retrieved: ['activity_doc_tool_review_6', 'activity_category_adventure', 'activity_category_counts', 'activity_2', 'activity_6']
+  Relevant:  ['activity_doc_tool_review_6', 'activity_category_adventure', 'activity_category_counts', 'activity_2', 'activity_6'] of 5 in corpus
+  P@5: 1.0  R@5: 1.0
+[activity] when is the chinatown street food crawl scheduled  (scope=activity, mode=hybrid)
+  Retrieved: ['assignment_8', 'activity_7', 'activity_category_food', 'activity_8', 'activity_category_counts']
+  Relevant:  ['assignment_8', 'activity_7', 'activity_category_food'] of 3 in corpus
+  P@5: 0.6  R@5: 1.0
+[itinerary] What activities are planned for this trip? (trip_reference=TRIP-1001)  (scope=itinerary, mode=itinerary_metadata)
+  Retrieved: ['itinerary_1', 'itinerary_2', 'itinerary_3', 'itinerary_4', 'itinerary_5']
+  Relevant:  ['itinerary_1', 'itinerary_2', 'itinerary_3', 'itinerary_4', 'itinerary_5'] of 6 in corpus
+  P@5: 1.0  R@5: 1.0
+[budget] budget expenses over estimate  (scope=None, mode=hybrid)
+  Retrieved: ['budget_expense_count']
+  Relevant:  ['budget_expense_count'] of 13 in corpus
+  P@5: 0.2  R@5: 0.2
+[budget] transport expenses actual cost  (scope=None, mode=hybrid)
+  Retrieved: ['budget_expense_55', 'budget_expense_61', 'budget_expense_58', 'budget_expense_52', 'budget_expense_60']
+  Relevant:  ['budget_expense_55', 'budget_expense_61', 'budget_expense_58', 'budget_expense_52', 'budget_expense_60'] of 6 in corpus
+  P@5: 1.0  R@5: 1.0
+[shared] microservice architecture ports  (scope=None, mode=hybrid)
+  Retrieved: ['accommodation-service_SUMMARY_1']
+  Relevant:  [] of 1 in corpus
+  P@5: 0.0  R@5: 0.0
+--- per feature
+  destination    (unscoped)  P@5=0.4  R@5=1.0
+  accommodation  (unscoped)  P@5=0.4  R@5=0.5
+  activity       activity    P@5=0.67  R@5=1.0
+  itinerary      itinerary   P@5=1.0  R@5=1.0
+  budget         (unscoped)  P@5=0.6  R@5=0.6
+  shared         (unscoped)  P@5=0.0  R@5=0.0
+wrote C:\Users\Oat\OneDrive - UTS\Spring 2026\Advanced Software Development\voyage-ai\ai-services\rag-server\retrieval-metrics.md

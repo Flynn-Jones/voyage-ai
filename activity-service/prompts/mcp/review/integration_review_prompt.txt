@@ -5,11 +5,11 @@ using ONLY the observed evidence provided (test output, HTTP responses, logs).
 Do not assume behaviour that the evidence does not show.
 
 The integration under review:
-- mcp-server/tools.py: 5 read-only tools (list_activities, get_activity,
+- ai-services/mcp-server/tools.py (shared MCP server): 5 read-only Activity tools (list_activities, get_activity,
   get_activity_assignments, list_assignments, get_assignment) over
   database-service HTTP (port 6003)
-- mcp-server/server.py: the same 5 tools over stdio (FastMCP)
-- mcp-server/mcp_http_server.py: the same 5 tools over HTTP (port 7003)
+- ai-services/mcp-server/server.py: the shared FastMCP registry, same 5 tools over stdio
+- ai-services/mcp-server/mcp_http_server.py: the shared MCP server, the same 5 tools over HTTP (port 7001)
 - backend/routes/mcp_mode.py: /api/activity/mcp/* bridge, plus /ask (LLM tool selection)
 - frontend/templates/tabs/mcp.html: the MCP Mode tab
 

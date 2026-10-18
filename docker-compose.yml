@@ -85,9 +85,9 @@ services:
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:7b}
       OLLAMA_TIMEOUT_SECONDS: ${OLLAMA_TIMEOUT_SECONDS:-60}
-      # Release 1: ONE shared local MCP (:7001) and RAG (:7002) on the host.
-      # Literal URLs on purpose (not ${MCP_SERVICE_URL}): activity-backend
-      # below uses that shell var for its own 7003/6013 servers.
+      # Release 1: ONE shared local MCP (:7001) and RAG (:7002) on the host,
+      # used by every feature. Literal URLs on purpose (not the shared
+      # ${MCP_SERVICE_URL} shell var budget/accommodation read).
       MCP_SERVICE_URL: http://host.docker.internal:7001
       MCP_ENABLED: ${DESTINATION_MCP_ENABLED:-true}
       MCP_TIMEOUT_SECONDS: "10"
@@ -190,13 +190,13 @@ services:
       # AI Mode summaries/chat. qwen2.5:7b isn't pulled locally; same default as
       # activity-service/docker-compose.yml.
       OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:0.5b}
-      # MCP Mode: activity-service/mcp-server/mcp_http_server.py runs on the
-      # host (not containerised), reached the same way as Ollama.
-      MCP_SERVICE_URL: ${MCP_SERVICE_URL:-http://host.docker.internal:7003}
-      MCP_ENABLED: ${MCP_ENABLED:-true}
-      # RAG Mode: activity-service/rag-server/rag_http_server.py, also on the host.
-      RAG_SERVICE_URL: ${RAG_SERVICE_URL:-http://host.docker.internal:6013}
-      RAG_ENABLED: ${RAG_ENABLED:-true}
+      # Release 1: the ONE shared MCP (:7001) and RAG (:7002) servers
+      # (ai-services/, host-run, not containerised), reached like Ollama.
+      # ACTIVITY_-prefixed overrides, like DESTINATION_/ITINERARY_ above.
+      MCP_SERVICE_URL: ${ACTIVITY_MCP_SERVICE_URL:-http://host.docker.internal:7001}
+      MCP_ENABLED: ${ACTIVITY_MCP_ENABLED:-true}
+      RAG_SERVICE_URL: ${ACTIVITY_RAG_SERVICE_URL:-http://host.docker.internal:7002}
+      RAG_ENABLED: ${ACTIVITY_RAG_ENABLED:-true}
       # MCP Mode's Ask box picks tools with this model (shared with AI Mode's
       # intent step); the code default, qwen2.5:7b, isn't pulled locally.
       OLLAMA_INTENT_MODEL: ${OLLAMA_INTENT_MODEL:-llama3.1:8b}

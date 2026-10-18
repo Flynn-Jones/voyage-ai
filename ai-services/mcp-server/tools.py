@@ -16,6 +16,12 @@ REPO_ROOT = BASE_DIR.parent.parent  # ai-services/mcp-server -> ai-services -> r
 BUDGET_DB_URL = os.environ.get("BUDGET_DB_URL", "http://localhost:6004")
 ACCOMMODATION_DB_URL = os.environ.get("ACCOMMODATION_DB_URL", "http://localhost:6002")
 DESTINATION_DB_URL = os.environ.get("DESTINATION_DB_URL", "http://localhost:6001")
+ACTIVITY_DB_URL = os.environ.get("ACTIVITY_DB_URL", "http://localhost:6003")
+
+try:
+    ACTIVITY_DB_TIMEOUT_SECONDS = int(os.environ.get("ACTIVITY_DB_TIMEOUT_SECONDS", "5"))
+except ValueError:
+    ACTIVITY_DB_TIMEOUT_SECONDS = 5
 
 DESTINATION_FILTERS = ("city", "country", "travel_style")
 DESTINATION_FILTER_MAX_LENGTH = 100
@@ -309,6 +315,110 @@ def list_destinations(city: str = None, country: str = None, travel_style: str =
         "count": len(destinations),
         "destinations": destinations,
     }
+
+
+# ---------------------------------------------------------------- Activity (Student 3)
+# Moved from activity-service/mcp-server/tools.py. Read-only, over the activity
+# database-service HTTP API (ACTIVITY_DB_URL), never raising: failures come
+# back as {"error": ...} like the other legacy tools.
+
+class _ActivityNotFound(Exception):
+    pass
+
+
+def _activity_get(path):
+    """GET an activity database-service path. Raises _ActivityNotFound on 404
+    and requests.exceptions.RequestException on any other failure."""
+    response = requests.get(f"{ACTIVITY_DB_URL}{path}", timeout=ACTIVITY_DB_TIMEOUT_SECONDS)
+    if response.status_code == 404:
+        raise _ActivityNotFound(path)
+    response.raise_for_status()
+    return response.json()
+
+
+def _activity_positive_int(value, name):
+    """Returns (int_value, error) — error is a message, or None."""
+    if isinstance(value, bool):
+        return None, f"{name} must be a positive integer"
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        return None, f"{name} must be a positive integer"
+    if number < 1 or str(number) != str(value).strip():
+        return None, f"{name} must be a positive integer"
+    return number, None
+
+
+def _activity_unavailable(exc):
+    return {"error": f"activity database unavailable: {exc}"}
+
+
+def list_activities():
+    """Return every activity (id, name, type, cost, duration)."""
+    try:
+        activities = _activity_get("/activities")
+    except (_ActivityNotFound, requests.exceptions.RequestException, ValueError) as exc:
+        return _activity_unavailable(exc)
+
+    return {"count": len(activities), "activities": activities}
+
+
+def get_activity(activity_id):
+    """Return one activity by its numeric activity_id."""
+    activity_id, error = _activity_positive_int(activity_id, "activity_id")
+    if error:
+        return {"error": error}
+
+    try:
+        activity = _activity_get(f"/activities/{activity_id}")
+    except _ActivityNotFound:
+        return {"error": "activity not found", "activity_id": activity_id}
+    except (requests.exceptions.RequestException, ValueError) as exc:
+        return _activity_unavailable(exc)
+
+    return {"activity": activity}
+
+
+def get_activity_assignments(activity_id):
+    """Return the scheduled time assignments for one activity."""
+    activity_id, error = _activity_positive_int(activity_id, "activity_id")
+    if error:
+        return {"error": error}
+
+    try:
+        assignments = _activity_get(f"/activities/{activity_id}/assignments")
+    except _ActivityNotFound:
+        return {"error": "activity not found", "activity_id": activity_id}
+    except (requests.exceptions.RequestException, ValueError) as exc:
+        return _activity_unavailable(exc)
+
+    return {"activity_id": activity_id, "count": len(assignments), "assignments": assignments}
+
+
+def list_assignments():
+    """Return every activity time assignment across all activities."""
+    try:
+        assignments = _activity_get("/assignments")
+    except (_ActivityNotFound, requests.exceptions.RequestException, ValueError) as exc:
+        return _activity_unavailable(exc)
+
+    return {"count": len(assignments), "assignments": assignments}
+
+
+def get_assignment(assignment_id):
+    """Return one time assignment by its numeric assignment_id."""
+    assignment_id, error = _activity_positive_int(assignment_id, "assignment_id")
+    if error:
+        return {"error": error}
+
+    try:
+        assignment = _activity_get(f"/assignments/{assignment_id}")
+    except _ActivityNotFound:
+        return {"error": "assignment not found", "assignment_id": assignment_id}
+    except (requests.exceptions.RequestException, ValueError) as exc:
+        return _activity_unavailable(exc)
+
+    return {"assignment": assignment}
 
 
 def project_files(directory_path: str = "."):

@@ -1,8 +1,11 @@
-"""MCP mode routes: forwards tool calls to activity-service's local MCP server.
+"""MCP mode routes: forwards tool calls to the ONE shared VoyageAI MCP server.
 
 Mirrors budget-service's routes/mcp_mode.py + services/mcp_api.py (kept in
 one module here): one POST route per read-only tool, gated by MCP_ENABLED and
-the X-MCP-Mode header, forwarding to mcp-server/mcp_http_server.py over HTTP.
+the X-MCP-Mode header, forwarding to ai-services/mcp-server/mcp_http_server.py
+(:7001) through its POST /<tool> compatibility shim, which dispatches through
+the shared FastMCP registry. Only the five Activity tools in TOOL_ARGUMENTS
+are ever forwarded, even though the shared server registers more.
 
 /api/activity/mcp/ask adds an LLM tool-selection step on top: the model picks
 a tool + arguments using prompts/mcp/implementation/tool_selection_prompt.txt,
@@ -27,7 +30,7 @@ from services import ai_client
 mcp_mode_bp = Blueprint("mcp_mode", __name__)
 logger = logging.getLogger(__name__)
 
-MCP_SERVICE_URL = os.environ.get("MCP_SERVICE_URL", "http://localhost:7003")
+MCP_SERVICE_URL = os.environ.get("MCP_SERVICE_URL", "http://localhost:7001").rstrip("/")
 MCP_ENABLED = os.environ.get("MCP_ENABLED", "true").strip().lower() in ("1", "true", "yes", "on")
 
 try:

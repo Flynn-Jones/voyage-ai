@@ -1,4 +1,6 @@
-"""HTTP client for the host-local RAG server (rag-server/rag_http_server.py) plus RAG mode gating.
+"""HTTP client for the ONE shared VoyageAI RAG server (ai-services/rag-server/rag_http_server.py,
+:7002) plus RAG mode gating. Activity's records live in the shared corpus under
+metadata.service="activity"; queries are sent with scope="activity" (see routes/rag_mode.py).
 
 Split from its routes (routes/rag_mode.py) as budget-service does, unlike
 routes/mcp_mode.py which keeps both in one module.
@@ -7,7 +9,9 @@ import os
 
 import requests
 
-RAG_SERVICE_URL = os.environ.get("RAG_SERVICE_URL", "http://host.docker.internal:6013")
+RAG_SERVICE_URL = os.environ.get("RAG_SERVICE_URL", "http://host.docker.internal:7002").rstrip("/")
+# Restricts the shared corpus to Activity's slice and enables its deterministic answers.
+RAG_SCOPE = "activity"
 RAG_ENABLED = os.environ.get("RAG_ENABLED", "true").strip().lower() in ("1", "true", "yes", "on")
 
 try:

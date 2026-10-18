@@ -5,9 +5,7 @@ The network is mocked by patching tools.requests.get.
 import pytest
 import requests
 from mcp.shared.memory import create_connected_server_and_client_session
-from starlette.testclient import TestClient
 
-import mcp_http_server
 import tools
 from server import mcp
 
@@ -130,12 +128,6 @@ async def test_project_files_regression():
     assert "ai-services" in result.structuredContent["items"]
 
 
-@pytest.fixture(scope="module")
-def client():
-    with TestClient(mcp_http_server.create_app(), base_url="http://localhost:7001") as c:
-        yield c
-
-
 def rpc(client, method, params=None, id_=1):
     return client.post("/mcp", headers=MCP_HEADERS,
                        json={"jsonrpc": "2.0", "id": id_, "method": method, "params": params or {}})
@@ -206,3 +198,18 @@ def test_shim_create_accommodation_validates_before_http(client, fake_get):
     resp = client.post("/create_accommodation", json={"name": "X"})
     assert resp.status_code == 502 and resp.json()["status"] == "error"
     assert not calls
+
+
+def test_shim_list_expenses_accepts_null_trip_reference(client, monkeypatch):
+    # budget-be's /budget/mcp/list-expenses forwards {"trip_reference": null} when no trip is chosen.
+    seen = {}
+
+    def fake_get(url, params=None, timeout=None):
+        seen["params"] = params
+        return FakeResponse([{"id": 1}])
+
+    monkeypatch.setattr(tools.requests, "get", fake_get)
+    resp = client.post("/list_expenses", json={"trip_reference": None})
+    assert resp.status_code == 200
+    assert resp.json()["result"] == {"trip_reference": None, "count": 1, "expenses": [{"id": 1}]}
+    assert seen["params"] == {}

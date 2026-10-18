@@ -1,5 +1,11 @@
 # MCP Run Report — activity-service
 
+> **Superseded (Release 1 shared integration).** Activity no longer runs its own MCP or RAG
+> server. Its five tools are served by the shared MCP server (`ai-services/mcp-server`, :7001)
+> and its records live in the shared RAG corpus (`ai-services/rag-server`, :7002,
+> `scope="activity"`). See `docs/shared-integration-summary.md`. The evidence below is kept
+> as recorded; references to the former Activity-only servers are historical.
+
 Actual results from 2026-09-26, around 20:44 AEST. Nothing here is projected or hypothetical.
 
 ## Environment
@@ -10,7 +16,7 @@ Actual results from 2026-09-26, around 20:44 AEST. Nothing here is projected or 
 - **Docker wasn't available in this shell.** For the live checks, each service ran as a local
   process on its normal port instead:
   - database-service on :6003, against a **scratch copy** of `database-service/activity-db.sqlite`;
-  - `mcp_http_server.py` on :7003;
+  - `mcp_http_server.py` on the former Activity-only MCP port;
   - backend on :5003;
   - frontend on :3004.
 - The committed SQLite file has no activity rows, so the scratch copy was seeded with 3 activities
@@ -85,7 +91,7 @@ CALL get_activity_assignments {'activity_id': 1} -> { "error": "activity not fou
 CALL get_assignment {'assignment_id': 999} -> { "error": "assignment not found", "assignment_id": 999 }
 ```
 
-## 4. Live: HTTP wrapper (:7003)
+## 4. Live: HTTP wrapper (former Activity-only MCP port)
 
 | Request | Status | Body (abridged) |
 |---|---|---|
@@ -97,7 +103,7 @@ CALL get_assignment {'assignment_id': 999} -> { "error": "assignment not found",
 | `POST /get_activity {"activity_id":"abc"}` | 502 | `result.error: "activity_id must be a positive integer"` |
 | `POST /delete_activity` | 404 | `unknown tool: delete_activity` |
 
-## 5. Live: backend bridge (:5003 → :7003 → :6003)
+## 5. Live: backend bridge (:5003 → Activity-only MCP → :6003)
 
 | Route | Input | Status |
 |---|---|---|
@@ -149,8 +155,8 @@ deleted through `DELETE /api/delete_activity/<id>` afterwards. The database was 
 | Hop | Result |
 |---|---|
 | Host → database container (`localhost:6003`) | ✅ reachable |
-| Host MCP server (`:7003/health`) | ✅ 5 tools listed |
-| Backend container → host MCP server (`host.docker.internal:7003`) | ✅ 200. No firewall change was needed under Podman. |
+| Host MCP server (`/health`) | ✅ 5 tools listed |
+| Backend container → host MCP server (`host.docker.internal`) | ✅ 200. No firewall change was needed under Podman. |
 | Prompts mount inside the backend container | ❌ **`Permission denied`** on the first run → fixed, ✅ readable |
 | Backend container bridge (`:5003/api/activity/mcp/*`) | ✅ list 200, get 200, missing record 404, `"abc"` 400, empty assignments 200, header off 403, `delete-activity` 404 |
 | Frontend container → backend container | ❌ fails. This problem already existed before the MCP work; see below. |
@@ -180,7 +186,7 @@ The test activity was deleted afterwards.
 
 **Note for the root stack.** The root `docker-compose.yml` was out of scope and wasn't changed.
 Its `activity-backend` service has no `MCP_SERVICE_URL` or prompts mount. Under the root stack,
-the MCP routes would therefore try `localhost:7003` inside the container and fail with 502, and
+the MCP routes would therefore try `localhost` inside the container and fail with 502, and
 `/ask` couldn't load its prompt.
 
 ### Re-run, 2026-09-26 ~21:10 AEST (no code changes since the first run)

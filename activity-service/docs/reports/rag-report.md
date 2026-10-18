@@ -1,5 +1,11 @@
 # RAG Report — activity-service (Lab 08)
 
+> **Superseded (Release 1 shared integration).** Activity no longer runs its own MCP or RAG
+> server. Its five tools are served by the shared MCP server (`ai-services/mcp-server`, :7001)
+> and its records live in the shared RAG corpus (`ai-services/rag-server`, :7002,
+> `scope="activity"`). See `docs/shared-integration-summary.md`. The evidence below is kept
+> as recorded; references to the former Activity-only servers are historical.
+
 These are actual results from 2026-09-27, 15:00–15:25 AEST. Nothing here is projected: every number and output is copied from a real run.
 
 The retrieval metrics, validation and improvement are in three companion files:
@@ -16,7 +22,7 @@ The pattern is REFRESH → RETRIEVE → ANSWER → VALIDATE → REVIEW → IMPRO
 |---|---|---|
 | Pipeline | `rag-server/rag_pipeline.py` | `refresh_corpus`, `retrieve_context`, `answer_question`. |
 | MCP server | `rag-server/rag_server.py` | FastMCP over stdio, "Activity Manager RAG MCP", launched by `mcp-config.json`. |
-| HTTP server | `rag-server/rag_http_server.py` | Port 6013 on the host (not containerised): `GET /health`, `POST /refresh`, `/retrieve`, `/answer`. |
+| HTTP server | `rag-server/rag_http_server.py` | The former Activity-only RAG port on the host (not containerised): `GET /health`, `POST /refresh`, `/retrieve`, `/answer`. |
 | Evaluation | `rag-server/rag_eval.py` | P@5 / R@5 over 5 benchmark queries, written to `retrieval-metrics.md`. |
 | Contracts | `rag-server/tool-contracts.md` | Inputs, outputs, errors and policy class for each tool, plus the confidence rule. |
 | Backend | `backend/services/rag_api.py`, `backend/routes/rag_mode.py` | `POST /api/activity/rag/{refresh,retrieve,answer}`. Returns 403 when disabled, 400 on bad input, 503 when the RAG server is unreachable, and 502 on a RAG tool error. |
@@ -45,7 +51,7 @@ The "RAG Mode" tab has:
 ## Deviations from the lab / the brief
 
 - **There is no `destination` column.** The `activities` schema is `activity_id, activity_name, activity_type, activity_cost, duration`. Records use `category=` (from `activity_type`). The deterministic answers cover counts and categories rather than "activities in <destination>".
-- **Ports.** The brief put the backend on 6003, but it is on **5003**; 6003 is database-service. RAG_PORT is **6013**, which is free in both compose files. It is configurable via `RAG_PORT` (server) and `RAG_SERVICE_URL` (backend).
+- **Ports.** The brief put the backend on 6003, but it is on **5003**; 6003 is database-service. RAG_PORT was a dedicated Activity-only port, free in both compose files. It is configurable via `RAG_PORT` (server) and `RAG_SERVICE_URL` (backend).
 - **Route paths.** The routes are `/api/activity/rag/*`, not `/rag/*`, to match this backend's `/api/activity/mcp/*` prefix.
 - **Status codes.** The brief's 503 is used for "RAG server unreachable". A RAG-side tool error (for example, Ollama being down) is a separate 502, and the RAG server's own 400 passes through.
 - **tier_1 source order.** The SQLite file is used only if it actually holds activities. The committed `database-service/activity-db.sqlite` is empty, while the real data sits in Docker's volume, so the pipeline falls through to database-service's HTTP API. Otherwise it would index "0 activities" as tier-1 truth.
@@ -77,7 +83,7 @@ ollama pull nomic-embed-text          # embeddings (EMBEDDING_MODE=ollama, the d
 
 # Terminal 1: RAG HTTP server on the host
 cd activity-service/rag-server && .venv/bin/python rag_http_server.py
-curl http://localhost:6013/health
+curl http://localhost:$RAG_PORT/health
 
 # Terminal 2: containers (from the repo root, whose volume holds the data)
 docker network inspect microservices-net >/dev/null 2>&1 || docker network create microservices-net
@@ -111,7 +117,7 @@ The frontend and backend test suites run as separate pytest invocations because 
 ### Health and refresh (after IMPROVE)
 
 ```
-$ curl http://localhost:6013/health
+$ curl http://localhost:$RAG_PORT/health
 {"status": "ok", "service": "activity-rag-server", "tools": ["refresh", "retrieve", "answer"], "embedding_mode": "ollama", "model": "qwen2.5:0.5b"}
 
 $ curl -X POST localhost:5003/api/activity/rag/refresh

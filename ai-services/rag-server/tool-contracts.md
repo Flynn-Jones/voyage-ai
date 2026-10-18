@@ -5,9 +5,16 @@ Shared local RAG server (not containerised). Containerised backends call it at
 
 Corpus sources (env var names): Destination DB API (`DESTINATION_DB_URL`, default
 `http://localhost:6001`, tier_1), Budget DB API (`BUDGET_DB_URL`), Accommodation DB API
-(`ACCOMMODATION_DB_URL`), Itinerary DB API (`ITINERARY_DB_URL`, tier_1), factual repo docs
+(`ACCOMMODATION_DB_URL`), Itinerary DB API (`ITINERARY_DB_URL`, tier_1), Activity DB API
+(`ACTIVITY_DB_URL`, default `http://localhost:6003`, tier_1) plus `activity-service/docs`, factual repo docs
 (tier_2; READMEs with demo prompts/usage examples are excluded) and a repository file index (tier_3). Databases are read only through their HTTP APIs, never through SQLite.
 Generation uses `OLLAMA_GENERATE_URL` and `OLLAMA_MODEL`.
+
+Every chunk carries `metadata.service`: `destination`, `accommodation`, `activity`, `budget`,
+`itinerary`, or `shared` (repo-wide docs and the file index). The tag is also stored in each
+Chroma record's metadata, so one collection (`voyageai_shared_context`) serves every feature and a
+scoped query can filter on it. Activity's slice is **scoped-only**: unscoped queries never see it,
+so Destination/Budget/Accommodation results are byte-for-byte what they were before it joined.
 
 ## Retrieval acceptance
 Relevance decides what is returned; authority tier only breaks ties.
@@ -23,7 +30,9 @@ Relevance decides what is returned; authority tier only breaks ties.
 - Input: `caller` (optional)
 - Output: `status`, `chunk_count`, `collection`, `vector_store_status`, `source_status`
   (`destination_db` / `budget_db` / `accommodation_db` / `itinerary_db`: `"ok"` or `"unavailable: <error>"`),
-  `missing_docs`, `itinerary_chunk_count`, `itinerary_source_error`.
+  (plus `activity_db`), `missing_docs`, `itinerary_chunk_count`, `itinerary_source_error`,
+  `activity_chunk_count`, `tier_counts` (`tier_1`/`tier_2`/`tier_3`), `service_counts` (chunks per
+  `metadata.service`), `embedding_mode` (always `"hash"`).
   An unavailable source contributes no chunks.
 
 ## retrieve_context
@@ -99,7 +108,34 @@ the vector store is unavailable; refresh reports `vector_store_status="degraded"
 `RAG_DATA_DIR` optionally relocates corpus, audit and Chroma files (default unchanged).
 Refresh after itinerary changes; there is no automatic change notification.
 
+## Student 3 scoped extension (`scope="activity"`)
+
+Ported from the retired `activity-service/rag-server`. Activity's backend sends
+`{"query", "k", "caller": "backend", "scope": "activity"}` to `/retrieve` and `/answer`.
+
+- Validation: `query` 1-1000 characters, `k` an integer from 1 to 20 (not a string, not a bool).
+  Failures are HTTP 400 with `error_type="invalid_input"`.
+- Candidates: only chunks with `metadata.service == "activity"` — activity records
+  (`activity_<id>`), assignments (`assignment_<id>`), summaries (`activity_count`,
+  `activity_category_counts`, `activity_category_<slug>`), `activity-service/docs` (tier_2; generated
+  `rag-*.md` reports and the dated run logs `run-report.md` / `test-results.md` excluded, since they quote
+  sample records that may no longer exist) and `activity_repo_index` (tier_3). Acceptance and ranking are the
+  shared rules above, with one addition: an activity category ("Food", "Water Sports") counts as an
+  entity, like a Destination city, so one matching category term is enough ("food walk"). Chroma
+  distances come from a `where={"service": "activity"}` query.
+- `retrieve` adds `scope: "activity"`; every result row has a numeric `distance` (Chroma's, or
+  `1 - relevance_score` in `lexical_fallback`), because Activity's UI renders it.
+- `answer` adds `scope` and `answer_source`:
+  - `deterministic` — count questions ("how many / number of / total / count" + "activit") and
+    per-category questions ("Adventure activities") are answered from the full record set, not top-k;
+    `confidence_category="High"`, cites `activity_count` or every matching record.
+  - `llm` — the shared generation over the accepted activity chunks; confidence from the shared rule.
+  - `retrieval_guard` — nothing accepted: `status="insufficient_context"`, Insufficient, no model call.
+  A model abstention is also `status="insufficient_context"` / Insufficient with no citations.
+  Ollama failure: HTTP 503, `error_type="llm_unavailable"`.
+
 ## Audit
 Every call appends to `rag-audit.jsonl` (`request_id`, `tool_name`, `tool_input`, `tool_output`, `timestamp`,
 `duration_ms`, `validation_status`, `outcome`). Answer outcomes: `answer_generated`, `insufficient_context`,
-`llm_declined`, `llm_unavailable`, `retrieval_failed`. A failed audit write never fails the call.
+`llm_declined`, `llm_unavailable`, `retrieval_failed`, and for `scope="activity"` also `deterministic_answer`
+and `invalid_input` (with `validation_status="fail"`); scoped records carry `tool_input.scope`. A failed audit write never fails the call.

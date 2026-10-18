@@ -1,11 +1,11 @@
-"""RAG mode routes: forwards refresh / retrieve / answer to the local RAG server.
+"""RAG mode routes: forwards refresh / retrieve / answer to the shared RAG server (:7002).
 
 Gated like MCP mode (RAG_ENABLED + the X-RAG-Mode header). Paths follow this
 backend's /api/activity/<mode>/ prefix rather than a bare /rag/.
 """
 from flask import Blueprint, jsonify, request
 
-from services.rag_api import RAGServiceError, call_rag_service, rag_mode_is_enabled
+from services.rag_api import RAG_SCOPE, RAGServiceError, call_rag_service, rag_mode_is_enabled
 
 rag_mode_bp = Blueprint("rag_mode", __name__)
 
@@ -50,7 +50,7 @@ def _query_route(path):
     k, error = _parse_k(body)
     if error:
         return jsonify({"status": "error", "error": error}), 400
-    return _forward(path, {"query": query.strip(), "k": k, "caller": "backend"})
+    return _forward(path, {"query": query.strip(), "k": k, "caller": "backend", "scope": RAG_SCOPE})
 
 
 @rag_mode_bp.route("/api/activity/rag/refresh", methods=["POST"])
