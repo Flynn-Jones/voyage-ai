@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "voyageai-activity": {
-      "command": "python",
-      "args": ["server.py"]
-    }
-  }
-}
