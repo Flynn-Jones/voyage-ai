@@ -1,0 +1,104 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  ONE-TIME, normal AWS accounts only (not Learner Lab): lets GitHub Actions in one repository
+  assume a deploy role through OIDC, so no long-lived access keys are stored in GitHub.
+  Deploy it once by hand (see docs/release-2/cloud/credentials-setup.md), then put the
+  DeployRoleArn output into the AWS_ROLE_ARN repository secret.
+
+Parameters:
+  GitHubOrg:
+    Type: String
+    Default: Flynn-Jones
+  GitHubRepo:
+    Type: String
+    Default: voyage-ai
+  AllowedRef:
+    Type: String
+    Default: refs/heads/main
+    Description: Only workflow runs for this ref may assume the role.
+  CreateOidcProvider:
+    Type: String
+    Default: "true"
+    AllowedValues: ["true", "false"]
+    Description: '"false" if the account already has the token.actions.githubusercontent.com provider.'
+  StackPrefix:
+    Type: String
+    Default: voyage-ai
+    AllowedPattern: "^[a-z][a-z0-9-]{1,30}$"
+
+Conditions:
+  CreateProvider: !Equals [!Ref CreateOidcProvider, "true"]
+
+Resources:
+  GitHubOidcProvider:
+    Type: AWS::IAM::OIDCProvider
+    Condition: CreateProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList: [sts.amazonaws.com]
+
+  DeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${StackPrefix}-github-deploy"
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !If
+                - CreateProvider
+                - !Ref GitHubOidcProvider
+                - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com"
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Sub "repo:${GitHubOrg}/${GitHubRepo}:ref:${AllowedRef}"
+      Policies:
+        - PolicyName: voyage-ai-deploy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # The four stacks create VPC/ECS/ECR/ELB/Cloud Map/EFS/Logs resources. Scoped by
+              # service rather than by ARN because CloudFormation creates them with generated names.
+              - Sid: DeployStackResources
+                Effect: Allow
+                Action:
+                  - cloudformation:*
+                  - ec2:*
+                  - ecs:*
+                  - ecr:*
+                  - elasticloadbalancing:*
+                  - servicediscovery:*
+                  - logs:*
+                  - elasticfilesystem:*
+                  - sts:GetCallerIdentity
+                Resource: "*"
+              - Sid: ManageOnlyTheEcsRolesThisProjectCreates
+                Effect: Allow
+                Action:
+                  - iam:CreateRole
+                  - iam:DeleteRole
+                  - iam:GetRole
+                  - iam:TagRole
+                  - iam:AttachRolePolicy
+                  - iam:DetachRolePolicy
+                  - iam:PassRole
+                Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${StackPrefix}-ecs-*"
+              - Sid: EcsServiceLinkedRole
+                Effect: Allow
+                Action: iam:CreateServiceLinkedRole
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    iam:AWSServiceName:
+                      - ecs.amazonaws.com
+                      - elasticloadbalancing.amazonaws.com
+                      - elasticfilesystem.amazonaws.com
+
+Outputs:
+  DeployRoleArn:
+    Description: Put this in the GitHub repository secret AWS_ROLE_ARN.
+    Value: !GetAtt DeployRole.Arn
