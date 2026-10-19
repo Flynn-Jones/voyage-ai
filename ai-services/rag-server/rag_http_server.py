@@ -108,7 +108,8 @@ class RAGHandler(BaseHTTPRequestHandler):
 
 
 def main():
-    host = "0.0.0.0"
+    # Containers reach this host service via host.docker.internal, so it must not bind loopback only.
+    host = "0.0.0.0"  # noqa: S104 - see comment above; run behind a host firewall, never exposed publicly
     port = int(os.getenv("PORT", "7002"))
     server = ThreadingHTTPServer((host, port), RAGHandler)
     print(f"RAG HTTP server running on {host}:{port}")

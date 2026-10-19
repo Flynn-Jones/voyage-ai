@@ -260,7 +260,8 @@ def test_http_status_mapping(env, monkeypatch):
                 f"http://127.0.0.1:{server.server_port}/answer",
                 data=json.dumps({"query": "q"}).encode(), headers={"Content-Type": "application/json"})
             try:
-                codes.append(urllib.request.urlopen(req).status)
+                # S310: fixed http://127.0.0.1 URL to the in-process test server.
+                codes.append(urllib.request.urlopen(req).status)  # noqa: S310
             except urllib.error.HTTPError as exc:
                 codes.append(exc.code)
     finally:

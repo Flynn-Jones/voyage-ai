@@ -14,6 +14,7 @@ retrieval to one feature's slice.
 """
 import hashlib
 import json
+import logging
 import os
 import re
 import time
@@ -25,6 +26,8 @@ from typing import Any
 import requests
 import activity_context
 import itinerary_context
+
+logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent
 REPO_ROOT = BASE_DIR.parent.parent  # ai-services/rag-server -> ai-services -> repo root
@@ -133,8 +136,8 @@ def reset_collection() -> None:
     client = chromadb.PersistentClient(path=str(CHROMA_PATH))
     try:
         client.delete_collection(name=COLLECTION_NAME)
-    except Exception:
-        pass
+    except Exception as exc:  # first build: nothing to delete yet
+        logger.info("reset_collection: no existing %s to delete (%s)", COLLECTION_NAME, exc)
     _collection = client.get_or_create_collection(name=COLLECTION_NAME)
 
 

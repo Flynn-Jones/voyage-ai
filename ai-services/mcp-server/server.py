@@ -36,7 +36,8 @@ ALLOWED_HOSTS = ["localhost:*", "127.0.0.1:*", "host.docker.internal:*"]
 
 mcp = FastMCP(
     "VoyageAI Shared MCP",
-    host=os.getenv("MCP_HOST", "0.0.0.0"),
+    # Containers reach this host service via host.docker.internal; MCP_HOST=127.0.0.1 for host-only use.
+    host=os.getenv("MCP_HOST", "0.0.0.0"),  # noqa: S104 - see comment above
     port=int(os.getenv("PORT", "7001")),
     stateless_http=True,
     json_response=True,
