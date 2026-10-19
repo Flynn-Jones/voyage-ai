@@ -5,10 +5,14 @@
 #   scripts/test/precommit-report.sh student-N        # full scan, saved as a timestamped report
 #
 # SCOPE: hooks only see paths matching the top-level `files:` regex below.
-# To onboard your feature, add your folder to it in your feature PR, e.g.
-#   files: ^(ai-services|shared|budget-service)/
-# then fix or justify every finding (docs/release-2/pre-commit.md).
-files: ^(ai-services|shared)/
+# To onboard your feature, add ONE line `your-folder/|` inside the list in your
+# feature PR (one folder per line, so parallel PRs don't conflict), then fix or
+# justify every finding (docs/release-2/pre-commit.md).
+files: |
+  (?x)^(
+    ai-services/|
+    shared/
+  )
 exclude: (^|/)(venv|\.venv|chroma|node_modules)/
 
 repos:
@@ -35,10 +39,11 @@ repos:
         # One pip-audit at a time: parallel runs race on temp-venv pip upgrades (seen on Windows).
         require_serial: true
         args:
-          # chromadb (ai-services/rag-server): no fixed release exists. All four advisories are in
-          # Chroma's HTTP server API / RBAC provider; the RAG server only uses the embedded
-          # chromadb.PersistentClient in-process and never runs or exposes a Chroma server.
-          # See docs/release-2/shared/pre-commit-security-report.md. Re-check when a fix ships.
+          # chromadb 1.5.9 (ai-services/rag-server; latest on PyPI as of 2026-10-20, no fixed
+          # release). All four advisories are in Chroma's HTTP server API / RBAC provider; the RAG
+          # server only uses the embedded chromadb.PersistentClient in-process and never runs or
+          # exposes a Chroma server. See docs/release-2/shared/pre-commit-security-report.md.
+          # RE-CHECK BY 2026-11-20 (or as soon as chromadb > 1.5.9 ships): upgrade, then drop these.
           - --ignore-vuln=PYSEC-2026-311   # CVE-2026-45829 collections endpoint code injection
           - --ignore-vuln=PYSEC-2026-3814  # CVE-2026-45833 UPDATE_COLLECTION code injection
           - --ignore-vuln=PYSEC-2026-3815  # CVE-2026-45831 SimpleRBACAuthorizationProvider scope

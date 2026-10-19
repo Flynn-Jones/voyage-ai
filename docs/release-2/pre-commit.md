@@ -20,15 +20,29 @@ The first run downloads the hook environments, which takes a few minutes. pip-au
 
 ## Add your feature to the scope (do this in your feature PR)
 
-Hooks only see paths matching the top-level `files:` regex in `.pre-commit-config.yaml`:
+Hooks only see paths matching the top-level `files:` regex in `.pre-commit-config.yaml`. It is a verbose
+regex (`(?x)`, whitespace ignored) with **one folder per line**:
 
 ```yaml
-files: ^(ai-services|shared)/                  # today
-files: ^(ai-services|shared|budget-service)/   # after Budget's PR
+files: |
+  (?x)^(
+    ai-services/|
+    shared/
+  )
 ```
 
-1. Add your folder (`student-1`, `accommodation-service`, `activity-service`, `budget-service` or
-   `itinerary-service`) to that regex.
+1. Add **one line** for your folder, ending in `/|`, anywhere above `shared/` (the last entry has no `|`).
+   For example, after Budget's PR:
+   ```yaml
+   files: |
+     (?x)^(
+       ai-services/|
+       budget-service/|
+       shared/
+     )
+   ```
+   Folders: `student-1/`, `accommodation-service/`, `activity-service/`, `budget-service/`, `itinerary-service/`.
+   Check it with `pre-commit run --all-files`: your files should now appear in the hook output.
 2. Run `pre-commit run --all-files` and fix what it reports.
    - **Fix** where you can, e.g. add `timeout=` to `requests` calls, remove `debug=True`, drop `shell=True`.
    - **Accept** only with a reason, on the same line: `# noqa: S104 - binds 0.0.0.0 inside its container`.
@@ -45,7 +59,9 @@ files: ^(ai-services|shared|budget-service)/   # after Budget's PR
 4. Write `docs/release-2/student-N/pre-commit-security-report.md` using the template below. The agentic loop's
    `testing-review` mode reads it.
 
-Two PRs that both edit the `files:` line will conflict on that one line. Resolve by keeping both folders.
+Because each folder is on its own line, students who onboard at the same time add different lines and normally
+don't conflict. If git still reports a conflict there, which can happen when both add a line in the same place,
+keep both lines.
 
 ## Report template (`docs/release-2/student-N/pre-commit-security-report.md`)
 

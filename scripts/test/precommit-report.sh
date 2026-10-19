@@ -39,7 +39,8 @@ mkdir -p "$OUT_DIR"
   echo "branch:     $(git rev-parse --abbrev-ref HEAD)"
   echo "commit:     $(git rev-parse --short HEAD)"
   echo "pre-commit: $("${PRE_COMMIT_CMD[@]}" --version)"
-  echo "scope:      $(grep -E '^files:' .pre-commit-config.yaml)"
+  # the multi-line `files: |` block, flattened onto one line
+  echo "scope:      $(sed -n '/^files:/,/^ *)/p' .pre-commit-config.yaml | tr -s ' \n' ' ')"
   echo
 } >"$OUT"
 
