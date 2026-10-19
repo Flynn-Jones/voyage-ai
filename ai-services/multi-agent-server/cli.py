@@ -191,6 +191,10 @@ def pretty(command: str, result) -> None:
 
 
 def main(argv=None) -> int:
+    # Workflow descriptions and LLM text can hold any Unicode; a cp1252 Windows pipe must not crash.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(errors="replace")
     args = build_parser().parse_args(argv)
     try:
         method, path, body = request(args)

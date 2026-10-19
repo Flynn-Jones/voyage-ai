@@ -50,3 +50,16 @@ def test_cli_rejects_bad_edit_and_unreachable_server(capsys):
         assert exc.code == 2
     code, _, err = run_cli(capsys, "http://127.0.0.1:9", "workflows")
     assert code == 2 and "cannot reach" in err
+
+
+def test_cli_survives_non_utf8_console(live_server, monkeypatch):
+    # Found live: `cli.py workflows | ...` crashed on example_readonly's arrow under cp1252 (Windows).
+    import io
+    import sys
+
+    raw = io.BytesIO()
+    console = io.TextIOWrapper(raw, encoding="cp1252")
+    monkeypatch.setattr(sys, "stdout", console)
+    assert cli.main(["--url", live_server, "workflows"]) == 0
+    console.flush()
+    assert b"Planner ? Worker" in raw.getvalue()
