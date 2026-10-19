@@ -4,6 +4,10 @@
 - Tools: ruff 0.17.1 (`ruff.toml`: E4/E7/E9/F + S), detect-secrets 1.5.0, pip-audit 2.10.1
 - Scan: `scripts/test/precommit-report.sh shared`. Raw output is in the `pre-commit-<UTC>.txt` file next to this report.
 - Result: **PASS** on all three hooks, after the fixes and justified acceptances below.
+- **Executed during the commit workflow:** `pre-commit-commit-hook-20261019T154037Z.txt` records the installed
+  `.git/hooks/pre-commit` blocking a real `git commit` that contained a planted fake secret and `shell=True`
+  (ruff S105 ×2 + S602, detect-secrets ×3; exit 1, HEAD unchanged), then the same commit without the canary
+  passing the hooks and being created (a2a4cee).
 
 | Hook | Findings before | Fixed | Accepted | After |
 |---|---|---|---|---|

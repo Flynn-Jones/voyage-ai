@@ -1,0 +1,79 @@
+# pre-commit hooks during a real `git commit` (Release 2 criterion 3)
+date:       2026-10-19T15:40:37Z
+branch:     shared/pre-commit
+hook:       .git/hooks/pre-commit installed by `pre-commit install` (pre-commit 4.7.0)
+
+## Attempt 1: commit containing a planted fake secret + shell=True (ai-services/zz_precommit_canary.py)
+$ git add ai-services/CLAUDE.md ai-services/zz_precommit_canary.py
+$ git commit -m "chore: try to commit planted secret (expected to be BLOCKED)"
+ruff (lint + S security rules, see ruff.toml)............................Failed
+- hook id: ruff
+- exit code: 1
+
+S105 Possible hardcoded password assigned to: "DB_PASSWORD"
+ --> ai-services\zz_precommit_canary.py:4:15
+  |
+2 | import subprocess
+3 |
+4 | DB_PASSWORD = "<fake value, redacted in this log>"
+  |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+5 | AWS_SECRET_ACCESS_KEY = "<fake value, redacted in this log>"
+  |
+
+S105 Possible hardcoded password assigned to: "AWS_SECRET_ACCESS_KEY"
+ --> ai-services\zz_precommit_canary.py:5:25
+  |
+4 | DB_PASSWORD = "<fake value, redacted in this log>"
+5 | AWS_SECRET_ACCESS_KEY = "<fake value, redacted in this log>"
+  |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+S602 `subprocess` call with `shell=True` identified, security issue
+ --> ai-services\zz_precommit_canary.py:9:12
+  |
+8 | def run(user_input):
+9 |     return subprocess.call("ls " + user_input, shell=True)
+  |            ^^^^^^^^^^^^^^^
+
+Found 3 errors.
+
+Detect secrets...........................................................Failed
+- hook id: detect-secrets
+- exit code: 1
+
+ERROR: Potential secrets about to be committed to git repo!
+
+Secret Type: Secret Keyword
+Location:    ai-services\zz_precommit_canary.py:4
+
+Secret Type: Base64 High Entropy String
+Location:    ai-services\zz_precommit_canary.py:5
+
+Secret Type: Secret Keyword
+Location:    ai-services\zz_precommit_canary.py:5
+
+Possible mitigations:
+  - For information about putting your secrets in a safer place, please ask in
+    #security
+  - Mark false positives with an inline `pragma: allowlist secret` comment
+
+If a secret has already been committed, visit
+https://help.github.com/articles/removing-sensitive-data-from-a-repository
+
+pip-audit (requirements*.txt)........................(no files to check)Skipped
+
+git commit exit code: 1
+HEAD before: 93ed599  HEAD after: 93ed599  -> commit BLOCKED, nothing recorded
+
+## Attempt 2: canary deleted, same commit without it
+$ git rm --cached ai-services/zz_precommit_canary.py && rm ai-services/zz_precommit_canary.py
+$ git commit -m "docs(ai-services): describe the pre-commit lint and security hooks"
+ruff (lint + S security rules, see ruff.toml)........(no files to check)Skipped
+Detect secrets...........................................................Passed
+pip-audit (requirements*.txt)........................(no files to check)Skipped
+[shared/pre-commit a2a4cee] docs(ai-services): describe the pre-commit lint and security hooks
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+git commit exit code: 0
+HEAD before: 93ed599  HEAD after: a2a4cee  -> commit CREATED after all hooks passed
+
+(Planted values in attempt 1 were fake and are redacted above; the canary file was never committed.)
