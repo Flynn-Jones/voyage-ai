@@ -1,0 +1,138 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  VoyageAI network: a VPC with 2 public subnets (no NAT gateway, to keep cost down), an
+  internet-facing ALB security group and a task security group that only accepts traffic
+  from the ALB and from other tasks.
+
+Parameters:
+  StackPrefix:
+    Type: String
+    Default: voyage-ai
+    AllowedPattern: "^[a-z][a-z0-9-]{1,30}$"
+  VpcCidr:
+    Type: String
+    Default: 10.40.0.0/16
+  PublicSubnet1Cidr:
+    Type: String
+    Default: 10.40.0.0/20
+  PublicSubnet2Cidr:
+    Type: String
+    Default: 10.40.16.0/20
+  AllowedIngressCidr:
+    Type: String
+    Default: 0.0.0.0/0
+    Description: Who may reach the ALB (narrow this to your campus/home range if you like).
+
+Resources:
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags: [{ Key: Name, Value: !Sub "${StackPrefix}-vpc" }]
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags: [{ Key: Name, Value: !Sub "${StackPrefix}-igw" }]
+
+  GatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref Vpc
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: !Ref PublicSubnet1Cidr
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      MapPublicIpOnLaunch: true
+      Tags: [{ Key: Name, Value: !Sub "${StackPrefix}-public-1" }]
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: !Ref PublicSubnet2Cidr
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      MapPublicIpOnLaunch: true
+      Tags: [{ Key: Name, Value: !Sub "${StackPrefix}-public-2" }]
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags: [{ Key: Name, Value: !Sub "${StackPrefix}-public" }]
+
+  DefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: GatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnet1Routes:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnet2Routes:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
+
+  AlbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: VoyageAI ALB - HTTP 80 (home page) and 3000-3005 (one listener per frontend)
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - { IpProtocol: tcp, FromPort: 80, ToPort: 80, CidrIp: !Ref AllowedIngressCidr, Description: home page }
+        - { IpProtocol: tcp, FromPort: 3000, ToPort: 3005, CidrIp: !Ref AllowedIngressCidr, Description: frontends }
+      Tags: [{ Key: Name, Value: !Sub "${StackPrefix}-alb" }]
+
+  TaskSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: VoyageAI tasks - only from the ALB and from other tasks (Service Connect)
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 0
+          ToPort: 65535
+          SourceSecurityGroupId: !Ref AlbSecurityGroup
+          Description: from the ALB
+      Tags: [{ Key: Name, Value: !Sub "${StackPrefix}-tasks" }]
+
+  TaskSelfIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref TaskSecurityGroup
+      IpProtocol: tcp
+      FromPort: 0
+      ToPort: 65535
+      SourceSecurityGroupId: !Ref TaskSecurityGroup
+      Description: task to task (backends, databases)
+
+Outputs:
+  VpcId:
+    Value: !Ref Vpc
+    Export: { Name: !Sub "${StackPrefix}-vpc-id" }
+  PublicSubnet1:
+    Value: !Ref PublicSubnet1
+    Export: { Name: !Sub "${StackPrefix}-public-subnet-1" }
+  PublicSubnet2:
+    Value: !Ref PublicSubnet2
+    Export: { Name: !Sub "${StackPrefix}-public-subnet-2" }
+  AlbSecurityGroup:
+    Value: !Ref AlbSecurityGroup
+    Export: { Name: !Sub "${StackPrefix}-alb-sg" }
+  TaskSecurityGroup:
+    Value: !Ref TaskSecurityGroup
+    Export: { Name: !Sub "${StackPrefix}-task-sg" }

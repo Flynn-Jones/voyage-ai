@@ -1,0 +1,178 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  VoyageAI ECS cluster, Service Connect namespace (services keep their docker-compose
+  hostname:port), CloudWatch log group, internet-facing ALB, IAM roles (or AWS Academy
+  LabRole) and optional EFS for SQLite persistence.
+
+Parameters:
+  StackPrefix:
+    Type: String
+    Default: voyage-ai
+    AllowedPattern: "^[a-z][a-z0-9-]{1,30}$"
+  UseLabRole:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: "true on AWS Academy Learner Lab, where IAM roles cannot be created: use LabRoleArn for both roles."
+  LabRoleArn:
+    Type: String
+    Default: ""
+    Description: arn:aws:iam::<account>:role/LabRole (deploy.sh fills this in when USE_LAB_ROLE=true).
+  LogRetentionDays:
+    Type: Number
+    Default: 7
+    AllowedValues: [1, 3, 5, 7, 14, 30]
+  EnableEfs:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: Persist SQLite on EFS. Default false - databases are ephemeral and reseed on every start.
+
+Conditions:
+  CreateRoles: !Equals [!Ref UseLabRole, "false"]
+  UseEfs: !Equals [!Ref EnableEfs, "true"]
+
+Rules:
+  LabRoleNeedsArn:
+    RuleCondition: !Equals [!Ref UseLabRole, "true"]
+    Assertions:
+      - Assert: !Not [!Equals [!Ref LabRoleArn, ""]]
+        AssertDescription: LabRoleArn is required when UseLabRole is true.
+
+Resources:
+  Cluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Ref StackPrefix
+      ClusterSettings:
+        - { Name: containerInsights, Value: disabled }   # cost; enable for deeper metrics
+      ServiceConnectDefaults:
+        Namespace: !GetAtt Namespace.Arn
+
+  # HTTP-only Cloud Map namespace: Service Connect resolves names through its proxy, no Route 53 zone.
+  Namespace:
+    Type: AWS::ServiceDiscovery::HttpNamespace
+    Properties:
+      Name: !Sub "${StackPrefix}.internal"
+      Description: VoyageAI Service Connect namespace
+
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/ecs/${StackPrefix}"
+      RetentionInDays: !Ref LogRetentionDays
+
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub "${StackPrefix}-alb"
+      Type: application
+      Scheme: internet-facing
+      Subnets:
+        - !ImportValue { "Fn::Sub": "${StackPrefix}-public-subnet-1" }
+        - !ImportValue { "Fn::Sub": "${StackPrefix}-public-subnet-2" }
+      SecurityGroups:
+        - !ImportValue { "Fn::Sub": "${StackPrefix}-alb-sg" }
+      LoadBalancerAttributes:
+        - { Key: idle_timeout.timeout_seconds, Value: "60" }
+        - { Key: routing.http.drop_invalid_header_fields.enabled, Value: "true" }
+
+  ExecutionRole:
+    Type: AWS::IAM::Role
+    Condition: CreateRoles
+    Properties:
+      RoleName: !Sub "${StackPrefix}-ecs-execution"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: ecs-tasks.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub "arn:${AWS::Partition}:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+
+  # The apps call no AWS APIs, so the task role has no permissions.
+  TaskRole:
+    Type: AWS::IAM::Role
+    Condition: CreateRoles
+    Properties:
+      RoleName: !Sub "${StackPrefix}-ecs-task"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: ecs-tasks.amazonaws.com }
+            Action: sts:AssumeRole
+
+  EfsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Condition: UseEfs
+    Properties:
+      GroupDescription: VoyageAI EFS - NFS from tasks only
+      VpcId: !ImportValue { "Fn::Sub": "${StackPrefix}-vpc-id" }
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 2049
+          ToPort: 2049
+          SourceSecurityGroupId: !ImportValue { "Fn::Sub": "${StackPrefix}-task-sg" }
+
+  FileSystem:
+    Type: AWS::EFS::FileSystem
+    Condition: UseEfs
+    Properties:
+      Encrypted: true
+      PerformanceMode: generalPurpose
+      ThroughputMode: bursting
+      FileSystemTags: [{ Key: Name, Value: !Sub "${StackPrefix}-sqlite" }]
+
+  MountTarget1:
+    Type: AWS::EFS::MountTarget
+    Condition: UseEfs
+    Properties:
+      FileSystemId: !Ref FileSystem
+      SubnetId: !ImportValue { "Fn::Sub": "${StackPrefix}-public-subnet-1" }
+      SecurityGroups: [!Ref EfsSecurityGroup]
+
+  MountTarget2:
+    Type: AWS::EFS::MountTarget
+    Condition: UseEfs
+    Properties:
+      FileSystemId: !Ref FileSystem
+      SubnetId: !ImportValue { "Fn::Sub": "${StackPrefix}-public-subnet-2" }
+      SecurityGroups: [!Ref EfsSecurityGroup]
+
+Outputs:
+  ClusterName:
+    Value: !Ref Cluster
+    Export: { Name: !Sub "${StackPrefix}-cluster-name" }
+  NamespaceArn:
+    Value: !GetAtt Namespace.Arn
+    Export: { Name: !Sub "${StackPrefix}-namespace-arn" }
+  LogGroupName:
+    Value: !Ref LogGroup
+    Export: { Name: !Sub "${StackPrefix}-log-group" }
+  AlbArn:
+    Value: !Ref LoadBalancer
+    Export: { Name: !Sub "${StackPrefix}-alb-arn" }
+  AlbDnsName:
+    Value: !GetAtt LoadBalancer.DNSName
+    Export: { Name: !Sub "${StackPrefix}-alb-dns" }
+  AlbUrl:
+    Description: Home page (shared frontend). The ALB also listens on 3000-3005, one port per frontend.
+    Value: !Sub "http://${LoadBalancer.DNSName}/"
+  FrontendUrls:
+    Description: Port-based listeners, mirroring the local ports
+    Value: !Sub >-
+      home=http://${LoadBalancer.DNSName}:3000/ destination=http://${LoadBalancer.DNSName}:3001/
+      accommodation=http://${LoadBalancer.DNSName}:3002/ activity=http://${LoadBalancer.DNSName}:3003/
+      budget=http://${LoadBalancer.DNSName}:3004/ itinerary=http://${LoadBalancer.DNSName}:3005/
+  ExecutionRoleArn:
+    Value: !If [CreateRoles, !GetAtt ExecutionRole.Arn, !Ref LabRoleArn]
+    Export: { Name: !Sub "${StackPrefix}-execution-role-arn" }
+  TaskRoleArn:
+    Value: !If [CreateRoles, !GetAtt TaskRole.Arn, !Ref LabRoleArn]
+    Export: { Name: !Sub "${StackPrefix}-task-role-arn" }
+  EfsFileSystemId:
+    Description: '"none" when EnableEfs is false'
+    Value: !If [UseEfs, !Ref FileSystem, "none"]
+    Export: { Name: !Sub "${StackPrefix}-efs-id" }
