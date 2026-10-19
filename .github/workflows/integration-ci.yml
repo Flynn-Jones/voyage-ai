@@ -1,0 +1,55 @@
+name: integration-ci
+
+# Whole-app integration check: the root docker-compose.yml must stay valid and every
+# service image must build. No path filter on purpose - it runs for every commit on main,
+# so the cloud-deployment gate always finds an integration-ci run for the commit it deploys.
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: integration-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  compose:
+    name: docker compose config + build (whole app)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: docker compose config
+        run: docker compose config --quiet
+
+      - name: docker compose build
+        run: docker compose build
+
+  deploy-assets:
+    name: AWS templates and scripts (offline lint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install linters
+        run: pip install pyyaml cfn-lint
+
+      - name: Generated templates match manifest.py
+        run: python scripts/deploy/aws/manifest.py check
+
+      - name: cfn-lint
+        run: cfn-lint --regions us-east-1 us-west-2 -- scripts/deploy/aws/*.yml
+
+      - name: shellcheck
+        run: shellcheck -x -P SCRIPTDIR scripts/deploy/aws/*.sh
+
+      - name: deploy.sh dry run (no AWS calls)
+        run: scripts/deploy/aws/deploy.sh --dry-run
