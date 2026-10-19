@@ -1,0 +1,43 @@
+# Release 2 pre-commit security scans: Ruff (incl. "S" security rules), detect-secrets, pip-audit.
+#
+#   pip install pre-commit && pre-commit install      # once per clone
+#   pre-commit run --all-files                        # full scan
+#   scripts/test/precommit-report.sh student-N        # full scan, saved as a timestamped report
+#
+# SCOPE: hooks only see paths matching the top-level `files:` regex below.
+# To onboard your feature, add your folder to it in your feature PR, e.g.
+#   files: ^(ai-services|shared|budget-service)/
+# then fix or justify every finding (docs/release-2/pre-commit.md).
+files: ^(ai-services|shared)/
+exclude: (^|/)(venv|\.venv|chroma|node_modules)/
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.17.1
+    hooks:
+      - id: ruff
+        name: ruff (lint + S security rules, see ruff.toml)
+
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: [--baseline, .secrets.baseline]
+
+  - repo: local
+    hooks:
+      - id: pip-audit
+        name: pip-audit (requirements*.txt)
+        entry: python scripts/precommit/pip_audit_requirements.py
+        language: python
+        additional_dependencies: [pip-audit==2.10.1]
+        files: (^|/)requirements[^/]*\.txt$
+        args:
+          # chromadb (ai-services/rag-server): no fixed release exists. All four advisories are in
+          # Chroma's HTTP server API / RBAC provider; the RAG server only uses the embedded
+          # chromadb.PersistentClient in-process and never runs or exposes a Chroma server.
+          # See docs/release-2/shared/pre-commit-security-report.md. Re-check when a fix ships.
+          - --ignore-vuln=PYSEC-2026-311   # CVE-2026-45829 collections endpoint code injection
+          - --ignore-vuln=PYSEC-2026-3814  # CVE-2026-45833 UPDATE_COLLECTION code injection
+          - --ignore-vuln=PYSEC-2026-3815  # CVE-2026-45831 SimpleRBACAuthorizationProvider scope
+          - --ignore-vuln=PYSEC-2026-3813  # CVE-2026-45830 cross-tenant authorization
