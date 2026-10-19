@@ -14,12 +14,12 @@
   <div class="voyage-nav__container">
     <span class="voyage-nav__brand">VoyageAI</span>
     <div class="voyage-nav__switcher">
-      <a href="http://localhost:3000" data-service="home">Home</a>
-      <a href="http://localhost:3001" data-service="destinations">Destinations</a>
-      <a href="http://localhost:3002" data-service="accommodation">Accommodation</a>
-      <a href="http://localhost:3003" data-service="activities">Activities</a>
-      <a href="http://localhost:3004" data-service="budget">Budget</a>
-      <a href="http://localhost:3005" data-service="itinerary">Itinerary</a>
+      <a href="http://localhost:3000" data-port="3000" data-service="home">Home</a>
+      <a href="http://localhost:3001" data-port="3001" data-service="destinations">Destinations</a>
+      <a href="http://localhost:3002" data-port="3002" data-service="accommodation">Accommodation</a>
+      <a href="http://localhost:3003" data-port="3003" data-service="activities">Activities</a>
+      <a href="http://localhost:3004" data-port="3004" data-service="budget">Budget</a>
+      <a href="http://localhost:3005" data-port="3005" data-service="itinerary">Itinerary</a>
     </div>
   </div>
 </nav>
@@ -28,6 +28,10 @@
   var nav = document.currentScript.previousElementSibling;
   var active = nav.dataset.activeService;
   var link = nav.querySelector('[data-service="' + active + '"]');
+  // Same host the page came from (localhost locally, the ALB in AWS); href stays a no-JS fallback.
+  nav.querySelectorAll("[data-port]").forEach(function (a) {
+    a.href = location.protocol + "//" + location.hostname + ":" + a.dataset.port + "/";
+  });
   if (link) link.classList.add("is-active");
 })();
 </script>
