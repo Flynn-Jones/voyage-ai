@@ -2,7 +2,14 @@
   "mcpServers": {
     "voyageai-shared": {
       "command": "python",
-      "args": ["server.py"]
+      "args": ["server.py"],
+      "env": {
+        "DESTINATION_DB_URL": "http://localhost:6001",
+        "ACCOMMODATION_DB_URL": "http://localhost:6002",
+        "ACTIVITY_DB_URL": "http://localhost:6003",
+        "BUDGET_DB_URL": "http://localhost:6004",
+        "ITINERARY_DB_URL": "http://localhost:6005"
+      }
     }
   }
 }

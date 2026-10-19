@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "voyageai-activity-rag": {
-      "command": "python",
-      "args": ["rag_server.py"]
-    }
-  }
-}

@@ -90,3 +90,25 @@ def test_rag_backend_unreachable_shows_error_card(app_module, monkeypatch):
         resp = test_client.post("/rag-mode/call", data={"kind": "refresh"})
     assert resp.status_code == 200
     assert b"no response" in resp.data and b"connection refused" in resp.data
+
+
+def test_rag_refresh_card_shows_shared_server_activity_slice(app_module, monkeypatch):
+    # Shape returned by the shared RAG server (ai-services/rag-server, :7002).
+    resp, _ = post_rag_call(app_module, monkeypatch, {"kind": "refresh"}, 200, {
+        "status": "success", "chunk_count": 240, "tier_counts": {"tier_1": 150, "tier_2": 88, "tier_3": 2},
+        "vector_store_status": "ready", "embedding_mode": "hash",
+        "service_counts": {"activity": 62, "budget": 40}, "source_status": {"activity_db": "ok"},
+    })
+    assert b"240 chunks" in resp.data and b"hash embeddings" in resp.data
+    assert b"activity chunks: 62" in resp.data and b"activity-db: ok" in resp.data
+
+
+def test_rag_retrieve_card_tolerates_missing_distance(app_module, monkeypatch):
+    resp, _ = post_rag_call(app_module, monkeypatch, {"kind": "retrieve", "query": "kayak", "k": "1"}, 200, {
+        "status": "success", "retrieval_mode": "lexical_fallback", "results": [
+            {"rank": 1, "chunk_id": "activity_1", "source_id": "activity-db:/activities", "authority_tier": "tier_1",
+             "distance": None, "text": "Activity record: activity_id=1, name=Harbour Kayaking Tour."},
+        ],
+    })
+    assert resp.status_code == 200
+    assert b"distance n/a" in resp.data

@@ -16,16 +16,17 @@ implementation was used as the reference instead (agreed in the Plan phase).
 
 ## Components
 
+Release 1: Activity's tools moved into the ONE shared MCP server used by every feature
+(`ai-services/mcp-server`). Activity no longer runs an MCP server of its own.
+
 ```
-                    ┌───────────────── host (not containerised) ─────────────────┐
- Claude Desktop /   │  mcp-server/server.py  ──┐                                 │
- VS Code (stdio) ──►│  (FastMCP, stdio)        │                                 │
-                    │                          ├──► mcp-server/tools.py ──HTTP──►│ database-service :6003
-                    │  mcp-server/             │    (5 read-only tools)          │ (GET /activities, ...)
-                    │  mcp_http_server.py ─────┘                                 │
-                    │  (HTTP :7003, POST /<tool>)                                │
-                    └──────────▲─────────────────────────────────────────────────┘
-                               │ host.docker.internal:7003
+                    ┌──────────── host (not containerised): ai-services/mcp-server ────────────┐
+ Claude Desktop /   │  server.py (FastMCP registry, all features' tools) ──┐                    │
+ VS Code (stdio) ──►│                                                      ├─► tools.py ──HTTP─►│ activity database-service :6003
+                    │  mcp_http_server.py  (:7001)                         │   (5 Activity      │ (GET /activities, ...)
+                    │   POST /mcp (JSON-RPC)  +  POST /<tool> (shim) ──────┘    read-only tools)│
+                    └──────────▲───────────────────────────────────────────────────────────────┘
+                               │ host.docker.internal:7001   (POST /<tool>)
  Browser ──► frontend :3004 ──► backend :5003  backend/routes/mcp_mode.py
              /mcp-mode         /api/activity/mcp/<tool>   (validate → forward)
              /mcp-mode/call    /api/activity/mcp/ask      (LLM picks tool → validate → forward)
@@ -35,9 +36,9 @@ implementation was used as the reference instead (agreed in the Plan phase).
 
 | Piece | File | Job |
 |---|---|---|
-| Tools | `mcp-server/tools.py` | Five plain functions. Each calls the same database-service endpoints as `backend/services/db_client.py`, returns a dict, and never raises. |
-| stdio server | `mcp-server/server.py` | Registers the tools with FastMCP (official `mcp` SDK, `>=1.2,<2`) for MCP clients. Configured in `mcp-config.json`. |
-| HTTP server | `mcp-server/mcp_http_server.py` | The same tools over HTTP (`POST /<tool>`, `GET /health`), because a Docker container can't reach a stdio process. |
+| Tools | `ai-services/mcp-server/tools.py` | Five plain functions (moved from the retired `activity-service/mcp-server/`). Each calls the same database-service endpoints as `backend/services/db_client.py`, returns a dict, and never raises. |
+| Registry / stdio server | `ai-services/mcp-server/server.py` | Registers every feature's tools, Activity's included, with one FastMCP instance. Configured in `ai-services/mcp-server/mcp-config.json`. |
+| HTTP server | `ai-services/mcp-server/mcp_http_server.py` | The same registry over HTTP on :7001 (`POST /mcp`, the `POST /<tool>` shim Activity uses, `GET /health`), because a Docker container can't reach a stdio process. |
 | Bridge | `backend/routes/mcp_mode.py` | One route per tool plus `/ask`. Gated by `MCP_ENABLED` and `X-MCP-Mode`. Validates IDs, then forwards. |
 | Page | `frontend/templates/mcp_mode.html` | The dedicated MCP Mode page, the counterpart of `ai_mode.html`. Extends `base.html` and holds the back link, the three-tab strip, the page styles, and the script that enables or disables the ID field for each tool. |
 | Panel | `frontend/templates/tabs/mcp.html` + `tabs/_mcp_call.html` | Included by `mcp_mode.html`. Contains the tool table, the "Run a tool" and "Ask" htmx forms, and the call log. Each call's card (`_mcp_call.html`) is added at the top of the log, newest first. |
@@ -77,11 +78,11 @@ the fallback is explicit and visible, never a guess.
 
 | Variable | Where | Default |
 |---|---|---|
-| `MCP_SERVICE_URL` | backend (`docker-compose.yml`) | `http://host.docker.internal:7003` |
-| `MCP_ENABLED` | backend | `true` |
+| `MCP_SERVICE_URL` | backend (`docker-compose.yml`; override with `ACTIVITY_MCP_SERVICE_URL`) | `http://host.docker.internal:7001` |
+| `MCP_ENABLED` | backend (override with `ACTIVITY_MCP_ENABLED`) | `true` |
 | `MCP_TIMEOUT_SECONDS` | backend | `30` |
-| `ACTIVITY_DB_URL` | mcp-server | `http://localhost:6003` |
-| `PORT` | `mcp_http_server.py` | `7003` |
+| `ACTIVITY_DB_URL` | `ai-services/mcp-server` | `http://localhost:6003` |
+| `PORT` | `ai-services/mcp-server/mcp_http_server.py` | `7001` |
 
 The prompts reach the backend container through a read-only mount (`./prompts:/prompts:ro,z`),
 because the backend's build context is `./backend`. The `z` option lets the container read the mount
@@ -93,9 +94,9 @@ on SELinux hosts such as Fedora; without it, the read fails with "Permission den
 # 1. activity-service containers
 docker compose up -d                       # from activity-service/
 
-# 2. MCP server on the host
-cd mcp-server && pip install -r requirements.txt
-python mcp_http_server.py                  # HTTP bridge for the backend (port 7003)
+# 2. The shared MCP server on the host (one instance for every feature)
+cd ../ai-services/mcp-server && pip install -r requirements.txt
+python mcp_http_server.py                  # HTTP for every backend (port 7001)
 python server.py                           # or: stdio, for MCP clients (via mcp-config.json)
 
 # 3. open http://localhost:3004/mcp-mode

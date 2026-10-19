@@ -8,9 +8,13 @@ All tools are read-only except `create_accommodation`, which writes to accommoda
   `http://host.docker.internal:7001/mcp` (`http://localhost:7001/mcp` on the host).
   Start: `python mcp_http_server.py` (env: `PORT`, `MCP_HOST`, plus `*_DB_URL` below).
   Probe: `python mcp_probe.py list` / `python mcp_probe.py call <tool> '<json>'`.
-- **Compatibility shim:** `POST http://host.docker.internal:7001/<tool_name>` (Budget's and
-  Itinerary's existing clients) dispatches through `mcp.call_tool`, so it still hits the FastMCP registry.
-  Returns `{status, result}`; 404 unknown tool, 400 bad JSON, 502 tool error.
+  JSON-RPC `tools/call` body, headers `Accept: application/json, text/event-stream` and
+  `Content-Type: application/json` (Destination's `student-1/backend/mcp_client.py`).
+- **Compatibility shim:** `POST http://host.docker.internal:7001/<tool_name>` (Budget's,
+  Itinerary's and Activity's existing clients) dispatches through `mcp.call_tool`, so it still hits
+  the FastMCP registry. Returns `{status, result}`; 404 unknown tool, 400 bad JSON, 502 tool error.
+- Both formats are served by the same registry at the same time; a tool registered in `server.py`
+  is reachable through both without further wiring.
 - `GET /health` lists the registered tools.
 - stdio: MCP clients can launch `server.py` via `mcp-config.json`.
 - `list_destinations` validation/upstream failures over `/mcp` are `isError=true` results.
@@ -83,3 +87,25 @@ All tools are read-only except `create_accommodation`, which writes to accommoda
 - Reads `GET /itinerary-items` from `ITINERARY_DB_URL` (default `http://localhost:6005`), then filters exact trip/day. No SQLite access or write tools.
 - Unknown trip/day returns an empty successful result. Invalid input or unavailable/invalid upstream returns `{ error }` (HTTP shim uses 502).
 - Policy class: read-only, cross-feature data access via the Itinerary Database HTTP API only.
+
+## Activity tools (Student 3)
+
+Moved from the retired `activity-service/mcp-server` (formerly its own port); the Activity
+backend now calls them through the compatibility shim on :7001.
+
+- Reads the activity database-service HTTP API at `ACTIVITY_DB_URL` (default `http://localhost:6003`,
+  timeout `ACTIVITY_DB_TIMEOUT_SECONDS`, default 5). No SQLite access, no write tools.
+- `activity_id` / `assignment_id` are positive integers. Over `/mcp` the schema is `integer` and
+  FastMCP rejects a missing or non-integer argument as `isError=true` before the tool runs.
+- Errors are structured `{ error }` results (HTTP shim: 502): `<name> must be a positive integer`,
+  `activity not found` / `assignment not found` (with the requested id), or
+  `activity database unavailable: <detail>`. Activity's backend maps `... not found` to 404.
+- Policy class: read-only, cross-feature data access via the Activity Database HTTP API only.
+
+| Tool | Input | Upstream | Output |
+| --- | --- | --- | --- |
+| `list_activities` | none | `GET /activities` | `{ count, activities[] }` |
+| `get_activity` | `activity_id` | `GET /activities/<id>` | `{ activity }` |
+| `get_activity_assignments` | `activity_id` | `GET /activities/<id>/assignments` | `{ activity_id, count, assignments[] }` |
+| `list_assignments` | none | `GET /assignments` | `{ count, assignments[] }` |
+| `get_assignment` | `assignment_id` | `GET /assignments/<id>` | `{ assignment }` |

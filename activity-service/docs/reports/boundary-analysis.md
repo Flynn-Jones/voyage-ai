@@ -1,5 +1,11 @@
 # MCP Boundary Analysis — activity-service
 
+> **Superseded (Release 1 shared integration).** Activity no longer runs its own MCP or RAG
+> server. Its five tools are served by the shared MCP server (`ai-services/mcp-server`, :7001)
+> and its records live in the shared RAG corpus (`ai-services/rag-server`, :7002,
+> `scope="activity"`). See `docs/shared-integration-summary.md`. The evidence below is kept
+> as recorded; references to the former Activity-only servers are historical.
+
 What activity-service's MCP integration exposes, and what it deliberately does not.
 This describes the code as built on 2026-09-26. Evidence is in [run-report.md](run-report.md).
 
@@ -70,7 +76,7 @@ Both match budget-service's gating. Tested, and checked live (403).
 ## Residual risks
 
 - **Anyone who can reach the host can read everything.** `mcp_http_server.py` binds
-  `0.0.0.0:7003` without authentication, the same as the shared reference server. Everything
+  the former Activity-only port on `0.0.0.0` without authentication, the same as the shared reference server. Everything
   exposed is read-only activity data, but anyone who can reach that host port can read all of it.
 - **Assignments can point at deleted activities.** The database doesn't enforce the foreign
   key on seeded data, so `list_assignments` can return an assignment whose activity no longer

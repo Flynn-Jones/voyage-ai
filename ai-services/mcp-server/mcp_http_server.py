@@ -6,9 +6,10 @@ http://host.docker.internal:7001/mcp, so every call goes through FastMCP's
 tool registry.
 
 POST /<tool_name> is a compatibility shim for existing clients (Budget's
-backend, Itinerary's POST /get_itinerary): it dispatches through
-mcp.call_tool (registry + argument validation), never by importing tool
-functions directly.
+backend, Itinerary's POST /get_itinerary, Activity's five read-only tools):
+it dispatches through mcp.call_tool (registry + argument validation), never
+by importing tool functions directly. Tools are registered once, in
+server.py; both transports pick them up from that registry.
 """
 import json
 

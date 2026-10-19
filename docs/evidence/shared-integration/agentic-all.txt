@@ -1,0 +1,29 @@
+[MCP][START] Starting validation
+[MCP][COLLECT] Running collector
+[MCP][PLAN] goal='List seeded destinations in Japan'; live registry: ['ci_report', 'create_accommodation', 'get_accommodation_by_destination', 'get_activity', 'get_activity_assignments', 'get_assignment', 'get_itinerary', 'list_activities', 'list_assignments', 'list_destinations', 'list_expenses', 'project_files', 'search_accommodations']
+[MCP][PLAN] select list_destinations; arguments {'country': 'Japan'} are supported by its schema
+[MCP][ACT] call_tool list_destinations {'country': 'Japan'} via http://localhost:7001/mcp
+[MCP][OBSERVE] isError=False source='destination-database' filters={'country': 'Japan'} count=3 cities=['Tokyo', 'Kyoto', 'Osaka']
+[MCP][ADAPT] PASS: task satisfied, 3 Japan destinations from destination-database via registered list_destinations
+[MCP][VERDICT] PASS
+
+=== MCP Result ===
+VERDICT PASS
+[RAG][START] Starting validation
+[RAG][COLLECT] Running collector
+[RAG][PLAN] check shared RAG health before running 2 tasks
+[RAG][OBSERVE] GET http://localhost:7002/health -> http=200 body={'status': 'ok', 'service': 'rag-server'}
+[RAG][PLAN] [supported] question 'Which destination is known for street food and nightlife?' needs grounded knowledge retrieval; select shared RAG POST /answer (expect grounded)
+[RAG][ACT] [supported] POST http://localhost:7002/answer caller='agentic-loop' k=5
+[RAG][OBSERVE] [supported] http=200 status=success error_type=None confidence=High citations=3 ['destination_3@destination-db:/destinations', 'destination_5@destination-db:/destinations', 'destination_1@destination-db:/destinations'] retrieval_summary={'k': 5, 'retrieved_count': 3, 'candidate_count': 72, 'rejected_count': 69, 'retrieval_mode': 'hybrid', 'top_score': 1.0} answer='Osaka, Japan is known for street food and nightlife.'
+[RAG][ADAPT] [supported] PASS: grounded answer with Destination citations accepted
+[RAG][PLAN] [unsupported] question 'What is the capital of Mars?' needs grounded knowledge retrieval; select shared RAG POST /answer (expect insufficient)
+[RAG][ACT] [unsupported] POST http://localhost:7002/answer caller='agentic-loop' k=5
+[RAG][OBSERVE] [unsupported] http=200 status=insufficient_context error_type=None confidence=Insufficient citations=0 [] retrieval_summary={'k': 5, 'retrieved_count': 0, 'candidate_count': 72, 'rejected_count': 72, 'retrieval_mode': 'hybrid', 'top_score': None} answer='Insufficient evidence to answer this question from the current corpus.'
+[RAG][ADAPT] [unsupported] PASS: cannot be answered from the available grounded knowledge; refused rather than fabricating
+[RAG][VERDICT] PASS
+
+=== RAG Result ===
+VERDICT PASS
+
+OVERALL VERDICT PASS

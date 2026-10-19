@@ -18,6 +18,8 @@ def http_status_for(result: dict) -> int:
         return 200
     if result.get("error_type") == "llm_unavailable":
         return 503
+    if result.get("error_type") == "invalid_input":
+        return 400
     return 500
 
 
@@ -60,6 +62,13 @@ class RAGHandler(BaseHTTPRequestHandler):
                              payload.get("trip_reference"), payload.get("day"))
                 except ValueError as exc:
                     self._send_json(400, {"status": "error", "error": str(exc)})
+                    return
+            if self.path in ("/retrieve", "/answer") and payload.get("scope") == "activity":
+                from activity_context import validate as validate_activity
+                try:
+                    validate_activity(payload.get("query"), payload.get("k", 5))
+                except ValueError as exc:
+                    self._send_json(400, {"status": "error", "error": str(exc), "error_type": "invalid_input"})
                     return
             if self.path == "/refresh":
                 caller = (payload.get("caller") or "system").strip() or "system"

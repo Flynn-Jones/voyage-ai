@@ -1,0 +1,10 @@
+[Activity RAG][START] Starting validation
+[Activity RAG][COLLECT] Running collector
+[Activity RAG][VERDICT] PASS
+
+=== Activity RAG Result ===
+Activity RAG evidence (shared server http://localhost:7002, scope=activity): retrieve('total number of activities') -> HTTP 200, mode=hybrid, 2 results, top=activity_count (tier_1, distance=1.186). answer('How many activities are there?') -> 'There are 15 activities in total.' [deterministic, citations=['activity_count']]. answer('What does the Harbour Sunset Kayak cost?') -> HTTP 200, status=success, answer_source=llm, answer='The Harbour Sunset Kayak costs $95.00.', citations=['activity_12', 'activity_category_water_sports'], confidence=High. Latest eval: activity mean P@5=0.67, mean R@5=1.0.
+
+VERDICT PASS
+
+OVERALL VERDICT PASS

@@ -70,6 +70,6 @@ The MCP-down negative control is not repeated here; it is recorded in `R1-P05-ag
 Note: a reseed starts from an empty volume, so Destination records created or deleted by hand afterwards will change RAG answers again. Confirm the root list still shows the 10 seeded rows before recording.
 
 ## 7. Known remaining group limitation
-- Activity still uses its own non-canonical MCP (:7003) and RAG (:6013) servers instead of the shared :7001 / :7002.
+- Activity still used its own non-canonical MCP and RAG servers instead of the shared :7001 / :7002 at the time of this reconciliation (since resolved: see `docs/shared-integration-summary.md`).
 - Its MCP tools (`list_activities`, `get_activity`, `get_activity_assignments`, `list_assignments`, `get_assignment`) are registered only on its own server, and its RAG client/corpus targets its own server.
 - Not modified during P06. It remains an explicit group-level integration limitation unless the Activity owner changes it.

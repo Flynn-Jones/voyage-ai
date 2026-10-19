@@ -28,7 +28,8 @@ $PY ai-services/agentic_loop/app_main.py --mode rag --no-llm   # supported + uns
 $PY ai-services/agentic_loop/app_main.py --mode all --no-llm   # mcp + rag
 $PY ai-services/agentic_loop/app_main.py                       # interactive menu (also has activity_rag)
 ```
-`--mode activity_rag` is available but is never part of `all`.
+`--mode activity_rag` is available but is never part of `all`; it drives the same shared RAG
+server (:7002) with `scope="activity"`, as Activity's backend does (no separate Activity RAG server).
 `--no-llm` skips the optional LLM commentary.
 
 ## Verdict / exit semantics

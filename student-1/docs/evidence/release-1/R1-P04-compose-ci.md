@@ -8,7 +8,7 @@ CI runs Student 1 with both integrations disabled.
 
 ## Files changed
 - `student-1/docker-compose.yml` — `destination-frontend` receives the two hop timeouts. `destination-backend` unchanged (already canonical).
-- `docker-compose.yml` (root) — `destination-backend` gains the canonical MCP/RAG settings; `destination-frontend` gains the two hop timeouts. 13 added lines, no deletions; service names, the 5011:5001 mapping, `OLLAMA_*`, `extra_hosts` and all teammate services (including Activity 7003/6013) untouched.
+- `docker-compose.yml` (root) — `destination-backend` gains the canonical MCP/RAG settings; `destination-frontend` gains the two hop timeouts. 13 added lines, no deletions; service names, the 5011:5001 mapping, `OLLAMA_*`, `extra_hosts` and all teammate services (including Activity's then-separate MCP/RAG settings) untouched.
 - `student-1/frontend/app.py` — `_read_timeout()` helper; MCP/RAG hop read timeouts now env-driven. Connect timeout (3), defaults (15 / 130) and Release 0 timeouts unchanged. Non-numeric, non-finite, zero or negative values fall back to the default.
 - `student-1/.env.example` — Release 1 section (names and defaults only).
 - `.github/workflows/student-1.yml` — workflow-level `DESTINATION_MCP_ENABLED=false` / `DESTINATION_RAG_ENABLED=false`; rendered-Compose `jq` assertion step; in-container inspection step; explanatory comments. `push.branches` and `paths` unchanged; `workflow_dispatch` intact; no existing step removed.

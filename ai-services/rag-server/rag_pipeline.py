@@ -1,10 +1,16 @@
 """Shared VoyageAI RAG pipeline: corpus build, retrieval, and grounded answers.
 
 Runs locally (not containerised). Corpus sources are read over the same
-microservices-net HTTP ports each backend already uses (budget-db,
-accommodation-db) plus repo documentation, so the corpus reflects live
-feature data without the RAG server needing filesystem access to any
-container's SQLite volume.
+microservices-net HTTP ports each backend already uses (destination-db,
+accommodation-db, activity-db, budget-db, itinerary-db) plus repo
+documentation, so the corpus reflects live feature data without the RAG
+server needing filesystem access to any container's SQLite volume.
+
+Every chunk carries metadata.service naming the feature it came from
+("destination", "accommodation", "activity", "budget", "itinerary", or
+"shared" for repo-wide docs/index). One corpus.jsonl and one Chroma
+collection hold all of them; scope="itinerary" / scope="activity" narrow
+retrieval to one feature's slice.
 """
 import hashlib
 import json
@@ -17,6 +23,7 @@ from pathlib import Path
 from typing import Any
 
 import requests
+import activity_context
 import itinerary_context
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -44,6 +51,18 @@ DOC_SOURCES = [
 # Legacy persisted corpora may still hold chunks ingested from these (source_id is the repo-relative path).
 # They are rejected at retrieval time so stale README/demo text can never be evidence.
 EXCLUDED_SOURCE_IDS = {"README.md", "student-1/README.md"}
+
+# Feature slices that only scoped retrieval searches. Activity's records and docs
+# joined the shared corpus after the other features calibrated their unscoped
+# queries, so keeping them out of unscoped ranking leaves those results unchanged
+# ("street food" must not start matching the Street Food Night Walk activity in a
+# destination answer). Activity's backend always sends scope="activity".
+SCOPED_ONLY_SERVICES = {activity_context.SERVICE}
+
+# metadata.service for each repo document, by its first path component.
+DOC_SERVICE_BY_DIR = {"budget-service": "budget", "accommodation-service": "accommodation",
+                      "student-1": "destination", "itinerary-service": "itinerary",
+                      "activity-service": "activity"}
 
 IGNORED_DIRS = {".git", ".venv", "venv", "__pycache__", "node_modules", "chroma"}
 COLLECTION_NAME = "voyageai_shared_context"
@@ -314,21 +333,48 @@ def load_repository_chunks() -> list[dict[str, Any]]:
     ]
 
 
+def tag_service(chunks: list[dict[str, Any]], service: str) -> list[dict[str, Any]]:
+    """Set metadata.service on every chunk (keeping one a loader already set)."""
+    for chunk in chunks:
+        chunk.setdefault("metadata", {}).setdefault("service", service)
+    return chunks
+
+
+def doc_service(source_id: str) -> str:
+    return DOC_SERVICE_BY_DIR.get(str(source_id).replace("\\", "/").split("/", 1)[0], "shared")
+
+
+def load_activity_chunks() -> list[dict[str, Any]]:
+    """Activity tier_1 records (activity-db HTTP API) plus activity-service docs."""
+    chunks: list[dict[str, Any]] = []
+    try:
+        chunks.extend(activity_context.load_chunks())
+        _source_status["activity_db"] = "ok"
+    except (requests.exceptions.RequestException, ValueError, TypeError, KeyError) as exc:
+        _source_status["activity_db"] = f"unavailable: {exc}"
+    chunks.extend(activity_context.load_doc_chunks(REPO_ROOT))
+    for chunk in chunks:
+        chunk["indexed_at"] = now_iso()
+    return chunks
+
+
 def build_corpus() -> list[dict[str, Any]]:
     global _itinerary_source_error
     _source_status.clear()
     _missing_docs.clear()
     chunks: list[dict[str, Any]] = []
-    chunks.extend(load_destination_chunks())
-    chunks.extend(load_budget_chunks())
-    chunks.extend(load_accommodation_chunks())
-    chunks.extend(load_doc_chunks())
-    chunks.extend(load_repository_chunks())
+    chunks.extend(tag_service(load_destination_chunks(), "destination"))
+    chunks.extend(tag_service(load_budget_chunks(), "budget"))
+    chunks.extend(tag_service(load_accommodation_chunks(), "accommodation"))
+    for chunk in load_doc_chunks():
+        chunks.extend(tag_service([chunk], doc_service(chunk["source_id"])))
+    chunks.extend(tag_service(load_repository_chunks(), "shared"))
+    chunks.extend(load_activity_chunks())
     try:
         itinerary_chunks = itinerary_context.load_chunks()
         for chunk in itinerary_chunks:
             chunk["indexed_at"] = now_iso()
-        chunks.extend(itinerary_chunks)
+        chunks.extend(tag_service(itinerary_chunks, "itinerary"))
         _itinerary_source_error = None
         _source_status["itinerary_db"] = "ok"
     except (requests.RequestException, ValueError, TypeError) as exc:
@@ -377,12 +423,18 @@ def query_terms(text: str) -> set[str]:
     }
 
 
-def _corpus_chunks() -> list[dict[str, Any]]:
+def _all_chunks() -> list[dict[str, Any]]:
     chunks = _last_corpus_chunks or read_corpus()
     return [c for c in chunks if str(c.get("source_id", "")).replace("\\", "/") not in EXCLUDED_SOURCE_IDS]
 
 
-def _chroma_distances(query: str, k: int) -> dict[str, float]:
+def _corpus_chunks() -> list[dict[str, Any]]:
+    """The unscoped candidate set: everything except scoped-only feature slices."""
+    return [c for c in _all_chunks()
+            if (c.get("metadata") or {}).get("service") not in SCOPED_ONLY_SERVICES]
+
+
+def _chroma_distances(query: str, k: int, service: str = None, n_results: int = None) -> dict[str, float]:
     collection = get_collection()
     if collection.count() == 0:
         if refresh_corpus(caller="auto_refresh").get("status") != "success":
@@ -391,20 +443,27 @@ def _chroma_distances(query: str, k: int) -> dict[str, float]:
     count = collection.count()
     if count == 0:
         raise RuntimeError("empty_collection")
-    results = collection.query(query_embeddings=embed_texts([query]), n_results=min(count, max(4 * k, 25)))
+    kwargs = {"where": {"service": service}} if service else {}
+    results = collection.query(query_embeddings=embed_texts([query]),
+                               n_results=min(count, n_results or max(4 * k, 25)), **kwargs)
     ids = (results.get("ids") or [[]])[0]
     distances = (results.get("distances") or [[]])[0]
     return {chunk_id: distances[i] for i, chunk_id in enumerate(ids) if i < len(distances)}
 
 
 def rank_accepted(
-    query: str, corpus: list[dict[str, Any]], distances: dict[str, float], k: int
+    query: str, corpus: list[dict[str, Any]], distances: dict[str, float], k: int,
+    extra_entities: set[str] = None,
 ) -> tuple[list[dict[str, Any]], int]:
-    """Relevance-first acceptance and ranking. Returns (accepted top-k, accepted total)."""
+    """Relevance-first acceptance and ranking. Returns (accepted top-k, accepted total).
+
+    extra_entities lets a scoped caller name more single-term "entity" matches
+    (Activity passes its categories) alongside Destination cities/countries.
+    """
     q_terms = query_terms(query)
     if not q_terms:
         return [], 0
-    entities: set[str] = set()
+    entities: set[str] = set(extra_entities or ())
     for chunk in corpus:
         meta = chunk.get("metadata") or {}
         if meta.get("source_type") == "destination_db":
@@ -445,6 +504,14 @@ def rank_accepted(
     return top, len(accepted)
 
 
+def _service_counts(chunks: list[dict[str, Any]]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for c in chunks:
+        service = (c.get("metadata") or {}).get("service", "shared")
+        counts[service] = counts.get(service, 0) + 1
+    return dict(sorted(counts.items()))
+
+
 def refresh_corpus(caller: str = "system") -> dict[str, Any]:
     global _last_corpus_chunks
     start = time.time()
@@ -461,7 +528,8 @@ def refresh_corpus(caller: str = "system") -> dict[str, Any]:
                 ids = [c["chunk_id"] for c in chunks]
                 docs = [c["text"] for c in chunks]
                 metas = [
-                    {"source_id": c["source_id"], "authority_tier": c["authority_tier"], "indexed_at": c["indexed_at"]}
+                    {"source_id": c["source_id"], "authority_tier": c["authority_tier"], "indexed_at": c["indexed_at"],
+                     "service": (c.get("metadata") or {}).get("service", "shared")}
                     for c in chunks
                 ]
                 collection.add(ids=ids, documents=docs, metadatas=metas, embeddings=embed_texts(docs))
@@ -474,6 +542,11 @@ def refresh_corpus(caller: str = "system") -> dict[str, Any]:
             "chunk_count": len(chunks),
             "itinerary_chunk_count": sum(c.get("source_id") == itinerary_context.SOURCE for c in chunks),
             "itinerary_source_error": _itinerary_source_error,
+            "activity_chunk_count": sum((c.get("metadata") or {}).get("service") == activity_context.SERVICE
+                                        for c in chunks),
+            "tier_counts": {t: sum(c.get("authority_tier") == t for c in chunks) for t in TIER_ORDER},
+            "service_counts": _service_counts(chunks),
+            "embedding_mode": "hash",
             "collection": COLLECTION_NAME,
             "vector_store_status": vector_store_status,
             "source_status": dict(_source_status),
@@ -493,6 +566,8 @@ def retrieve_context(query: str, k: int = 5, caller: str = "system", scope: str 
                      trip_reference: str = None, day: int = None) -> dict[str, Any]:
     if scope == "itinerary":
         return itinerary_operation(query, k, caller, trip_reference, day, answer=False)
+    if scope == activity_context.SERVICE:
+        return activity_operation(query, k, caller, answer=False)
     if scope is not None:
         return {"status": "error", "error": "unknown scope"}
     start = time.time()
@@ -624,6 +699,8 @@ def answer_question(query: str, k: int = 5, caller: str = "system", scope: str =
                     trip_reference: str = None, day: int = None) -> dict[str, Any]:
     if scope == "itinerary":
         return itinerary_operation(query, k, caller, trip_reference, day, answer=True)
+    if scope == activity_context.SERVICE:
+        return activity_operation(query, k, caller, answer=True)
     if scope is not None:
         return {"status": "error", "error": "unknown scope"}
     start = time.time()
@@ -667,10 +744,13 @@ def answer_question(query: str, k: int = 5, caller: str = "system", scope: str =
         append_audit("answer_question", audit_input, output, "fail", "llm_unavailable", start)
         return output
 
-    if answer.lower().startswith("insufficient evidence"):
-        return insufficient("llm_declined")
+    # Strip the "Answer:" scaffold BEFORE checking for an abstention: the model
+    # often replies "Answer: Insufficient evidence." (often across two lines),
+    # which must not pass as a cited, confident answer.
     if answer.lower().startswith("answer:"):
         answer = answer[len("answer:"):].strip()
+    if answer.lower().startswith("insufficient evidence"):
+        return insufficient("llm_declined")
 
     confidence = confidence_from_results(results)
     citations = [
@@ -694,6 +774,103 @@ def answer_question(query: str, k: int = 5, caller: str = "system", scope: str =
         start,
     )
     return output
+
+
+def activity_operation(query, k, caller, answer):
+    """scope="activity": retrieve / answer over the activity slice of the shared corpus.
+
+    Ranking and generation are the shared ones (rank_accepted, generate_with_ollama);
+    candidates are restricted to metadata.service == "activity", and count /
+    per-category questions get Activity's deterministic answer from the full record
+    set. Every row carries a numeric distance (Chroma's, or 1 - relevance_score in
+    lexical fallback) because Activity's RAG card renders it.
+    """
+    start = time.time()
+    tool_name = "answer_question" if answer else "retrieve_context"
+    audit_input = {"query": query, "k": k, "caller": caller, "scope": activity_context.SERVICE}
+
+    def finish(output, validation_status, outcome):
+        append_audit(tool_name, audit_input,
+                     {key: output.get(key) for key in ("status", "error", "error_type", "confidence_category",
+                                                       "answer_source", "retrieval_mode") if key in output}
+                     | {"chunk_ids": [r["chunk_id"] for r in output.get("results", output.get("citations", []))]},
+                     validation_status, outcome, start)
+        return output
+
+    try:
+        query = activity_context.validate(query, k)
+    except ValueError as exc:
+        return finish({"status": "error", "error_type": "invalid_input", "error": str(exc), "query": query},
+                      "fail", "invalid_input")
+
+    try:
+        chunks = activity_context.select(_all_chunks())
+        if not chunks and refresh_corpus(caller="auto_refresh").get("status") == "success":
+            chunks = activity_context.select(_all_chunks())
+        if not chunks:
+            return finish({"status": "error", "error_type": "retrieval_failed",
+                           "error": "activity corpus unavailable", "query": query}, "fail", "error")
+
+        retrieval_mode = "hybrid"
+        try:
+            distances = _chroma_distances(query, k, service=activity_context.SERVICE, n_results=len(chunks))
+        except Exception:
+            distances, retrieval_mode = {}, "lexical_fallback"
+        # An activity category ("Food", "Water Sports") is to Activity what a city is to
+        # Destination: one matching term is enough ("food walk" -> the Food activities).
+        categories = {term for c in chunks if c["metadata"].get("source_type") == "activity_record"
+                      for term in query_terms(c["metadata"].get("category") or "")}
+        ranked, accepted_total = rank_accepted(query, chunks, distances, k, extra_entities=categories)
+        for row in ranked:
+            if not isinstance(row["distance"], (int, float)):
+                row["distance"] = round(1 - row["relevance_score"], 4)
+    except Exception as exc:
+        return finish({"status": "error", "error_type": "retrieval_failed", "error": str(exc), "query": query},
+                      "fail", "error")
+
+    retrieval = {"status": "success", "query": query, "caller": caller, "k": k,
+                 "scope": activity_context.SERVICE, "retrieval_mode": retrieval_mode,
+                 "candidate_count": len(chunks), "rejected_count": len(chunks) - accepted_total,
+                 "results": ranked}
+    if not answer:
+        return finish(retrieval, "pass", "context_retrieved" if ranked else "no_relevant_context")
+
+    summary = {"k": k, "retrieved_count": len(ranked), "candidate_count": len(chunks),
+               "rejected_count": retrieval["rejected_count"], "retrieval_mode": retrieval_mode,
+               "top_score": ranked[0]["relevance_score"] if ranked else None,
+               "top_chunk": ranked[0]["chunk_id"] if ranked else None}
+    base = {"query": query, "scope": activity_context.SERVICE, "retrieval_summary": summary}
+
+    def cite(rows):
+        return [{key: r.get(key) for key in ("chunk_id", "source_id", "authority_tier")} for r in rows]
+
+    exact = activity_context.deterministic_answer(chunks, query)
+    if exact:
+        text, cited = exact
+        return finish({"status": "success", **base, "answer": text, "answer_source": "deterministic",
+                       "citations": cite(cited), "confidence_category": "High"}, "pass", "deterministic_answer")
+
+    def insufficient(answer_source, outcome):
+        return finish({"status": "insufficient_context", **base, "answer": INSUFFICIENT_ANSWER,
+                       "answer_source": answer_source, "citations": [], "confidence_category": "Insufficient"},
+                      "pass", outcome)
+
+    if not ranked:  # nothing relevant: refuse without asking the model to guess
+        return insufficient("retrieval_guard", "insufficient_context")
+
+    context = "\n\n".join(f"[{r['chunk_id']}] {r['text']}" for r in ranked)
+    try:
+        generated = generate_with_ollama(query, context)
+    except LLMUnavailable as exc:
+        return finish(_failure(query, "llm_unavailable", str(exc), scope=activity_context.SERVICE,
+                               retrieval_summary=summary), "fail", "llm_unavailable")
+    if generated.lower().startswith("answer:"):  # strip first; see answer_question
+        generated = generated[len("answer:"):].strip()
+    if generated.lower().startswith("insufficient evidence"):
+        return insufficient("llm", "llm_declined")
+    return finish({"status": "success", **base, "answer": generated, "answer_source": "llm",
+                   "citations": cite(ranked), "confidence_category": confidence_from_results(ranked),
+                   "model": OLLAMA_MODEL}, "pass", "answer_generated")
 
 
 class ItineraryModelError(Exception):

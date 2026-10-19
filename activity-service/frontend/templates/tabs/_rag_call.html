@@ -27,7 +27,11 @@
       &middot; vector store <strong>{{ data.vector_store_status }}</strong>
       &middot; {{ data.embedding_mode }} embeddings
     </p>
-    <p class="act-rag__meta">tier_1 source: {{ data.tier_1_source }}</p>
+    {# Shared RAG server (:7002): one corpus for every feature; Activity's slice is metadata.service="activity". #}
+    <p class="act-rag__meta">
+      activity chunks: {{ (data.service_counts or {}).get("activity", data.activity_chunk_count) }}
+      &middot; activity-db: {{ (data.source_status or {}).get("activity_db", "unknown") }}
+    </p>
     {% if data.vector_store_error %}<p class="act-mcp__error">{{ data.vector_store_error }}</p>{% endif %}
     {% if data.embedding_fallback %}<p class="act-mcp__error">{{ data.embedding_fallback }}</p>{% endif %}
   {% endif %}
@@ -38,7 +42,7 @@
       {% for row in data.results %}
       <li>
         <code>{{ row.chunk_id }}</code>
-        <span class="act-rag__meta">{{ row.authority_tier }} &middot; distance {{ "%.3f" | format(row.distance) }} &middot; {{ row.source_id }}</span>
+        <span class="act-rag__meta">{{ row.authority_tier }} &middot; distance {% if row.distance is number %}{{ "%.3f" | format(row.distance) }}{% else %}n/a{% endif %} &middot; {{ row.source_id }}</span>
         <p class="act-rag__snippet">{{ row.text | truncate(180) }}</p>
       </li>
       {% endfor %}

@@ -1,47 +1,49 @@
-"""Checks activity-service/rag-server/ and runs its RAG tools for execution evidence.
+"""Executes Activity's RAG tasks against the ONE shared RAG service (scope="activity").
 
-Unlike rag_collector (file and string checks only), this one executes
-refresh_corpus, one retrieve_context and one answer_question call, and reads
-the latest P@5 / R@5 from retrieval-metrics.md, so the review agents judge
-real behaviour rather than the presence of function names.
+Activity's own rag-server was retired; its records now live in the shared
+corpus under metadata.service="activity". This collector drives the live
+shared server exactly as activity-service/backend/routes/rag_mode.py does
+(POST /retrieve and /answer with scope="activity"), checks the Activity
+prompts still exist, and reads the activity row of the shared
+retrieval-metrics.md. Like rag_collector, it never imports rag_pipeline and
+never refreshes the corpus (operator setup step).
 """
-import importlib.util
+import os
 import re
-import sys
 from pathlib import Path
 
-REQUIRED_TOOLS = ["refresh_corpus", "retrieve_context", "answer_question"]
+import requests
+
+RAG_SERVICE_URL = os.environ.get("RAG_SERVICE_URL", "http://localhost:7002").rstrip("/")
+TIMEOUT_SECONDS = float(os.environ.get("AGENTIC_RAG_TIMEOUT_SECONDS", "130"))
+SCOPE = "activity"
+CALLER = "agentic_loop"
 RETRIEVE_QUERY = "total number of activities"
-ANSWER_QUERY = "What does the Harbour Kayaking Tour cost?"
+COUNT_QUERY = "How many activities are there?"
+# A record from activity-service/database-service/seed_mock_data.py (the demo seed).
+ANSWER_QUERY = "What does the Harbour Sunset Kayak cost?"
 
 
-def _load_pipeline(rag_server_dir: Path):
-    # rag_pipeline is also the name of this loop's pipelines module, hence the alias
-    spec = importlib.util.spec_from_file_location("activity_rag_pipeline_check", rag_server_dir / "rag_pipeline.py")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules["activity_rag_pipeline_check"] = module
-    spec.loader.exec_module(module)
-    return module
+def _post(path, body):
+    response = requests.post(f"{RAG_SERVICE_URL}/{path}", json=body, timeout=TIMEOUT_SECONDS)
+    return response.status_code, response.json()
 
 
 def _latest_metrics(metrics_path: Path) -> str:
     if not metrics_path.exists():
         return "retrieval-metrics.md missing (run rag_eval.py)"
-    match = re.search(r"Mean P@5: ([\d.]+) · Mean R@5: ([\d.]+)", metrics_path.read_text(encoding="utf-8"))
-    return f"mean P@5={match.group(1)}, mean R@5={match.group(2)}" if match else "metrics unreadable"
+    match = re.search(r"^\| activity \| [^|]+ \| \d+ \| ([\d.]+) \| ([\d.na/]+) \|$",
+                      metrics_path.read_text(encoding="utf-8"), re.MULTILINE)
+    return f"activity mean P@5={match.group(1)}, mean R@5={match.group(2)}" if match else "activity row unreadable"
 
 
 def collect(app_dir: Path, repo_root: Path) -> tuple[bool, str]:
-    service_dir = repo_root / "activity-service"
-    rag_server_dir = service_dir / "rag-server"
-    prompts_dir = service_dir / "prompts" / "lab8"
-
+    shared_rag = repo_root / "ai-services" / "rag-server"
+    prompts_dir = repo_root / "activity-service" / "prompts" / "lab8"
     required_paths = [
-        rag_server_dir / "rag_pipeline.py",
-        rag_server_dir / "rag_server.py",
-        rag_server_dir / "rag_http_server.py",
-        rag_server_dir / "rag_eval.py",
-        rag_server_dir / "tool-contracts.md",
+        shared_rag / "rag_pipeline.py",
+        shared_rag / "activity_context.py",
+        shared_rag / "tool-contracts.md",
         prompts_dir / "implementation" / "rag_implementation_prompt.txt",
         prompts_dir / "review" / "rag_review_prompt.txt",
         prompts_dir / "review" / "rag_reasoning_prompt.txt",
@@ -49,37 +51,39 @@ def collect(app_dir: Path, repo_root: Path) -> tuple[bool, str]:
     missing = [str(path.relative_to(repo_root)) for path in required_paths if not path.exists()]
     if missing:
         return False, "Activity RAG evidence incomplete. Missing: " + ", ".join(missing)
+    if 'scope == activity_context.SERVICE' not in (shared_rag / "rag_pipeline.py").read_text(encoding="utf-8"):
+        return False, "shared rag_pipeline.py does not route scope=\"activity\""
 
-    pipeline_text = (rag_server_dir / "rag_pipeline.py").read_text(encoding="utf-8")
-    missing_tools = [tool for tool in REQUIRED_TOOLS if f"def {tool}" not in pipeline_text]
-    if missing_tools:
-        return False, "rag_pipeline.py missing required tools: " + ", ".join(missing_tools)
-
+    base = {"k": 5, "caller": CALLER, "scope": SCOPE}
     try:
-        pipeline = _load_pipeline(rag_server_dir)
-        refresh = pipeline.refresh_corpus(caller="agentic_loop")
-        retrieval = pipeline.retrieve_context(RETRIEVE_QUERY, 5, caller="agentic_loop")
-        answer = pipeline.answer_question(ANSWER_QUERY, 5, caller="agentic_loop")
-    except Exception as exc:
-        return False, f"Activity RAG tool execution raised an error: {exc}"
+        r_status, retrieval = _post("retrieve", {"query": RETRIEVE_QUERY, **base})
+        c_status, count = _post("answer", {"query": COUNT_QUERY, **base})
+        a_status, answer = _post("answer", {"query": ANSWER_QUERY, **base})
+    except (requests.exceptions.RequestException, ValueError) as exc:
+        return False, f"Shared RAG service unavailable at {RAG_SERVICE_URL}: {exc}"
 
-    if refresh.get("status") != "success" or retrieval.get("status") != "success":
-        return False, f"Activity RAG tools returned errors: refresh={refresh.get('error')}, retrieve={retrieval.get('error')}"
+    if r_status != 200 or retrieval.get("status") != "success":
+        return False, f"scoped retrieve failed: HTTP {r_status} {retrieval.get('error')}"
+    if c_status != 200 or count.get("answer_source") != "deterministic":
+        return False, f"count question was not answered deterministically: HTTP {c_status} {count}"
+    leaked = [r["chunk_id"] for r in retrieval["results"]
+              if not r["chunk_id"].startswith(("activity_", "assignment_"))]
+    if leaked:
+        return False, f"scope=activity returned non-activity chunks: {leaked}"
 
     top = retrieval["results"][0] if retrieval["results"] else {}
-    answer_summary = (
-        f"answer_question({ANSWER_QUERY!r}) -> status={answer.get('status')}, "
+    distance = top.get("distance")
+    distance_text = f"{distance:.3f}" if isinstance(distance, (int, float)) else "n/a"
+    return True, (
+        f"Activity RAG evidence (shared server {RAG_SERVICE_URL}, scope=activity): "
+        f"retrieve({RETRIEVE_QUERY!r}) -> HTTP {r_status}, mode={retrieval.get('retrieval_mode')}, "
+        f"{len(retrieval['results'])} results, top={top.get('chunk_id')} ({top.get('authority_tier')}, "
+        f"distance={distance_text}). "
+        f"answer({COUNT_QUERY!r}) -> {count.get('answer')!r} [deterministic, "
+        f"citations={[c['chunk_id'] for c in count.get('citations', [])]}]. "
+        f"answer({ANSWER_QUERY!r}) -> HTTP {a_status}, status={answer.get('status')}, "
         f"answer_source={answer.get('answer_source')}, answer={answer.get('answer', answer.get('error'))!r}, "
         f"citations={[c['chunk_id'] for c in answer.get('citations', [])]}, "
-        f"confidence={answer.get('confidence_category')}"
-    )
-    return True, (
-        "Activity RAG evidence: activity-service/rag-server/ has rag_pipeline.py, rag_server.py (FastMCP stdio), "
-        "rag_http_server.py and rag_eval.py; 3 tools defined. "
-        f"refresh_corpus -> chunk_count={refresh['chunk_count']}, tiers={refresh['tier_counts']}, "
-        f"embedding_mode={refresh['embedding_mode']}, vector_store={refresh['vector_store_status']}. "
-        f"retrieve_context({RETRIEVE_QUERY!r}, k=5) -> retrieval_mode={retrieval['retrieval_mode']}, "
-        f"{len(retrieval['results'])} results, top={top.get('chunk_id')} ({top.get('authority_tier')}, "
-        f"distance={top.get('distance', 0):.3f}). {answer_summary}. "
-        f"Latest eval: {_latest_metrics(rag_server_dir / 'retrieval-metrics.md')}."
+        f"confidence={answer.get('confidence_category')}. "
+        f"Latest eval: {_latest_metrics(shared_rag / 'retrieval-metrics.md')}."
     )

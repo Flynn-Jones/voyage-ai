@@ -1,0 +1,18 @@
+{
+  "answer": "Insufficient evidence to answer this question from the current corpus.",
+  "answer_source": "llm",
+  "citations": [],
+  "confidence_category": "Insufficient",
+  "query": "What does the Harbour Kayaking Tour cost?",
+  "retrieval_summary": {
+    "candidate_count": 78,
+    "k": 5,
+    "rejected_count": 77,
+    "retrieval_mode": "hybrid",
+    "retrieved_count": 1,
+    "top_chunk": "activity_doc_tool_review_9",
+    "top_score": 0.5
+  },
+  "scope": "activity",
+  "status": "insufficient_context"
+}
