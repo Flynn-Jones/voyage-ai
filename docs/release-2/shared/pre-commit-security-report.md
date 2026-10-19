@@ -1,6 +1,6 @@
 # Pre-commit security report: shared infrastructure (`ai-services/`, `shared/`)
 
-- Scope: `files: ^(ai-services|shared)/` in `.pre-commit-config.yaml`
+- Scope: `ai-services/` and `shared/` (verbose `files:` regex, one folder per line, in `.pre-commit-config.yaml`)
 - Tools: ruff 0.17.1 (`ruff.toml`: E4/E7/E9/F + S), detect-secrets 1.5.0, pip-audit 2.10.1
 - Scan: `scripts/test/precommit-report.sh shared`. Raw output is in the `pre-commit-<UTC>.txt` file next to this report.
 - Result: **PASS** on all three hooks, after the fixes and justified acceptances below.
@@ -33,8 +33,11 @@ mechanism. That accounts for about 300 test asserts.
 
 ### pip-audit: chromadb 1.5.9 (`ai-services/rag-server/requirements.txt`)
 
-1.5.9 is the latest release and **no fixed version exists**. The four advisories are ignored in
-`.pre-commit-config.yaml` with this justification:
+| Installed | Latest on PyPI | Checked | Re-check by |
+|---|---|---|---|
+| chromadb **1.5.9** (unpinned, resolves to latest) | **1.5.9**, released 2026-05-05 | 2026-10-20 | **2026-11-20**, or as soon as a release > 1.5.9 ships |
+
+**No fixed version exists.** The four advisories are ignored in `.pre-commit-config.yaml` with this justification:
 
 | Advisory | CVE | Affects | Why it does not apply here |
 |---|---|---|---|
@@ -43,7 +46,9 @@ mechanism. That accounts for about 300 test asserts.
 | PYSEC-2026-3815 | CVE-2026-45831 | `SimpleRBACAuthorizationProvider` (server auth) | Not configured. It is a server-side auth provider. |
 | PYSEC-2026-3813 | CVE-2026-45830 | Cross-tenant authorization in the server | Single local tenant with no server. |
 
-**Action:** remove the ignores and upgrade when chromadb publishes a fix. Do not run `chroma run` or expose
+**Action (by 2026-11-20):** run `pip index versions chromadb`. If a release newer than 1.5.9 fixes these, upgrade, delete the
+four `--ignore-vuln` lines and re-run `scripts/test/precommit-report.sh shared`. If not, move the re-check date forward
+in both the config and this report. Do not run `chroma run` or expose
 `ai-services/rag-server/chroma/` over the network.
 
 ## Outside this scope (for owners to pick up)
