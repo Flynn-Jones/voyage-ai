@@ -17,10 +17,21 @@ servers without also rewiring every feature's `MCP_SERVICE_URL`/`RAG_SERVICE_URL
 ## The three components
 
 ```
-mcp-server/     4 read-only tools over feature data + repo files   → :7001
-rag-server/     corpus build + retrieval + grounded answering      → :7002
-agentic_loop/   CLI that validates the above two, LLM-reviewed     (no port)
+mcp-server/          4 read-only tools over feature data + repo files   → :7001
+rag-server/          corpus build + retrieval + grounded answering      → :7002
+multi-agent-server/  Planner → Worker → Reviewer → Human Review runs    → :7004 (Release 2)
+agentic_loop/        CLI that validates the above, LLM-reviewed         (no port)
 ```
+
+### multi-agent-server
+
+Generic agents (`agents/`) + per-feature plugins (`workflows/*.py`, each exporting `WORKFLOW`,
+auto-discovered by `registry.py`). Workflows hold **no** shared logic and the server holds **no**
+feature logic; the plugin contract is in its `README.md` and is what students code against. Tool
+calls go through `RunContext` (`ctx.mcp/rag/llm`), which enforces each workflow's `allowed_tools`.
+State is `runs.db` + `logs/audit.jsonl` (both gitignored). The server never writes a feature DB:
+the owning backend applies `approved_items` and then calls `POST /runs/<id>/applied`. Tests fake
+Ollama/MCP/RAG: `cd multi-agent-server && python -m pytest`.
 
 ### mcp-server
 
