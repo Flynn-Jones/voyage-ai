@@ -8,7 +8,7 @@ Every step writes one history event (runs.db) and one audit entry (audit.jsonl).
 import copy
 from functools import partial
 
-from agents.base import AgentError, llm_json
+from agents.base import llm_json
 from agents.planner import PlannerAgent
 from agents.reviewer import ReviewerAgent
 from agents.worker import WorkerAgent
