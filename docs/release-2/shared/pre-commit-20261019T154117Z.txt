@@ -1,10 +1,10 @@
 # pre-commit security scan
-date:       2026-10-19T15:08:43Z
+date:       2026-10-19T15:41:17Z
 who:        shared
 branch:     shared/pre-commit
-commit:     b31ca27
+commit:     d655765
 pre-commit: pre-commit 4.7.0
-scope:      files: ^(ai-services|shared)/
+scope:      files: | (?x)^( ai-services/| shared/ ) 
 
 ruff (lint + S security rules, see ruff.toml)............................Passed
 Detect secrets...........................................................Passed
