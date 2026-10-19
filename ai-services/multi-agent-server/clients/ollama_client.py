@@ -43,6 +43,6 @@ def chat(system_prompt: str, user_prompt: str, json_mode: bool = True) -> str:
 
 def reachable() -> bool:
     try:
-        return requests.get(f"{config.ollama_base_url()}/api/tags", timeout=3).ok
+        return requests.get(f"{config.ollama_base_url()}/api/tags", timeout=config.PROBE_TIMEOUT_SECONDS).ok
     except requests.RequestException:
         return False

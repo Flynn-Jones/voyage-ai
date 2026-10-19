@@ -108,6 +108,6 @@ class MCPClient:
 
 def reachable() -> bool:
     try:
-        return requests.get(f"{legacy_base_url()}/health", timeout=3).ok
+        return requests.get(f"{legacy_base_url()}/health", timeout=config.PROBE_TIMEOUT_SECONDS).ok
     except requests.RequestException:
         return False

@@ -12,6 +12,7 @@ REPO_ROOT = SERVICE_DIR.parent.parent
 
 SERVICE_NAME = "multi-agent-server"
 DEFAULT_PORT = 7004  # 7003 was Activity's retired server; do not reuse it.
+PROBE_TIMEOUT_SECONDS = 2  # /health dependency probes; they run in parallel
 
 
 def port() -> int:

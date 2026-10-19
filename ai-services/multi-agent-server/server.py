@@ -10,6 +10,7 @@ Every response uses the MCP shim envelope:
 import json
 import re
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
@@ -48,11 +49,15 @@ class App:
         }
 
     def health(self, query, body):
+        # Probes run in parallel: on Windows a refused localhost connection can take ~2 s each.
+        with ThreadPoolExecutor(max_workers=len(self.probes) or 1) as pool:
+            futures = {key: pool.submit(probe) for key, probe in self.probes.items()}
+            probes = {key: bool(future.result()) for key, future in futures.items()}
         result = {
             "status": "ok",
             "service": config.SERVICE_NAME,
             "port": config.port(),
-            **{key: probe() for key, probe in self.probes.items()},
+            **probes,
             "workflows": self.registry.names(),
         }
         if self.registry.errors:
