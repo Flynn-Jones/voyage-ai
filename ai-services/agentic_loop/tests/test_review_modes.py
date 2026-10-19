@@ -328,3 +328,12 @@ def test_cli_survives_non_utf8_console(monkeypatch):
     print("Planner \u2192 Worker")
     console.flush()
     assert raw.getvalue() == b"Planner ? Worker\r\n" or raw.getvalue() == b"Planner ? Worker\n"
+
+
+def test_cli_cloud_review_eof_at_prompt_is_pending(cli_repo, monkeypatch):
+    # Found live: stdin=NUL reports isatty() True on Windows, then input() raises EOFError.
+    def eof(prompt=""):
+        raise EOFError
+    monkeypatch.setattr("builtins.input", eof)
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+    assert app_main.main(["--mode", "cloud-deployment-review", "--no-llm"]) == 2

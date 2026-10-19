@@ -56,23 +56,31 @@ def _make_decider(decision=None, conditions=None, decided_by=None, interactive=N
             return {"decision": decision, "conditions": conditions, "decided_by": decided_by or _user()}
         if not (interactive if interactive is not None else sys.stdin.isatty()):
             return None
-        print()
-        print(result.evidence_text())
-        for rec in result.recommendations:
-            print(f"  > {rec}")
-        for key, text in result.commentary.items():
-            print(f"  {key}: {text}")
-        while True:
-            choice = input(f"Human release decision {list(DECISIONS)}: ").strip().lower()
-            if choice in DECISIONS:
-                break
-            print("Please type one of: " + ", ".join(DECISIONS))
-        given = None
-        while choice == "approve-with-conditions" and not given:
-            given = input("Conditions (required): ").strip()
-        who = input(f"Decided by [{_user()}]: ").strip() or _user()
-        return {"decision": choice, "conditions": given, "decided_by": who}
+        try:
+            return _prompt_decision(result)
+        except EOFError:  # e.g. stdin is NUL, which Windows reports as a TTY
+            return None
     return decide
+
+
+def _prompt_decision(result) -> dict:
+    """Show the evidence and recommendations, then ask the human for the release decision."""
+    print()
+    print(result.evidence_text())
+    for rec in result.recommendations:
+        print(f"  > {rec}")
+    for key, text in result.commentary.items():
+        print(f"  {key}: {text}")
+    while True:
+        choice = input(f"Human release decision {list(DECISIONS)}: ").strip().lower()
+        if choice in DECISIONS:
+            break
+        print("Please type one of: " + ", ".join(DECISIONS))
+    given = None
+    while choice == "approve-with-conditions" and not given:
+        given = input("Conditions (required): ").strip()
+    who = input(f"Decided by [{_user()}]: ").strip() or _user()
+    return {"decision": choice, "conditions": given, "decided_by": who}
 
 
 def _review_exit_code(mode, result) -> int:
