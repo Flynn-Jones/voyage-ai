@@ -4,6 +4,11 @@ Release 1 adds the "mcp" and "rag" validation modes described in the brief.
 The registry is intentionally a plain dict keyed by mode so a later release
 can add more modes (e.g. a Release 0 AI-Mode replay) without touching the
 orchestrator's dispatch logic.
+
+Release 2 adds three kind="review" modes. They gather evidence into structured
+checks (core/review.py), write report files under docs/release-2/agentic-loop/,
+and always produce LLM recommendations (advisory). cloud-deployment-review also
+requires a human release decision.
 """
 from dataclasses import dataclass, field
 
@@ -17,6 +22,8 @@ class ModeConfig:
     review_prompts: tuple = field(default_factory=tuple)
     # repo-relative folder holding <prompt_family>/; a service can keep its own prompts
     prompts_dir: str = "prompts"
+    kind: str = "validation"  # "validation" (Release 1) or "review" (Release 2, writes reports)
+    requires_decision: bool = False
 
 
 def build_mode_config() -> dict:
@@ -42,5 +49,30 @@ def build_mode_config() -> dict:
             implementation_prompts=("implementation/rag_implementation_prompt.txt",),
             review_prompts=("review/rag_review_prompt.txt", "review/rag_reasoning_prompt.txt"),
             prompts_dir="activity-service/prompts",
+        ),
+        "multi-agent-review": ModeConfig(
+            key="multi-agent-review",
+            label="Multi-Agent Review",
+            prompt_family="multi_agent",
+            implementation_prompts=("implementation/multi_agent_implementation_prompt.txt",),
+            review_prompts=("review/multi_agent_review_prompt.txt",),
+            kind="review",
+        ),
+        "testing-review": ModeConfig(
+            key="testing-review",
+            label="Testing Review",
+            prompt_family="testing",
+            implementation_prompts=("implementation/testing_implementation_prompt.txt",),
+            review_prompts=("review/testing_review_prompt.txt",),
+            kind="review",
+        ),
+        "cloud-deployment-review": ModeConfig(
+            key="cloud-deployment-review",
+            label="Cloud Deployment Review",
+            prompt_family="cloud",
+            implementation_prompts=("implementation/cloud_implementation_prompt.txt",),
+            review_prompts=("review/cloud_review_prompt.txt",),
+            kind="review",
+            requires_decision=True,
         ),
     }
