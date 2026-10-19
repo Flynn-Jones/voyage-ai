@@ -156,7 +156,7 @@ def run(local=False):
                  "/api/delete_activity/{id}", ["id", "activity_id"], method_update="PATCH")
             disabled(name, base, "/api/activity/mcp/list-activities", {})
             disabled(name, base, "/api/activity/rag/answer", {"query": "food tours", "k": 3})
-            disabled(f"{name}-ai-mode", base, "/api/activity/ai-summary", {})
+            disabled(f"{name}-ai-mode", base, "/api/activity/ai-summary", {"activity_id": 1})
         elif name == "budget":
             expense = {"trip_reference": tag, "expense": "Smoke test", "category": "Other",
                        "estimated_cost": 1, "destination_id": 1}
@@ -171,10 +171,11 @@ def run(local=False):
                     "activity_id": 1, "destination_id": 1, "estimated_cost": 5}
             crud(name, base, ("/api/itinerary", item), "/api/itinerary/{id}",
                  ("/api/itinerary/{id}", {**item, "notes": "updated by smoke test"}), "/api/itinerary/{id}",
-                 ["id", "item_id"])
+                 ["id", "itinerary_item_id", "item_id"])
             disabled(name, base, "/api/itinerary/mcp/itinerary", {"trip_reference": tag, "day": 1})
             disabled(name, base, "/api/itinerary/rag/answer", {"trip_reference": tag, "query": "What is planned?"})
-            disabled(f"{name}-ai-mode", base, "/api/itinerary/ai-review", {"trip_reference": tag})
+            disabled(f"{name}-ai-mode", base, "/api/itinerary/ai-review",
+                     {"trip_reference": tag, "day": 1, "prompt": "Review this itinerary"})
 
     failed = RESULTS.count("FAIL")
     print(f"SMOKE-DONE run={run_id} pass={RESULTS.count('PASS')} fail={failed}", flush=True)
