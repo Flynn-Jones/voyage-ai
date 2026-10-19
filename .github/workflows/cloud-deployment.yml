@@ -1,1 +1,213 @@
-# Only for RELEASE 01
+name: cloud-deployment
+
+# Deploys the whole app (shared home page + 5 features: frontend, backend, database) to AWS ECS
+# Fargate. MCP, RAG, the Multi-Agent Server and Ollama are NOT deployed; AI flags are false.
+#
+# gate -> validate (docker compose build) -> ecr-push -> deploy -> smoke
+#
+# Automatic runs (workflow_run) only happen when the repository variable CLOUD_AUTO_DEPLOY is
+# "true" (default off, so merges never silently leave paid infrastructure running). Anyone with
+# write access can run it by hand: Actions -> cloud-deployment -> Run workflow.
+# Setup (secrets, variables, Learner Lab refresh): docs/release-2/cloud/credentials-setup.md
+on:
+  workflow_run:
+    workflows: [student-1, student-2, student-3, student-4, student-5, integration-ci]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      action:
+        description: deploy, or teardown (delete every stack and stop charges)
+        type: choice
+        options: [deploy, teardown]
+        default: deploy
+      skip_gate:
+        description: EMERGENCY ONLY - deploy even if a student/integration workflow is not green (table still logged)
+        type: boolean
+        default: false
+      gate_mode:
+        description: strict = every workflow ran green for this exact commit; latest-main = path-filtered workflows may use their latest main run
+        type: choice
+        options: [strict, latest-main]
+        default: strict
+
+permissions:
+  contents: read
+  actions: read     # gate reads other workflows' runs
+  id-token: write   # OIDC (normal accounts)
+
+# One deployment at a time; a newer trigger waits instead of cancelling a half-applied stack update.
+concurrency:
+  group: cloud-deployment
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+  STACK_PREFIX: ${{ vars.STACK_PREFIX || 'voyage-ai' }}
+  USE_LAB_ROLE: ${{ vars.USE_LAB_ROLE || 'false' }}
+  ENABLE_EFS: ${{ vars.ENABLE_EFS || 'false' }}
+  DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+  HAS_ROLE: ${{ secrets.AWS_ROLE_ARN != '' }}
+
+jobs:
+  gate:
+    name: gate (all student-1..5 + integration-ci green)
+    if: >-
+      (github.event_name == 'workflow_dispatch' && inputs.action == 'deploy') ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' &&
+       vars.CLOUD_AUTO_DEPLOY == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
+
+      - name: Check every workflow run for this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GATE_MODE: ${{ inputs.gate_mode || vars.GATE_MODE || 'strict' }}
+          SKIP_GATE: ${{ inputs.skip_gate || false }}
+        run: |
+          mkdir -p evidence
+          args=("$DEPLOY_SHA" --mode "$GATE_MODE" --out "evidence/gate-${DEPLOY_SHA:0:12}.md")
+          if [ "$SKIP_GATE" = "true" ]; then args+=(--report-only); fi
+          scripts/deploy/aws/gate.sh "${args[@]}"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gate-table
+          path: evidence/
+
+  validate:
+    name: validate (docker compose build)
+    needs: gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
+      - run: docker compose config --quiet
+      - run: docker compose build
+
+  ecr-push:
+    name: ECR push (tag = git SHA, scan on push)
+    needs: validate
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_TAG: ${{ github.event.workflow_run.head_sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
+      - name: AWS credentials (OIDC role)
+        if: env.HAS_ROLE == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: AWS credentials (access keys; Learner Lab also needs AWS_SESSION_TOKEN)
+        if: env.HAS_ROLE != 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Network + ECR stacks
+        run: scripts/deploy/aws/deploy.sh --phase infra
+      - name: Build and push every image
+        run: scripts/deploy/aws/deploy.sh --phase images
+
+  deploy:
+    name: deploy (cluster + services, wait stable)
+    needs: ecr-push
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_TAG: ${{ github.event.workflow_run.head_sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
+      - name: AWS credentials (OIDC role)
+        if: env.HAS_ROLE == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: AWS credentials (access keys; Learner Lab also needs AWS_SESSION_TOKEN)
+        if: env.HAS_ROLE != 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Cluster + services stacks
+        run: scripts/deploy/aws/deploy.sh --phase app
+      - name: Record the ALB URL
+        run: |
+          url="$(aws cloudformation describe-stacks --stack-name "$STACK_PREFIX-cluster" \
+            --query "Stacks[0].Outputs[?OutputKey=='AlbUrl'].OutputValue" --output text)"
+          echo "$url" > docs/release-2/cloud/alb-url.txt
+          echo "### Deployed: $url (frontends on :3000-3005)" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deployment-outputs
+          path: |
+            docs/release-2/cloud/alb-url.txt
+            docs/release-2/cloud/stack-outputs-*.json
+
+  smoke:
+    name: smoke test (frontends, CRUD, AI disabled)
+    needs: deploy
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_TAG: ${{ github.event.workflow_run.head_sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
+      - name: AWS credentials (OIDC role)
+        if: env.HAS_ROLE == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: AWS credentials (access keys; Learner Lab also needs AWS_SESSION_TOKEN)
+        if: env.HAS_ROLE != 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: smoke-test.sh
+        run: scripts/deploy/aws/smoke-test.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-test-output
+          path: docs/release-2/cloud/smoke-test-output-*.txt
+
+  teardown:
+    name: teardown (delete every stack)
+    if: github.event_name == 'workflow_dispatch' && inputs.action == 'teardown'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: AWS credentials (OIDC role)
+        if: env.HAS_ROLE == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: AWS credentials (access keys; Learner Lab also needs AWS_SESSION_TOKEN)
+        if: env.HAS_ROLE != 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - run: scripts/deploy/aws/teardown.sh --yes
