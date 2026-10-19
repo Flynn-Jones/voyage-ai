@@ -32,6 +32,8 @@ repos:
         language: python
         additional_dependencies: [pip-audit==2.10.1]
         files: (^|/)requirements[^/]*\.txt$
+        # One pip-audit at a time: parallel runs race on temp-venv pip upgrades (seen on Windows).
+        require_serial: true
         args:
           # chromadb (ai-services/rag-server): no fixed release exists. All four advisories are in
           # Chroma's HTTP server API / RBAC provider; the RAG server only uses the embedded
