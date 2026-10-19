@@ -386,6 +386,13 @@ def main(argv) -> int:
         for port, name in listeners():
             print(port, name)
     elif command in ("generate", "check"):
+        try:
+            import yaml  # noqa: F401
+        except ImportError:
+            if command == "check":
+                print("skipped: PyYAML not installed (integration-ci runs this check)", file=sys.stderr)
+                return 0
+            raise
         stale = []
         for filename, text in render().items():
             path = HERE / filename
