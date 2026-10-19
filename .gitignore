@@ -226,3 +226,6 @@ __marimo__/
 itinerary-service/reports/final-runtime/host-processes.json
 itinerary-service/reports/final-runtime/run_agentic.py
 itinerary-service/reports/final-runtime/agentic-loop.txt
+
+# Host AI servers started by up-all.sh (scripts/ai-services.sh): pids + logs
+ai-services/.run/
