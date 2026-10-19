@@ -91,8 +91,10 @@ cap in the user prompt. The CLI prints to stdout only — it writes no report fi
 
 ## Commands
 
-No venv is checked in, no test suite, no linter, no formatter. Each component has its own
-`requirements.txt`.
+No venv is checked in and there is no formatter. Each component has its own `requirements.txt` and a
+pytest suite (`cd <component> && python -m pytest`). Linting and security scanning are the repo-root
+pre-commit hooks (Ruff with the `S` rules via `ruff.toml`, detect-secrets, pip-audit), which cover all of
+`ai-services/`: `pre-commit run --all-files`. Justify any accepted finding inline (`# noqa: Sxxx - why`).
 
 ```bash
 # from ai-services/
