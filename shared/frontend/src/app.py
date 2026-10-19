@@ -25,4 +25,5 @@ def create_app():
 
 if __name__ == "__main__":
     app = create_app()
-    app.run(host="0.0.0.0", port=3000)
+    # Runs inside its container: it must bind all interfaces for Docker port mapping.
+    app.run(host="0.0.0.0", port=3000)  # noqa: S104 - container bind
