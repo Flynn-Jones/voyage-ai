@@ -10,6 +10,10 @@ ai_mode_bp = Blueprint("ai_mode", __name__)
 logger = logging.getLogger(__name__)
 
 
+def _ai_disabled_response():
+    return jsonify({"status": "error", "error": "AI-Mode disabled"}), 403
+
+
 @ai_mode_bp.route("/budget/trips")
 def list_trips():
     try:
@@ -23,6 +27,8 @@ def list_trips():
 
 @ai_mode_bp.route("/budget/ai-analyse", methods=["POST"])
 def ai_analyse():
+    if not llm_client.AI_ENABLED:
+        return _ai_disabled_response()
     body = request.get_json(silent=True) or {}
     trip_reference = (body.get("trip_reference") or "").strip()
     filters = {"trip_reference": trip_reference} if trip_reference else None
@@ -52,6 +58,8 @@ def ai_analyse():
 
 @ai_mode_bp.route("/budget/ai-add-expense", methods=["POST"])
 def ai_add_expense():
+    if not llm_client.AI_ENABLED:
+        return _ai_disabled_response()
     body = request.get_json(silent=True) or {}
     user_prompt = (body.get("prompt") or "").strip()
     if not user_prompt:

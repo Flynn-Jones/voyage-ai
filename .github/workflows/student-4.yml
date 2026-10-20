@@ -146,7 +146,7 @@ jobs:
           check /budget/rag/answer '{"query":"What did I spend?"}'
           check /budget/multi-agent/run '{"trip_reference":"TRIP-1001","budget_cap":1300}'
           check /budget/ai-analyse '{"trip_reference":"TRIP-1001"}'
-          check /budget/ai-add-expense '{"request":"Add a taxi for 20 dollars"}'
+          check /budget/ai-add-expense '{"prompt":"Add a taxi for 20 dollars to TRIP-1001"}'
           exit $fail
       - name: Stop
         if: always()

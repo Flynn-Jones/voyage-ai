@@ -274,6 +274,7 @@ services:
       # Release 2: the shared Multi-Agent Server (host-run, :7004) runs Budget's budget_reconcile workflow.
       MULTI_AGENT_SERVICE_URL: ${BUDGET_MULTI_AGENT_SERVICE_URL:-http://host.docker.internal:7004}
       MULTI_AGENT_ENABLED: ${BUDGET_MULTI_AGENT_ENABLED:-true}
+      AI_ENABLED: ${BUDGET_AI_ENABLED:-true}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

@@ -14,6 +14,12 @@ def health():
     return jsonify({"service": "budget-be", "status": "running"})
 
 
+@normal_ui_bp.route("/health")
+def healthcheck():
+    """Liveness only: no database or AI dependency, so it is safe for container and ALB health checks."""
+    return jsonify({"service": "budget-be", "status": "ok"})
+
+
 @normal_ui_bp.route("/expenses")
 def list_expenses():
     filters = {key: value for key, value in request.args.items() if key in FILTERABLE_FIELDS}
