@@ -34,6 +34,7 @@
             <button class="tab-btn" data-tab="ai-mode" type="button">AI Mode</button>
             <button class="tab-btn" data-tab="mcp-mode" type="button">MCP Mode</button>
             <button class="tab-btn" data-tab="rag-mode" type="button">RAG Mode</button>
+            <button class="tab-btn" data-tab="multi-agent" type="button">Multi-Agent</button>
         </nav>
 
         <div class="tab-content">
@@ -41,6 +42,7 @@
             <iframe id="tab-frame-ai-mode" class="tab-frame" src="tabs/ai-mode.html" title="AI Mode tab"></iframe>
             <iframe id="tab-frame-mcp-mode" class="tab-frame" src="tabs/mcp-mode.html" title="MCP Mode tab"></iframe>
             <iframe id="tab-frame-rag-mode" class="tab-frame" src="tabs/rag-mode.html" title="RAG Mode tab"></iframe>
+            <iframe id="tab-frame-multi-agent" class="tab-frame" src="tabs/multi-agent.html" title="Multi-Agent tab"></iframe>
         </div>
     </section>
 </main>
@@ -53,6 +55,7 @@ const tabFrames = {
     "ai-mode": document.getElementById("tab-frame-ai-mode"),
     "mcp-mode": document.getElementById("tab-frame-mcp-mode"),
     "rag-mode": document.getElementById("tab-frame-rag-mode"),
+    "multi-agent": document.getElementById("tab-frame-multi-agent"),
 };
 
 const frameObservers = new WeakMap();
