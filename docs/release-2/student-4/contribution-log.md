@@ -54,5 +54,7 @@ The Multi-Agent Server core was not changed.
 - Run `scripts/test/precommit-report.sh student-4` and capture one real `git commit` with the hooks (blocked,
   then clean).
 - Write `pre-commit-security-report.md`.
-- After the first green `student-4` run on GitHub: commit `junit-endpoint-tests.xml` and write
-  `post-commit-cicd-report.md` with the run URL.
+
+Done: the first `student-4` run on GitHub was green
+([run 39367021651](https://github.com/Flynn-Jones/voyage-ai/actions/runs/39367021651)); its JUnit and
+`post-commit-cicd-report.md` are committed (`504075c`).
