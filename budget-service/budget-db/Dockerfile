@@ -11,4 +11,5 @@ COPY init_db.py .
 
 EXPOSE 6004
 
-CMD ["sh", "-c", "python init_db.py && python app.py"]
+# Schema + seed (only when empty), then gunicorn. One worker: a single SQLite writer process.
+CMD ["sh", "-c", "python init_db.py && exec gunicorn --bind 0.0.0.0:${PORT:-6004} --workers 1 --threads 4 --access-logfile - app:app"]

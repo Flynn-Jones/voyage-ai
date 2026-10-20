@@ -55,6 +55,7 @@ def init_schema(conn):
 
 
 def seed_database(conn):
+    """Replace all rows with the seed data (used by tests and a manual reset)."""
     conn.execute("DELETE FROM expenses")
     conn.executemany(
         """
@@ -78,11 +79,19 @@ def seed_database(conn):
 
 
 def main():
+    """Create the schema; load the seed rows only when the table is empty, so saved data survives restarts.
+
+    Set BUDGET_DB_RESEED=1 to wipe and reload the seed data on start (the old behaviour).
+    """
     conn = get_connection()
     init_schema(conn)
-    seed_database(conn)
+    existing = conn.execute("SELECT COUNT(*) FROM expenses").fetchone()[0]
+    if existing == 0 or os.environ.get("BUDGET_DB_RESEED") == "1":
+        seed_database(conn)
+        print(f"Seeded {DB_FILE} with {len(SEED_EXPENSES)} expenses.")
+    else:
+        print(f"Kept {existing} existing expenses in {DB_FILE} (BUDGET_DB_RESEED=1 to reseed).")
     conn.close()
-    print(f"Initialized {DB_FILE} with {len(SEED_EXPENSES)} expenses.")
 
 
 if __name__ == "__main__":

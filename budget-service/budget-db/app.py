@@ -1,4 +1,5 @@
 """Standalone entry point for the budget database service (port 6004)."""
+import os
 from datetime import datetime, timezone
 
 from flask import Flask, jsonify, request
@@ -43,6 +44,11 @@ def create_app():
     @app.route("/")
     def health():
         return jsonify({"service": "budget-db", "status": "running"})
+
+    @app.route("/health")
+    def healthcheck():
+        """Liveness only: does not open the database file."""
+        return jsonify({"service": "budget-db", "status": "ok"})
 
     @app.route("/expenses")
     def list_expenses():
@@ -152,4 +158,7 @@ app = create_app()
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=6004, debug=True)
+    # Local dev only (containers run gunicorn). Container networking needs all interfaces;
+    # the Werkzeug debugger only with FLASK_DEBUG=1 because it allows code execution.
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", "6004")),  # noqa: S104 - container bind
+            debug=os.environ.get("FLASK_DEBUG") == "1")

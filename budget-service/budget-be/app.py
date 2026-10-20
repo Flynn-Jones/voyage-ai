@@ -1,4 +1,5 @@
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -41,4 +42,7 @@ app = create_app()
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5004, debug=True, use_reloader=False)
+    # Local dev only (containers run gunicorn). Container networking needs all interfaces;
+    # the Werkzeug debugger only with FLASK_DEBUG=1 because it allows code execution.
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", "5004")),  # noqa: S104 - container bind
+            debug=os.environ.get("FLASK_DEBUG") == "1", use_reloader=False)
