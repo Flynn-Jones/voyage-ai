@@ -3,7 +3,7 @@
 - **Result: PASS** (all 5 jobs green on the first run of the new pipeline)
 - Workflow: `.github/workflows/student-4.yml`
 - Run: https://github.com/Flynn-Jones/voyage-ai/actions/runs/39367021651
-- Trigger: `push` to `student-4/release-2-budget-reconciler`, commit `d9e7ed6`, 2026-10-20 03:57–03:58 UTC
+- Trigger: `push` to `student-4/release-2-budget-reconciler`, commit `d9e7ed6` (before the rebase onto main; the same change is now `f940c2c`), 2026-10-20 03:57–03:58 UTC
 - JUnit: [junit-endpoint-tests.xml](junit-endpoint-tests.xml) (CI artifact `junit-endpoint-tests`) and
   [junit-unit-tests.xml](junit-unit-tests.xml) (artifact `student-4-junit-unit-tests`)
 

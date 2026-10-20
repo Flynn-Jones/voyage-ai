@@ -1,0 +1,77 @@
+# pre-commit hooks on a real git commit (student-4, Budget)
+date:   2026-10-20T12:11:41Z
+branch: student-4/release-2-budget-reconciler
+HEAD before: 024a497
+staged: .pre-commit-config.yaml (adds budget-service/ to scope) + a planted canary file
+
+## Attempt 1: canary planted in budget-service/ (fake AWS key, hardcoded password, shell=True)
+$ git commit -m "test: canary (should be blocked)"
+ruff (lint + S security rules, see ruff.toml)............................Failed
+- hook id: ruff
+- exit code: 1
+
+S105 Possible hardcoded password assigned to: "DB_PASSWORD"
+ --> budget-service\budget-be\services\_canary_precommit.py:5:15
+  |
+4 | AWS_ACCESS_KEY_ID = "AKIA************* (redacted fake)"
+5 | DB_PASSWORD = "************ (redacted fake)"
+  |               ^^^^^^^^^^^^^^^^^^^^^^^
+
+S602 `subprocess` call with `shell=True` identified, security issue
+ --> budget-service\budget-be\services\_canary_precommit.py:9:12
+  |
+8 | def run(cmd):
+9 |     return subprocess.run(cmd, shell=True)
+  |            ^^^^^^^^^^^^^^
+
+Found 2 errors.
+
+Detect secrets...........................................................Failed
+- hook id: detect-secrets
+- exit code: 1
+
+ERROR: Potential secrets about to be committed to git repo!
+
+Secret Type: AWS Access Key
+Location:    budget-service\budget-be\services\_canary_precommit.py:4
+
+Secret Type: Secret Keyword
+Location:    budget-service\budget-be\services\_canary_precommit.py:5
+
+Possible mitigations:
+  - For information about putting your secrets in a safer place, please ask in
+    #security
+  - Mark false positives with an inline `pragma: allowlist secret` comment
+
+If a secret has already been committed, visit
+https://help.github.com/articles/removing-sensitive-data-from-a-repository
+
+pip-audit (requirements*.txt)........................(no files to check)Skipped
+
+git exit code: 1
+HEAD after:  024a497  (unchanged = commit blocked)
+
+## Attempt 2: canary removed; commit only the real change (budget-service/ added to the pre-commit scope)
+$ git commit -m "build(budget): add budget-service/ to the pre-commit scope"
+ruff (lint + S security rules, see ruff.toml)........(no files to check)Skipped
+Detect secrets.......................................(no files to check)Skipped
+pip-audit (requirements*.txt)........................(no files to check)Skipped
+[student-4/release-2-budget-reconciler 696911f] build(budget): add budget-service/ to the pre-commit scope
+ 1 file changed, 1 insertion(+)
+
+git exit code: 0
+HEAD after:  696911f  (new commit created)
+
+Note: the fake key/password values above are redacted; they were planted only for this test and never committed.
+
+## Attempt 3: a real in-scope Budget change (new budget-service/README.md), hooks run and pass
+$ git commit -m "docs(budget): add budget-service README"
+ruff (lint + S security rules, see ruff.toml)........(no files to check)Skipped
+Detect secrets...........................................................Passed
+pip-audit (requirements*.txt)........................(no files to check)Skipped
+[student-4/release-2-budget-reconciler c4d7827] docs(budget): add budget-service README (ports, switches, tests, pre-commit)
+ 1 file changed, 35 insertions(+)
+ create mode 100644 budget-service/README.md
+
+git exit code: 0
+HEAD after:  c4d7827  (new commit created)

@@ -51,11 +51,11 @@ budget-be `/health`, budget-db `/health` and the proxied `:3004/api/health` all 
 
 | Found in | Problem | Fix |
 |---|---|---|
-| First live run | qwen2.5:7b reviews dropped findings, rated risk "medium" while over the cap, suggested cutting costs while under the cap, and copied the prompt's "$60" example | The final review always uses the computed findings and risk; only in-scope LLM recommendations whose amounts appear in the computed data are kept (commit 8257406; tests "qwen2.5:7b live …") |
-| Scenario 6 | The planner never chose the Activity tool, so an Activity outage was invisible | `list_activities` is added (with a stated reason) whenever the plan reads the itinerary (4dfd5df) |
-| Scenario 4 | Generic LLM advice for a trip with no data | With no evidence, only the rule-based next step is shown (4dfd5df) |
-| Pre-commit | pip-audit: flask 3.0.3, flask-cors 4.0.1, requests 2.32.3 had known advisories | Upgraded to 3.1.3 / 6.0.5 / 2.34.2; all tests re-run live (b8d4f3a) |
-| Step 5 | budget-db accepted `"estimated_cost": "abc"` | Field validation in budget-db (5c6630a) |
+| First live run | qwen2.5:7b reviews dropped findings, rated risk "medium" while over the cap, suggested cutting costs while under the cap, and copied the prompt's "$60" example | The final review always uses the computed findings and risk; only in-scope LLM recommendations whose amounts appear in the computed data are kept (commit db420dc; tests "qwen2.5:7b live …") |
+| Scenario 6 | The planner never chose the Activity tool, so an Activity outage was invisible | `list_activities` is added (with a stated reason) whenever the plan reads the itinerary (31a3e1a) |
+| Scenario 4 | Generic LLM advice for a trip with no data | With no evidence, only the rule-based next step is shown (31a3e1a) |
+| Pre-commit | pip-audit: flask 3.0.3, flask-cors 4.0.1, requests 2.32.3 had known advisories | Upgraded to 3.1.3 / 6.0.5 / 2.34.2; all tests re-run live (0a08f6c) |
+| Step 5 | budget-db accepted `"estimated_cost": "abc"` | Field validation in budget-db (7f99199) |
 
 Scenario 1's terminal run (`run-d49503fcb1b8`) happened before the Activity-dependency fix, so its plan reads 2
 sources. The later runs read 3.
