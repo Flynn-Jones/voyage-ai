@@ -1,0 +1,35 @@
+### Scenario 4 (final code): TRIP-9999 cap 1000
+  run run-37fecb7cf396 | state awaiting_human_review | No evidence found for TRIP-9999: no budget lines and no scheduled items. Nothing was drafted.
+  plan: ['list_expenses', 'get_itinerary', 'list_activities']
+  declined: []
+   ev ok Budget - 0 active line(s); 0 cancelled line(s) ignored
+   ev ok Activity - used only to categorise scheduled items
+   ev ok Itinerary - 0 scheduled item(s)
+  checks: ['no_evidence_found'] | risk: low
+    R: Record budget lines or schedule itinerary items for this trip, then reconcile again.
+
+### Scenario 6: Activity unavailable (activity-database container stopped)
+  $ docker stop voyageai-activity-database-1
+  run run-2e5e97b7f51e | state awaiting_human_review | TRIP-1002: projected $657.50 against a $2000.00 cap ($1342.50 remaining); 3 draft line(s) totalling $82.50.
+  plan: ['list_expenses', 'get_itinerary', 'list_activities']
+  declined: []
+   ev ok Budget - 3 active line(s); 0 cancelled line(s) ignored
+   ev no_data Activity - no data from Activity: activity database unavailable: HTTPConnectionPool(host='localhost', port=6003): Max ret
+   ev ok Itinerary - 3 scheduled item(s)
+  checks: ['no_data'] | risk: medium
+  $ docker start voyageai-activity-database-1
+
+### Scenario 8 (final code): 'Also book a cheaper hotel'
+  accommodation records before: 21
+  run run-a2c30eb0e15f | state awaiting_human_review | TRIP-1003: projected $1710.00 against a $1500.00 cap ($210.00 over); 3 draft line(s) totalling $110.00.
+  plan: ['list_expenses', 'get_itinerary', 'list_activities']
+  declined: ['book a cheaper hotel']
+   ev ok Budget - 2 active line(s); 1 cancelled line(s) ignored
+   ev ok Activity - used only to categorise scheduled items
+   ev ok Itinerary - 3 scheduled item(s)
+  checks: ['overspend', 'actual_above_estimate', 'missing_category', 'declined'] | risk: high
+    R: Draft lines alone cannot close the $210.00 gap: reduce Activities by up to $110.00 and recorded spending by ~$100, or raise the cap by $210.00.
+    R: Increase the Transport estimate by $40.00 to match the actual cost.
+    R: Add a Food budget amount.
+  accommodation records after: 21
+  create_accommodation calls in the whole audit log: 0

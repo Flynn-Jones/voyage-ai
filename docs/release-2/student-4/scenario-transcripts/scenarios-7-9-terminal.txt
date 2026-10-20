@@ -1,0 +1,33 @@
+### Scenario 7 (terminal): reject all
+  TRIP-1003 rows before: 3
+$ curl -s -X POST http://localhost:5004/budget/multi-agent/run -d {"trip_reference":"TRIP-1003","budget_cap":1500}
+  -> run run-4b96b38bc03a (awaiting_human_review)
+$ curl -s -X POST http://localhost:5004/budget/multi-agent/runs/run-4b96b38bc03a/review -d '{"decision":"reject","note":"Over cap; will rebudget the trip first"}'
+{"result":{"applied_recorded":null,"approved_items":[],"created_expense_ids":[],"decision":"reject","rejected_ids":["1","2","3"],"run_id":"run-4b96b38bc03a","state":"rejected"},"status":"success"}
+
+  TRIP-1003 rows after: 3
+$ python ai-services/multi-agent-server/cli.py history run-4b96b38bc03a
+ 43  2026-10-20T02:50:33.362+00:00  created                  running                {"requested_by": "budget-be"}
+ 44  2026-10-20T02:50:36.338+00:00  plan           planner   running                {"source": "llm", "attempts": [{"attempt": 1, "ok": true}], "duration_ms": 2971}
+ 45  2026-10-20T02:50:38.814+00:00  work           worker    running                {"source": "workflow", "duration_ms": 2471, "tools_called": ["list_expenses", "list_activities", "get_itinerary"]}
+ 46  2026-10-20T02:50:42.010+00:00  review         reviewer  running                {"source": "llm", "attempts": [{"attempt": 1, "ok": true}], "duration_ms": 3191}
+ 47  2026-10-20T02:50:42.018+00:00  human_review   human     awaiting_human_review  {}
+ 48  2026-10-20T02:50:42.080+00:00  human_review   human     rejected               {"decision": "reject", "rejected_ids": ["1", "2", "3"], "note": "Over cap; will rebudget the trip first", "reviewer": "student-4"}
+  audit.jsonl entries for run-4b96b38bc03a:
+    2026-10-20T02:50:36.341+00:00 plan planner 
+    2026-10-20T02:50:38.817+00:00 work worker 
+    2026-10-20T02:50:42.014+00:00 review reviewer 
+    2026-10-20T02:50:42.082+00:00 human_review human {"decision": "reject", "approved_ids": [], "rejected_ids": ["1", "2", "3"], "edits": {}, "note": "Over cap; will rebudget the trip first", "
+
+### Scenario 9 (terminal): MULTI_AGENT_ENABLED=false
+$ BUDGET_MULTI_AGENT_ENABLED=false docker compose -p voyageai up -d --no-deps budget-backend
+ Container voyageai-budget-backend-1 Started 
+  container MULTI_AGENT_ENABLED=false
+  POST /budget/multi-agent/run                                      -> 403
+  GET  /budget/multi-agent/runs/run-4b96b38bc03a                    -> 403
+  GET  /budget/multi-agent/runs/run-4b96b38bc03a/history            -> 403
+  POST /budget/multi-agent/runs/run-4b96b38bc03a/review             -> 403
+  CRUD still works:
+    POST /expenses -> 201
+    GET  /expenses?trip_reference=TRIP-S9 -> 200
+    DELETE /expenses/96 -> 204

@@ -1,0 +1,25 @@
+# Health output, 2026-10-20T02:51:58Z
+
+$ curl -s http://localhost:11434/api/tags   # Ollama
+{'models': ['qwen2.5:0.5b', 'qwen2.5:7b', 'gpt-oss:20b']}
+
+$ curl -s http://localhost:7001/health   # MCP
+{"status":"ok","service":"mcp-server","transport":"streamable-http","mcp_path":"/mcp","tools":["get_itinerary","list_expenses","get_accommodation_by_destination","search_accommodations","create_accommodation","project_files","ci_report","list_destinations","list_activities","get_activity","get_activity_assignments","list_assignments","get_assignment"]}
+
+$ curl -s http://localhost:7002/health   # RAG
+{"status": "ok", "service": "rag-server"}
+
+$ curl -s http://localhost:7004/health   # Multi-Agent
+{"status": "success", "result": {"status": "ok", "service": "multi-agent-server", "port": 7004, "ollama_reachable": true, "mcp_reachable": true, "rag_reachable": true, "workflows": ["budget_reconcile", "example_readonly"]}}
+
+$ curl -s http://localhost:5004/health   # budget-be
+{"service":"budget-be","status":"ok"}
+
+
+$ curl -s http://localhost:6004/health   # budget-db
+{"service":"budget-db","status":"ok"}
+
+
+$ curl -s http://localhost:3004/api/health   # budget-fe(proxy)
+{"service":"budget-be","status":"ok"}
+

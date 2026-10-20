@@ -1,0 +1,39 @@
+$ python ai-services/multi-agent-server/cli.py run budget_reconcile --input '{"trip_reference":"TRIP-1001","budget_cap":1300}'   # created run-d49503fcb1b8
+
+$ ai-services/.venv/Scripts/python.exe ai-services/multi-agent-server/cli.py show run-d49503fcb1b8
+Run run-d49503fcb1b8  workflow=budget_reconcile  state=awaiting_human_review
+  requested_by: cli:Oat   created: 2026-10-20T02:45:59.127+00:00
+  PLAN
+    - list_expenses {}
+    - get_itinerary {}
+    rationale: Start with the direct sources of cost information to reconcile Trip TRIP-1001's expenses.
+  WORK  TRIP-1001: projected $1359.50 against a $1300.00 cap ($59.50 over); 6 draft line(s) totalling $199.50.
+    [1] {"expense": "Guided historic centre walk", "category": "Activities", "estimated_cost": 24.0, "destination_id": "dest-paris", "source": "itinerary", "evidence_ref": "itinerary-db:/itinerary-items/1"}
+    [2] {"expense": "Visit the local art museum", "category": "Activities", "estimated_cost": 18.5, "destination_id": "dest-paris", "source": "itinerary", "evidence_ref": "itinerary-db:/itinerary-items/2"}
+    [3] {"expense": "Riverside food tour", "category": "Food", "estimated_cost": 32.0, "destination_id": "dest-paris", "source": "itinerary", "evidence_ref": "itinerary-db:/itinerary-items/3"}
+    [4] {"expense": "Breakfast market visit", "category": "Food", "estimated_cost": 12.0, "destination_id": "dest-paris", "source": "itinerary", "evidence_ref": "itinerary-db:/itinerary-items/4"}
+    [5] {"expense": "Architecture and gardens tour", "category": "Activities", "estimated_cost": 45.0, "destination_id": "dest-paris", "source": "itinerary", "evidence_ref": "itinerary-db:/itinerary-items/5"}
+    [6] {"expense": "Evening cooking class", "category": "Food", "estimated_cost": 68.0, "destination_id": "dest-paris", "source": "itinerary", "evidence_ref": "itinerary-db:/itinerary-items/6"}
+  REVIEW  risk=high
+    ! Projected $1359.50 is $59.50 over the $1300.00 cap.
+    ! Transport: 'Flight to Paris' actual $480.00 is $30.00 above its $450.00 estimate.
+    ! Activities: draft line 2 'Visit the local art museum' may duplicate recorded 'Museum passes' (similarity 1.0).
+    > Reduce Activities by ~$60
+
+  Next: python cli.py review run-d49503fcb1b8 --decision approve|partial|correct|reject
+
+$ curl -s -X POST http://localhost:5004/budget/multi-agent/runs/run-d49503fcb1b8/review -H 'Content-Type: application/json' -d '{"decision":"partial","approved_ids":[1,3,4,6],"rejected_ids":[2],"edits":{"5":{"estimated_cost":40}},"note":"Museum already covered by passes; tour trimmed to $40","reviewer":"student-4"}'
+{"result":{"applied_recorded":true,"approved_items":[{"category":"Activities","destination_id":"dest-paris","estimated_cost":24.0,"evidence_ref":"itinerary-db:/itinerary-items/1","expense":"Guided historic centre walk","id":1,"source":"itinerary"},{"category":"Food","destination_id":"dest-paris","estimated_cost":32.0,"evidence_ref":"itinerary-db:/itinerary-items/3","expense":"Riverside food tour","id":3,"source":"itinerary"},{"category":"Food","destination_id":"dest-paris","estimated_cost":12.0,"evidence_ref":"itinerary-db:/itinerary-items/4","expense":"Breakfast market visit","id":4,"source":"itinerary"},{"category":"Activities","destination_id":"dest-paris","estimated_cost":40,"evidence_ref":"itinerary-db:/itinerary-items/5","expense":"Architecture and gardens tour","id":5,"source":"itinerary"},{"category":"Food","destination_id":"dest-paris","estimated_cost":68.0,"evidence_ref":"itinerary-db:/itinerary-items/6","expense":"Evening cooking class","id":6,"source":"itinerary"}],"created_expense_ids":[91,92,93,94,95],"decision":"partial","rejected_ids":["2"],"run_id":"run-d49503fcb1b8","state":"applied"},"status":"success"}
+
+$ ai-services/.venv/Scripts/python.exe ai-services/multi-agent-server/cli.py history run-d49503fcb1b8
+  1  2026-10-20T02:45:59.132+00:00  created                  running                {"requested_by": "cli:Oat"}
+  2  2026-10-20T02:46:04.808+00:00  plan           planner   running                {"source": "llm", "attempts": [{"attempt": 1, "ok": true}], "duration_ms": 5671}
+  3  2026-10-20T02:46:07.202+00:00  work           worker    running                {"source": "workflow", "duration_ms": 2390, "tools_called": ["list_expenses", "get_itinerary"]}
+  4  2026-10-20T02:46:10.076+00:00  review         reviewer  running                {"source": "llm", "attempts": [{"attempt": 1, "ok": true}], "duration_ms": 2869}
+  5  2026-10-20T02:46:10.083+00:00  human_review   human     awaiting_human_review  {}
+  6  2026-10-20T02:46:12.574+00:00  human_review   human     partially_accepted     {"decision": "partial", "approved_ids": ["1", "3", "4", "5", "6"], "rejected_ids": ["2"], "edits": {"5": {"estimated_cost": 40}}, "note": "Museum already covered by passes; tour trimmed to $40", "reviewer": "student-4"}
+  7  2026-10-20T02:46:12.614+00:00  applied        backend   applied                {"created_ids": [91, 92, 93, 94, 95], "target": "budget-db"}
+
+$ curl -s 'http://localhost:6004/expenses?trip_reference=TRIP-1001'
+[{"actual_cost":480.0,"category":"Transport","created_at":"2026-08-01T00:00:00Z","destination_id":"dest-paris","estimated_cost":450.0,"expense":"Flight to Paris","id":79,"status":"Paid","trip_reference":"TRIP-1001","updated_at":"2026-08-01T00:00:00Z"},{"actual_cost":620.0,"category":"Accommodation","created_at":"2026-08-01T00:00:00Z","destination_id":"dest-paris","estimated_cost":620.0,"expense":"Hotel Le Marais - 4 nights","id":80,"status":"Paid","trip_reference":"TRIP-1001","updated_at":"2026-08-01T00:00:00Z"},{"actual_cost":null,"category":"Activities","created_at":"2026-08-01T00:00:00Z","destination_id":"dest-paris","estimated_cost":90.0,"expense":"Museum passes","id":81,"status":"Planned","trip_reference":"TRIP-1001","updated_at":"2026-08-01T00:00:00Z"},{"actual_cost":null,"category":"Activities","created_at":"2026-10-20T02:46:12.582041+00:00","destination_id":"dest-paris","estimated_cost":24.0,"expense":"Guided historic centre walk","id":91,"status":"Planned","trip_reference":"TRIP-1001","updated_at":"2026-10-20T02:46:12.582041+00:00"},{"actual_cost":null,"category":"Food","created_at":"2026-10-20T02:46:12.588101+00:00","destination_id":"dest-paris","estimated_cost":32.0,"expense":"Riverside food tour","id":92,"status":"Planned","trip_reference":"TRIP-1001","updated_at":"2026-10-20T02:46:12.588101+00:00"},{"actual_cost":null,"category":"Food","created_at":"2026-10-20T02:46:12.593874+00:00","destination_id":"dest-paris","estimated_cost":12.0,"expense":"Breakfast market visit","id":93,"status":"Planned","trip_reference":"TRIP-1001","updated_at":"2026-10-20T02:46:12.593874+00:00"},{"actual_cost":null,"category":"Activities","created_at":"2026-10-20T02:46:12.599005+00:00","destination_id":"dest-paris","estimated_cost":40.0,"expense":"Architecture and gardens tour","id":94,"status":"Planned","trip_reference":"TRIP-1001","updated_at":"2026-10-20T02:46:12.599005+00:00"},{"actual_cost":null,"category":"Food","created_at":"2026-10-20T02:46:12.604001+00:00","destination_id":"dest-paris","estimated_cost":68.0,"expense":"Evening cooking class","id":95,"status":"Planned","trip_reference":"TRIP-1001","updated_at":"2026-10-20T02:46:12.604001+00:00"}]
+
