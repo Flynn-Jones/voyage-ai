@@ -30,13 +30,17 @@
 | `smoke-test.sh --dry-run`, `teardown.sh --dry-run` | **pass** |
 | `docker compose config` + `docker compose build` (all 18 images, the names deploy.sh pushes) | **pass** |
 | Local rehearsal of the in-VPC smoke runner (MCP/RAG off) | frontends 6/6, CRUD 6/6, MCP/RAG disabled 10/10; **AI-Mode disabled 0/5** ([details](local-smoke-rehearsal-20261019.md); needs student change #2) |
-| `gate.sh` against real GitHub runs for `0875f58` | strict: blocked (2 path-filtered, integration-ci failing); latest-main: blocked only by integration-ci (fixed by this PR) |
+| `gate.sh` against real GitHub runs for `0875f58` | latest-main (default): blocked only by the old empty integration-ci (replaced by this PR); student-2 and student-4 accepted on their latest green main runs (Source column). strict: also blocked by those 2 path-filtered workflows |
 | `cloud-deployment-review` static check of `services.yml` | 4 AI flags `false` in 5/5 backends |
 
 ## 3. Deployment run (_TBD_)
 
-- Workflow run: _TBD_ (link) · trigger: _TBD_ (workflow_run / workflow_dispatch) · gate mode: _TBD_
-- Gate table: _TBD_ (paste from the `gate-table` artifact)
+- Workflow run: _TBD_ (link) · trigger: _TBD_ (workflow_run / workflow_dispatch) · gate mode: `latest-main`
+- Gate table: _TBD_ (paste from the `gate-table` artifact; per workflow: run id, SHA, conclusion, Source)
+- Gate mode justification: `latest-main` checks each feature's run for this commit, or, when its path filter
+  skipped the commit, that feature's most recent green run on main. The Source column records which one
+  (`current SHA` / `latest green on main`). `strict` (same commit for all six) becomes the default once every
+  `student-N.yml` runs on every push to main (student-changes.md #4).
 - Duration: gate _TBD_ · validate _TBD_ · ECR push _TBD_ · deploy _TBD_ · smoke _TBD_
 - ECR scan-on-push findings: _TBD_ (`aws ecr describe-image-scan-findings`, critical/high counts per image)
 

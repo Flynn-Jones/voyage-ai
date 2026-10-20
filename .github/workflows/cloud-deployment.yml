@@ -26,10 +26,10 @@ on:
         type: boolean
         default: false
       gate_mode:
-        description: strict = every workflow ran green for this exact commit; latest-main = path-filtered workflows may use their latest main run
+        description: latest-main (default) = a path-filtered workflow may use its latest green main run; strict = every workflow ran green for this exact commit
         type: choice
-        options: [strict, latest-main]
-        default: strict
+        options: [latest-main, strict]
+        default: latest-main
 
 permissions:
   contents: read
@@ -65,7 +65,7 @@ jobs:
       - name: Check every workflow run for this commit
         env:
           GH_TOKEN: ${{ github.token }}
-          GATE_MODE: ${{ inputs.gate_mode || vars.GATE_MODE || 'strict' }}
+          GATE_MODE: ${{ inputs.gate_mode || vars.GATE_MODE || 'latest-main' }}
           SKIP_GATE: ${{ inputs.skip_gate || false }}
         run: |
           mkdir -p evidence

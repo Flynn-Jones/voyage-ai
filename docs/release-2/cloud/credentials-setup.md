@@ -59,7 +59,7 @@ gh variable set AWS_REGION        --body us-east-1
 gh variable set USE_LAB_ROLE      --body true
 gh variable set STACK_PREFIX      --body voyage-ai
 gh variable set CLOUD_AUTO_DEPLOY --body false
-gh variable set GATE_MODE         --body strict
+gh variable set GATE_MODE         --body latest-main
 ```
 
 ### A4. Refresh routine (about every 4 hours)
@@ -116,7 +116,7 @@ gh variable set AWS_REGION        --body us-east-1
 gh variable set USE_LAB_ROLE      --body false
 gh variable set STACK_PREFIX      --body voyage-ai
 gh variable set CLOUD_AUTO_DEPLOY --body false
-gh variable set GATE_MODE         --body strict
+gh variable set GATE_MODE         --body latest-main
 ```
 Fallback if OIDC isn't possible: set `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` from a dedicated IAM user
 with the same policy as `bootstrap-oidc.yml`, and leave `AWS_ROLE_ARN` unset. Rotate those keys after the release.
@@ -131,19 +131,27 @@ with the same policy as `bootstrap-oidc.yml`, and leave `AWS_ROLE_ARN` unset. Ro
 - **From a laptop:** `scripts/deploy/aws/deploy.sh --dry-run` first, then `deploy.sh` and `smoke-test.sh`.
 - **Stop paying:** Run workflow → action `teardown`, or `scripts/deploy/aws/teardown.sh`.
 
-### Gate mode
-The gate deploys only when **student-1..5 and integration-ci** all succeeded for the commit being deployed
-(`strict`). Each student workflow has a path filter, so a commit that touches only one feature has no run
-for the other four, and `strict` blocks it. Options:
-1. Students make their workflow run on **every push to main** (keep the path filter for pull requests only).
-   Then `strict` works as intended. This is the recommended fix; see student-changes.md.
-2. Set `GATE_MODE=latest-main` (or choose it when dispatching). A workflow that did not run for this commit
-   is accepted if its **latest main run** succeeded, and the gate table marks it as path-filtered.
+### Gate mode (default `latest-main`)
+The gate deploys only when **student-1..5 and integration-ci** are all green. There are two modes:
 
-`skip_gate` (dispatch only) deploys anyway, still logs the table, and is for emergencies only.
+| Mode | Rule | When |
+|---|---|---|
+| **`latest-main`** (default for auto-deploys and the criterion-6 evidence run) | A workflow's run **for this commit** must be green. If its path filter skipped this commit, its **most recent completed run on main** must be green instead. | Now |
+| `strict` | Every workflow must have a green run for **exactly this commit**. | Once every `student-N.yml` runs on every push to main (student-changes.md #4) |
+
+**Why `latest-main` for now.** Each `student-N.yml` is path-filtered, so a commit touching one feature has no
+run for the other four, and `strict` could never pass. `latest-main` still verifies every feature: each one's
+most recent green run on main is checked, and a red latest run blocks the deploy. The gate table records, per
+workflow, the **run id, SHA, conclusion and Source**: `current SHA` (ran for this commit) or
+`latest green on main` (skipped by its path filter). The evidence therefore shows exactly which result each
+feature was trusted on. integration-ci has no path filter, so it is always checked on the current SHA.
+
+Choose `strict` per dispatch with the `gate_mode` input, or permanently with `gh variable set GATE_MODE
+--body strict` once student change #4 is done. `skip_gate` (dispatch only) deploys anyway, still logs the
+table, and is for emergencies only.
 
 ## Criterion 6 evidence (one controlled auto-deploy)
-1. Credentials set up (A or B). `GATE_MODE` chosen as above.
+1. Credentials set up (A or B). `GATE_MODE` left at `latest-main`.
 2. `gh variable set CLOUD_AUTO_DEPLOY --body true`
 3. Merge a PR to main. Wait for student-N and integration-ci, then **cloud-deployment** starts on its own:
    gate → validate → ECR push → deploy → smoke.
