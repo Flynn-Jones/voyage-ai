@@ -28,9 +28,10 @@ REPO_ROOT = BASE_DIR.parent.parent  # ai-services/agentic_loop -> ai-services ->
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
-from config.review_config import build_mode_config
-from core.orchestrator import run_mode, run_review_mode
-from core.reporter import print_menu, print_prompt_map
+# E402: these imports need BASE_DIR on sys.path first (the CLI is run as a script from the repo root).
+from config.review_config import build_mode_config  # noqa: E402
+from core.orchestrator import run_mode  # noqa: E402
+from core.reporter import print_menu, print_prompt_map  # noqa: E402
 
 
 REVIEW_MODES = ("multi-agent-review", "testing-review", "cloud-deployment-review")

@@ -1,0 +1,16 @@
+# Shared Ruff config (Release 2 pre-commit security scan).
+# Base = Ruff's classic defaults, pinned explicitly so a Ruff upgrade can't widen
+# the gate; "S" adds the flake8-bandit security rules on top.
+# Accepted findings are suppressed inline with `# noqa: Sxxx - <justification>`
+# and listed in docs/release-2/<you>/pre-commit-security-report.md.
+target-version = "py311"
+extend-exclude = ["**/chroma"]
+
+[lint]
+select = ["E4", "E7", "E9", "F"]
+extend-select = ["S"]
+
+[lint.per-file-ignores]
+# pytest asserts are the test mechanism, not a production control-flow check.
+"**/tests/**" = ["S101"]
+"**/test_*.py" = ["S101"]

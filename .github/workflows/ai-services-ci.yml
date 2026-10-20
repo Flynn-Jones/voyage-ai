@@ -1,0 +1,111 @@
+name: ai-services-ci
+
+# Shared, non-containerised AI services (MCP 7001, RAG 7002, Multi-Agent 7004,
+# agentic loop). Ollama, the feature databases and the servers themselves are
+# not available on runners: every suite fakes them, so this is offline CI.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'ai-services/**'
+      - 'prompts/**'
+      - '.pre-commit-config.yaml'
+      - '.secrets.baseline'
+      - 'ruff.toml'
+      - 'scripts/precommit/**'
+      - '.github/workflows/ai-services-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'ai-services/**'
+      - 'prompts/**'
+      - '.pre-commit-config.yaml'
+      - '.secrets.baseline'
+      - 'ruff.toml'
+      - 'scripts/precommit/**'
+      - '.github/workflows/ai-services-ci.yml'
+
+concurrency:
+  group: ai-services-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: pytest (${{ matrix.component }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - component: mcp-server
+            requirements: ai-services/mcp-server/requirements-dev.txt
+          - component: rag-server
+            requirements: ai-services/rag-server/tests/requirements.txt
+          - component: agentic_loop
+            requirements: ai-services/agentic_loop/requirements-dev.txt
+          - component: multi-agent-server
+            requirements: ai-services/multi-agent-server/requirements-dev.txt
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Skip if this branch does not have the component yet
+        id: present
+        run: |
+          if [ -f "${{ matrix.requirements }}" ]; then echo "run=true" >> "$GITHUB_OUTPUT";
+          else echo "::notice::ai-services/${{ matrix.component }} not on this branch, skipping"; echo "run=false" >> "$GITHUB_OUTPUT"; fi
+
+      - uses: actions/setup-python@v5
+        if: steps.present.outputs.run == 'true'
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: ai-services/**/requirements*.txt
+
+      - name: Install
+        if: steps.present.outputs.run == 'true'
+        run: pip install -r "${{ matrix.requirements }}"
+
+      - name: pytest
+        if: steps.present.outputs.run == 'true'
+        working-directory: ai-services/${{ matrix.component }}
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/reports"
+          python -m pytest -q --junitxml="$GITHUB_WORKSPACE/reports/${{ matrix.component }}.xml"
+
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.present.outputs.run == 'true'
+        with:
+          name: ai-services-junit-${{ matrix.component }}
+          path: reports/${{ matrix.component }}.xml
+
+  pre-commit:
+    name: pre-commit (ruff S, detect-secrets, pip-audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Skip until .pre-commit-config.yaml is on this branch
+        id: present
+        run: |
+          if [ -f .pre-commit-config.yaml ]; then echo "run=true" >> "$GITHUB_OUTPUT";
+          else echo "::notice::no .pre-commit-config.yaml yet (arrives with the pre-commit PR), skipping"; echo "run=false" >> "$GITHUB_OUTPUT"; fi
+
+      - uses: actions/setup-python@v5
+        if: steps.present.outputs.run == 'true'
+        with:
+          python-version: '3.11'
+
+      - uses: actions/cache@v4
+        if: steps.present.outputs.run == 'true'
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
+
+      - name: pre-commit run --all-files
+        if: steps.present.outputs.run == 'true'
+        run: |
+          pip install pre-commit
+          pre-commit run --all-files --show-diff-on-failure --color always

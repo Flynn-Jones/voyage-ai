@@ -346,7 +346,8 @@ def http(env):
                                          data=json.dumps(body).encode(), method="POST",
                                          headers={"Content-Type": "application/json"})
         try:
-            with urllib.request.urlopen(request, timeout=10) as response:
+            # S310: fixed http://127.0.0.1 URL to the in-process test server, no user-controlled scheme.
+            with urllib.request.urlopen(request, timeout=10) as response:  # noqa: S310
                 return response.status, json.loads(response.read())
         except urllib.error.HTTPError as exc:
             return exc.code, json.loads(exc.read())
