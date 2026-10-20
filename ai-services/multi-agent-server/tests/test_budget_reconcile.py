@@ -179,6 +179,18 @@ def test_unknown_trip_reports_no_evidence_and_invents_nothing(budget):
     assert result["work"]["summary"].startswith("No evidence found for TRIP-9999")
     assert "no_evidence_found" in codes(result["work"])
     assert result["review"]["risk"] == "low"
+    assert result["review"]["recommendations"] == [
+        "Record budget lines or schedule itinerary items for this trip, then reconcile again."]
+
+
+def test_no_evidence_drops_generic_llm_advice(budget):
+    # qwen2.5:7b live on TRIP-9999: "Ensure all categories and items are included in future reconciliations".
+    client, _, chat = budget
+    chat.replies["Reviewer"] = [json.dumps({"risk": "low", "findings": [], "recommendations": [
+        "Ensure all categories and items are included in future reconciliations"]})]
+    review = run(client, trip_reference="TRIP-9999", budget_cap=1000)[1]["result"]["review"]
+    assert review["recommendations"] == [
+        "Record budget lines or schedule itinerary items for this trip, then reconcile again."]
 
 
 def test_activity_tool_down_is_recorded_and_run_continues(budget):
@@ -225,9 +237,11 @@ def test_llm_plan_is_used_and_args_come_from_input(budget):
         {"tool": "list_expenses", "reason": "recorded lines", "args": {"trip_reference": "TRIP-HACK"}},
         {"tool": "get_itinerary", "reason": "chosen items"}], "rationale": "minimal"})]
     result = run(client, trip_reference="TRIP-1001", budget_cap=1300)[1]["result"]
-    assert [s["tool"] for s in result["plan"]["steps"]] == ["list_expenses", "get_itinerary"]
+    # list_activities is a declared dependency of get_itinerary (it categorises the scheduled items)
+    assert [s["tool"] for s in result["plan"]["steps"]] == ["list_expenses", "get_itinerary", "list_activities"]
+    assert result["plan"]["steps"][2]["reason"].startswith("added automatically")
     assert ("list_expenses", {"trip_reference": "TRIP-1001"}) in fake.calls
-    assert [t for t, _ in fake.calls] == ["list_expenses", "get_itinerary"]
+    assert sorted(t for t, _ in fake.calls) == ["get_itinerary", "list_activities", "list_expenses"]
 
 
 def test_llm_review_recommending_a_booking_is_rejected(budget):

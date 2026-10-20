@@ -143,9 +143,13 @@ class BudgetReconcileWorkflow(Workflow):
                 seen.append(tool)
         if "list_expenses" not in seen:
             raise ValueError("plan must read list_expenses (Budget's own records)")
+        reasons = {s["tool"]: s["reason"] for s in plan["steps"]}
+        if "get_itinerary" in seen and "list_activities" not in seen:
+            # Declared dependency, not a choice: scheduled items are categorised with the Activity catalogue.
+            seen.append("list_activities")
+            reasons["list_activities"] = "added automatically: categorises the scheduled itinerary items"
         # Tool arguments are always built by work() from validated input, never taken from the LLM.
-        plan["steps"] = [{"tool": t, "reason": next(s["reason"] for s in plan["steps"] if s["tool"] == t)}
-                         for t in seen]
+        plan["steps"] = [{"tool": t, "reason": reasons[t]} for t in seen]
         return plan
 
     # ---- work ---------------------------------------------------------------
@@ -375,6 +379,8 @@ class BudgetReconcileWorkflow(Workflow):
         kept = [rec for rec in review["recommendations"]
                 if (over or not re.match(r"\s*(reduce|cut|lower)\b", rec, re.IGNORECASE))
                 and _amounts_in(rec) <= known_amounts]
+        if any(c["code"] == "no_evidence_found" for c in work["checks"]):
+            kept = []  # nothing to reconcile: only the rule-based next step, no generic LLM advice
         rank = {"low": 0, "medium": 1, "high": 2}
         return {
             "risk": max(review["risk"], rules["risk"], key=rank.__getitem__),
@@ -410,6 +416,7 @@ class BudgetReconcileWorkflow(Workflow):
         risk = "high" if "overspend" in codes else "medium" if codes - {"declined"} else "low"
         if "no_evidence_found" in codes:
             risk = "low"
+            recs = ["Record budget lines or schedule itinerary items for this trip, then reconcile again."]
         return {"risk": risk, "findings": [c["text"] for c in checks], "recommendations": recs}
 
 
