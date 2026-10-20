@@ -11,6 +11,7 @@
 files: |
   (?x)^(
     ai-services/|
+    budget-service/|
     shared/
   )
 exclude: (^|/)(venv|\.venv|chroma|node_modules)/
