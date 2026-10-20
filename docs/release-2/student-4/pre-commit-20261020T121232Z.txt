@@ -1,0 +1,13 @@
+# pre-commit security scan
+date:       2026-10-20T12:12:33Z
+who:        student-4
+branch:     student-4/release-2-budget-reconciler
+commit:     c4d7827
+pre-commit: pre-commit 4.7.0
+scope:      files: | (?x)^( ai-services/| budget-service/| shared/ ) 
+
+ruff (lint + S security rules, see ruff.toml)............................Passed
+Detect secrets...........................................................Passed
+pip-audit (requirements*.txt)............................................Passed
+
+exit status: 0 (PASS)

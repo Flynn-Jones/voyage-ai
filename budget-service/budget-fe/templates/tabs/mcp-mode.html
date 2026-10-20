@@ -44,7 +44,7 @@
             Looks up nightly rates for a destination through the shared MCP server
             (Student 2's accommodation data), then pre-fills a budget expense from the
             stay you pick. Browse accommodation in full on the
-            <a href="http://localhost:3002/mcp" target="_blank" rel="noopener">Accommodation feature</a>.
+            <a href="http://localhost:3002/mcp" data-port="3002" data-path="/mcp" target="_blank" rel="noopener">Accommodation feature</a>.
         </p>
 
         <form id="mcp-rates-form">
@@ -60,7 +60,11 @@
 </main>
 
 <script>
-const API_BASE = "http://localhost:5004";
+const API_BASE = "/api";  // nginx proxies /api/ to budget-backend:5004 (see budget-fe/nginx.conf)
+// Cross-feature links use the page's own host (localhost locally, the load balancer on AWS).
+document.querySelectorAll("a[data-port]").forEach((a) => {
+    a.href = `${location.protocol}//${location.hostname}:${a.dataset.port}${a.dataset.path || "/"}`;
+});
 
 function escapeHtml(value) {
     const div = document.createElement("div");

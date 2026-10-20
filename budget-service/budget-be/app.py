@@ -1,4 +1,5 @@
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -17,13 +18,15 @@ logging.basicConfig(
     force=True,
 )
 
-from routes.ai_mode import ai_mode_bp
-from routes.mcp_mode import mcp_mode_bp
-from routes.normal_ui import normal_ui_bp
-from routes.rag_mode import rag_mode_bp
-
 
 def create_app():
+    # Imported here, after BASE_DIR is on sys.path (the app runs as a script or via gunicorn --chdir).
+    from routes.ai_mode import ai_mode_bp
+    from routes.mcp_mode import mcp_mode_bp
+    from routes.multi_agent_mode import multi_agent_mode_bp
+    from routes.normal_ui import normal_ui_bp
+    from routes.rag_mode import rag_mode_bp
+
     app = Flask(__name__)
     CORS(app)
 
@@ -31,6 +34,7 @@ def create_app():
     app.register_blueprint(ai_mode_bp)
     app.register_blueprint(mcp_mode_bp)
     app.register_blueprint(rag_mode_bp)
+    app.register_blueprint(multi_agent_mode_bp)
 
     return app
 
@@ -39,4 +43,7 @@ app = create_app()
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5004, debug=True, use_reloader=False)
+    # Local dev only (containers run gunicorn). Container networking needs all interfaces;
+    # the Werkzeug debugger only with FLASK_DEBUG=1 because it allows code execution.
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", "5004")),  # noqa: S104 - container bind
+            debug=os.environ.get("FLASK_DEBUG") == "1", use_reloader=False)

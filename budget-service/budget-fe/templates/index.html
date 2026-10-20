@@ -11,15 +11,22 @@
     <div class="voyage-nav__container">
         <span class="voyage-nav__brand">VoyageAI &mdash; Budget</span>
         <div class="voyage-nav__switcher">
-            <a href="http://localhost:3000">Home</a>
-            <a href="http://localhost:3001">Destinations</a>
-            <a href="http://localhost:3002">Accommodation</a>
-            <a href="http://localhost:3003">Activities</a>
-            <a href="http://localhost:3004" class="is-active">Budget</a>
-            <a href="http://localhost:3005">Itinerary</a>
+            <a href="http://localhost:3000" data-port="3000">Home</a>
+            <a href="http://localhost:3001" data-port="3001">Destinations</a>
+            <a href="http://localhost:3002" data-port="3002">Accommodation</a>
+            <a href="http://localhost:3003" data-port="3003">Activities</a>
+            <a href="http://localhost:3004" data-port="3004" class="is-active">Budget</a>
+            <a href="http://localhost:3005" data-port="3005">Itinerary</a>
         </div>
     </div>
 </nav>
+<script>
+// Navbar: link to the same host this page came from (localhost locally, the load balancer on AWS).
+// The href stays as a no-JavaScript fallback. Pattern from shared/design-system/navbar-static.html.
+document.querySelectorAll(".voyage-nav [data-port]").forEach((a) => {
+    a.href = `${location.protocol}//${location.hostname}:${a.dataset.port}/`;
+});
+</script>
 <main class="voyage-main">
     <header class="voyage-hero">
         <div>
@@ -34,6 +41,7 @@
             <button class="tab-btn" data-tab="ai-mode" type="button">AI Mode</button>
             <button class="tab-btn" data-tab="mcp-mode" type="button">MCP Mode</button>
             <button class="tab-btn" data-tab="rag-mode" type="button">RAG Mode</button>
+            <button class="tab-btn" data-tab="multi-agent" type="button">Multi-Agent</button>
         </nav>
 
         <div class="tab-content">
@@ -41,6 +49,7 @@
             <iframe id="tab-frame-ai-mode" class="tab-frame" src="tabs/ai-mode.html" title="AI Mode tab"></iframe>
             <iframe id="tab-frame-mcp-mode" class="tab-frame" src="tabs/mcp-mode.html" title="MCP Mode tab"></iframe>
             <iframe id="tab-frame-rag-mode" class="tab-frame" src="tabs/rag-mode.html" title="RAG Mode tab"></iframe>
+            <iframe id="tab-frame-multi-agent" class="tab-frame" src="tabs/multi-agent.html" title="Multi-Agent tab"></iframe>
         </div>
     </section>
 </main>
@@ -53,6 +62,7 @@ const tabFrames = {
     "ai-mode": document.getElementById("tab-frame-ai-mode"),
     "mcp-mode": document.getElementById("tab-frame-mcp-mode"),
     "rag-mode": document.getElementById("tab-frame-rag-mode"),
+    "multi-agent": document.getElementById("tab-frame-multi-agent"),
 };
 
 const frameObservers = new WeakMap();

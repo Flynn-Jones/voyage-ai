@@ -12,4 +12,5 @@ COPY prompts ./prompts
 
 EXPOSE 5004
 
-CMD ["python", "budget-be/app.py"]
+# gunicorn instead of Flask's dev server. Long timeout: a Multi-Agent run waits on several LLM calls.
+CMD ["sh", "-c", "exec gunicorn --chdir budget-be --bind 0.0.0.0:${PORT:-5004} --workers 2 --threads 4 --timeout 300 --access-logfile - app:app"]

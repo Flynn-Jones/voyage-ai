@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Agent Mode</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <style>
+        body { margin: 0; min-height: auto; background: transparent; }
+        .app-shell, .voyage-main { max-width: none; padding: 0; }
+        .ma-help { color: var(--muted); margin-top: 0; }
+        .ma-row { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: flex-end; }
+        .ma-row > div { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; }
+        .ma-row input[type="text"], .ma-row input[type="number"] { min-width: 10rem; }
+        .ma-pill { display: inline-block; padding: 0.15rem 0.6rem; border-radius: 999px; font-size: 0.8rem; font-weight: 600; }
+        .ma-pill.on, .ma-pill.low, .ma-pill.ok { background: var(--state-on-bg); color: var(--state-on-fg); }
+        .ma-pill.off, .ma-pill.high, .ma-pill.no_data { background: var(--state-off-bg); color: var(--state-off-fg); }
+        .ma-pill.medium { background: var(--warning-soft); color: var(--warning-text); }
+        .ma-disabled { border: 1px solid var(--border); background: var(--surface-alt); border-radius: var(--radius); padding: 0.9rem 1rem; margin-bottom: 0.9rem; }
+        .ma-agents { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.75rem; }
+        .ma-agent { border: 1px solid var(--border); border-radius: var(--radius); padding: 0.75rem 0.9rem; background: var(--surface); min-width: 0; }
+        .ma-agent h3 { margin: 0 0 0.4rem; font-size: 0.95rem; }
+        .ma-agent .ma-step { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+        .ma-agent ul { margin: 0.3rem 0 0; padding-left: 1.1rem; }
+        .ma-agent li { margin: 0.2rem 0; font-size: 0.9rem; }
+        .ma-totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.5rem; }
+        .ma-total { background: var(--surface-alt); border-radius: var(--radius); padding: 0.55rem 0.75rem; }
+        .ma-total span { display: block; font-size: 0.75rem; color: var(--muted); }
+        .ma-total strong { font-variant-numeric: tabular-nums; font-size: 1.05rem; }
+        .ma-total.over strong { color: var(--danger); }
+        .ma-table-wrap { overflow-x: auto; }
+        .expense-table input[type="number"] { width: 6.5rem; }
+        .expense-table input[type="text"] { width: 8.5rem; }
+        .expense-table td.num, .expense-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+        .expense-table tr.is-rejected td { opacity: 0.55; text-decoration: line-through; }
+        .expense-table tr.is-rejected td:first-child { text-decoration: none; }
+        .ma-ref { font-family: ui-monospace, Consolas, monospace; font-size: 0.75rem; color: var(--muted); }
+        .ma-timeline { list-style: none; margin: 0; padding: 0; border-left: 2px solid var(--border); }
+        .ma-timeline li { margin: 0 0 0.55rem 0.8rem; font-size: 0.9rem; }
+        .ma-timeline .ma-ts { color: var(--muted); font-size: 0.75rem; font-variant-numeric: tabular-nums; }
+        .ma-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
+        .ma-message { margin-top: 0.75rem; }
+        .ma-message.error { color: var(--danger-text); }
+        [hidden] { display: none !important; }
+    </style>
+</head>
+<body>
+<main class="app-shell">
+    <section class="card">
+        <h2>Reconcile a trip (Multi-Agent) <span id="ma-status" class="ma-pill">checking…</span></h2>
+        <p class="ma-help">Planner chooses evidence, Worker totals what is already chosen for the trip, Reviewer checks it against your cap.
+            Nothing is saved until you approve lines below. Amounts and categories only: it never books or picks hotels, places or activities.</p>
+
+        <div id="ma-disabled" class="ma-disabled" hidden>
+            <strong>Multi-Agent disabled (cloud default).</strong>
+            <span id="ma-disabled-detail">This deployment runs with MULTI_AGENT_ENABLED=false. The Normal UI tab still works.</span>
+        </div>
+
+        <form id="ma-run-form">
+            <div class="ma-row">
+                <div>
+                    <label for="ma-trip">Trip reference</label>
+                    <input id="ma-trip" name="trip_reference" type="text" placeholder="TRIP-1001" required maxlength="120">
+                </div>
+                <div>
+                    <label for="ma-cap">Budget cap ($)</label>
+                    <input id="ma-cap" name="budget_cap" type="number" min="0.01" step="0.01" placeholder="1300" required>
+                </div>
+                <div style="flex: 1 1 16rem;">
+                    <label for="ma-note">Note (optional)</label>
+                    <input id="ma-note" name="note" type="text" maxlength="500" placeholder="Anything the reviewer should know">
+                </div>
+                <button id="ma-run-btn" type="submit" class="button button--primary">Reconcile</button>
+            </div>
+        </form>
+        <div id="ma-run-message" class="ma-message"></div>
+    </section>
+
+    <section id="ma-result" class="card" hidden>
+        <h2>Run <span id="ma-run-id" class="ma-ref"></span> <span id="ma-state" class="ma-pill"></span></h2>
+
+        <div class="ma-totals" id="ma-totals"></div>
+
+        <div class="ma-agents" style="margin-top: 0.9rem;">
+            <div class="ma-agent">
+                <div class="ma-step">Plan</div>
+                <h3>Planner</h3>
+                <div id="ma-planner"></div>
+            </div>
+            <div class="ma-agent">
+                <div class="ma-step">Act</div>
+                <h3>Worker</h3>
+                <div id="ma-worker"></div>
+            </div>
+            <div class="ma-agent">
+                <div class="ma-step">Observe</div>
+                <h3>Reviewer <span id="ma-risk" class="ma-pill"></span></h3>
+                <div id="ma-reviewer"></div>
+            </div>
+        </div>
+    </section>
+
+    <section id="ma-review" class="card" hidden>
+        <h2>Human review</h2>
+        <p class="ma-help">Untick a line to reject it. You can change the amount or category of an approved line before saving.
+            Approved lines are added to Budget as <strong>Planned</strong> expenses.</p>
+        <div class="ma-table-wrap">
+            <table class="expense-table">
+                <thead><tr><th>Approve</th><th>#</th><th>Expense</th><th>Category</th><th class="num">Amount ($)</th><th>Evidence</th></tr></thead>
+                <tbody id="ma-lines"></tbody>
+            </table>
+        </div>
+        <p id="ma-no-lines" class="ma-help" hidden>No draft lines: nothing to add. You can still record a decision.</p>
+        <label for="ma-review-note">Decision note</label>
+        <textarea id="ma-review-note" rows="2" maxlength="500" placeholder="Why you approved, edited or rejected lines"></textarea>
+        <div class="ma-actions">
+            <button id="ma-submit-btn" type="button" class="button button--primary">Submit decision</button>
+            <button id="ma-reject-btn" type="button" class="button button--danger">Reject all</button>
+            <span id="ma-decision-preview" class="ma-help"></span>
+        </div>
+        <div id="ma-review-message" class="ma-message"></div>
+    </section>
+
+    <section id="ma-history-card" class="card" hidden>
+        <h2>History</h2>
+        <ul id="ma-history" class="ma-timeline"></ul>
+    </section>
+</main>
+
+<script>
+const API_BASE = "/api";  // nginx proxies /api/ to budget-backend:5004 (see budget-fe/nginx.conf)
+let currentRun = null;
+
+const $ = (id) => document.getElementById(id);
+const money = (n) => (n === null || n === undefined) ? "-" : "$" + Number(n).toFixed(2);
+
+function escapeHtml(value) {
+    const div = document.createElement("div");
+    div.textContent = value === null || value === undefined ? "" : String(value);
+    return div.innerHTML;
+}
+
+function setMessage(el, text, isError) {
+    el.textContent = text || "";
+    el.classList.toggle("error", Boolean(isError));
+}
+
+async function api(method, path, body) {
+    const response = await fetch(API_BASE + path, {
+        method,
+        headers: body ? { "Content-Type": "application/json" } : {},
+        body: body ? JSON.stringify(body) : undefined,
+    });
+    let data = {};
+    try { data = await response.json(); } catch (error) { data = { error: "non-JSON response (" + response.status + ")" }; }
+    return { status: response.status, data };
+}
+
+function showDisabled(detail) {
+    $("ma-status").textContent = "disabled";
+    $("ma-status").className = "ma-pill off";
+    $("ma-disabled").hidden = false;
+    if (detail) $("ma-disabled-detail").textContent = detail;
+    Array.from($("ma-run-form").elements).forEach((el) => { el.disabled = true; });
+}
+
+async function checkStatus() {
+    try {
+        // 403 = disabled by config; 404 = enabled (probe id does not exist); 502 = server unreachable.
+        const { status, data } = await api("GET", "/budget/multi-agent/runs/status-probe");
+        if (status === 403) return showDisabled();
+        if (status === 502) {
+            $("ma-status").textContent = "server unreachable";
+            $("ma-status").className = "ma-pill medium";
+            setMessage($("ma-run-message"), data.error || "Multi-Agent Server unreachable", true);
+            return;
+        }
+        $("ma-status").textContent = "enabled";
+        $("ma-status").className = "ma-pill on";
+    } catch (error) {
+        $("ma-status").textContent = "backend unreachable";
+        $("ma-status").className = "ma-pill off";
+    }
+}
+
+function renderTotals(t) {
+    const over = t.remaining_or_over < 0;
+    const cells = [
+        ["Budget cap", money(t.budget_cap)],
+        ["Recorded (estimated)", money(t.existing_estimated)],
+        ["Recorded (actual)", money(t.existing_actual)],
+        ["Draft additions", money(t.proposed_additions)],
+        ["Projected total", money(t.projected_total)],
+        [over ? "Over cap" : "Remaining", money(Math.abs(t.remaining_or_over))],
+    ];
+    $("ma-totals").innerHTML = cells.map(([label, value], i) =>
+        `<div class="ma-total${over && i >= 4 ? " over" : ""}"><span>${label}</span><strong>${value}</strong></div>`).join("");
+}
+
+function list(items) {
+    return items.length ? "<ul>" + items.map((x) => `<li>${x}</li>`).join("") + "</ul>" : "<p class='ma-help'>None.</p>";
+}
+
+function renderAgents(run) {
+    const plan = run.plan || {}, work = run.work || {}, review = run.review || {};
+    $("ma-planner").innerHTML = list((plan.steps || []).map((s) =>
+        `<strong>${escapeHtml(s.tool)}</strong>: ${escapeHtml(s.reason)}`)) +
+        (plan.rationale ? `<p class="ma-help">${escapeHtml(plan.rationale)}</p>` : "");
+
+    const evidence = (work.evidence || []).map((e) =>
+        `<span class="ma-pill ${e.status === "ok" ? "ok" : "no_data"}">${e.status === "ok" ? "ok" : "no data"}</span> ` +
+        `${escapeHtml(e.feature)}: ${escapeHtml(e.detail)}`);
+    const extras = [];
+    if ((work.ignored_cancelled || []).length) extras.push("Ignored cancelled: " + escapeHtml(work.ignored_cancelled.join(", ")));
+    if ((work.skipped_already_recorded || []).length) extras.push("Already recorded: " + escapeHtml(work.skipped_already_recorded.join(", ")));
+    (work.declined_requests || []).forEach((d) => extras.push(`<strong>Declined:</strong> "${escapeHtml(d)}" (out of Budget's scope; nothing done)`));
+    const breakdown = Object.entries(work.category_breakdown || {}).map(([cat, v]) =>
+        `${escapeHtml(cat)}: ${money(v.existing)} recorded + ${money(v.proposed)} draft = <strong>${money(v.total)}</strong>`);
+    $("ma-worker").innerHTML = `<p>${escapeHtml(work.summary || "")}</p>` + list(evidence) +
+        (breakdown.length ? "<p class='ma-help' style='margin:0.5rem 0 0'>By category</p>" + list(breakdown) : "") +
+        (extras.length ? list(extras) : "");
+
+    $("ma-risk").textContent = review.risk ? review.risk + " risk" : "";
+    $("ma-risk").className = "ma-pill " + (review.risk || "");
+    $("ma-reviewer").innerHTML = "<p class='ma-help' style='margin:0'>Findings</p>" +
+        list((review.findings || []).map(escapeHtml)) +
+        "<p class='ma-help' style='margin:0.5rem 0 0'>Recommendations</p>" +
+        list((review.recommendations || []).map(escapeHtml));
+}
+
+function renderLines(items) {
+    $("ma-no-lines").hidden = items.length > 0;
+    $("ma-lines").innerHTML = items.map((item) => `
+        <tr data-id="${item.id}" data-category="${escapeHtml(item.category)}" data-cost="${item.estimated_cost}">
+            <td><input type="checkbox" class="ma-approve" id="ma-approve-${item.id}" checked aria-label="Approve line ${item.id}"></td>
+            <td>${item.id}</td>
+            <td>${escapeHtml(item.expense)}</td>
+            <td><input type="text" class="ma-category" id="ma-category-${item.id}" value="${escapeHtml(item.category)}" maxlength="40"></td>
+            <td class="num"><input type="number" class="ma-cost" id="ma-cost-${item.id}" value="${item.estimated_cost}" min="0" step="0.01"></td>
+            <td class="ma-ref">${escapeHtml(item.evidence_ref || "none")}</td>
+        </tr>`).join("");
+    $("ma-lines").querySelectorAll("input").forEach((el) => el.addEventListener("input", updatePreview));
+    updatePreview();
+}
+
+function collectDecision(forceReject) {
+    const rows = Array.from($("ma-lines").querySelectorAll("tr"));
+    const approved = [], rejected = [], edits = {};
+    rows.forEach((row) => {
+        const id = Number(row.dataset.id);
+        const checked = row.querySelector(".ma-approve").checked && !forceReject;
+        row.classList.toggle("is-rejected", !checked);
+        if (!checked) { rejected.push(id); return; }
+        approved.push(id);
+        const change = {};
+        const cost = Number(row.querySelector(".ma-cost").value);
+        const category = row.querySelector(".ma-category").value.trim();
+        if (cost !== Number(row.dataset.cost)) change.estimated_cost = cost;
+        if (category !== row.dataset.category) change.category = category;
+        if (Object.keys(change).length) edits[String(id)] = change;
+    });
+    let decision;
+    if (forceReject || approved.length === 0) decision = "reject";
+    else if (rejected.length) decision = "partial";
+    else if (Object.keys(edits).length) decision = "correct";
+    else decision = "approve";
+    return { decision, approved_ids: approved, rejected_ids: rejected, edits };
+}
+
+function updatePreview() {
+    const d = collectDecision(false);
+    $("ma-decision-preview").textContent =
+        `Decision: ${d.decision} · ${d.approved_ids.length} approved · ${d.rejected_ids.length} rejected · ${Object.keys(d.edits).length} edited`;
+}
+
+async function loadHistory(runId) {
+    const { status, data } = await api("GET", `/budget/multi-agent/runs/${encodeURIComponent(runId)}/history`);
+    if (status !== 200) return;
+    $("ma-history-card").hidden = false;
+    $("ma-history").innerHTML = data.result.map((e) => {
+        const d = e.detail || {};
+        const bits = [];
+        if (d.source) bits.push(d.source);
+        if (d.duration_ms !== undefined) bits.push(d.duration_ms + " ms");
+        if (d.decision) bits.push(d.decision);
+        if (d.tool) bits.push("refused " + d.tool);
+        if (d.created_ids) bits.push("created " + d.created_ids.join(", "));
+        if (d.error) bits.push(d.error);
+        return `<li><span class="ma-ts">${escapeHtml(e.ts)}</span><br><strong>${escapeHtml(e.step)}</strong>` +
+               `${e.agent ? " · " + escapeHtml(e.agent) : ""} → ${escapeHtml(e.state || "")}` +
+               `${bits.length ? " <span class='ma-help'>(" + escapeHtml(bits.join("; ")) + ")</span>" : ""}</li>`;
+    }).join("");
+}
+
+function setState(state) {
+    $("ma-state").textContent = state;
+    $("ma-state").className = "ma-pill " + (state === "rejected" || state === "failed" ? "off" : "on");
+}
+
+$("ma-run-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const cap = $("ma-cap").value;
+    const payload = { trip_reference: $("ma-trip").value.trim(), budget_cap: cap === "" ? null : Number(cap) };
+    if ($("ma-note").value.trim()) payload.note = $("ma-note").value.trim();
+    $("ma-run-btn").disabled = true;
+    setMessage($("ma-run-message"), "Running Planner → Worker → Reviewer… this can take up to a minute.");
+    try {
+        const { status, data } = await api("POST", "/budget/multi-agent/run", payload);
+        if (status === 403) { showDisabled(); return; }
+        if (status !== 201) {
+            const err = typeof data.error === "object" ? data.error.message : data.error;
+            setMessage($("ma-run-message"), `Not started (${status}): ${err}`, true);
+            return;
+        }
+        currentRun = data.result;
+        setMessage($("ma-run-message"), "");
+        $("ma-result").hidden = false;
+        $("ma-review").hidden = false;
+        $("ma-run-id").textContent = currentRun.run_id;
+        setState(currentRun.state);
+        renderTotals(currentRun.work.totals);
+        renderAgents(currentRun);
+        renderLines(currentRun.work.items);
+        $("ma-review-note").value = "";
+        $("ma-submit-btn").disabled = false;
+        $("ma-reject-btn").disabled = false;
+        setMessage($("ma-review-message"), "");
+        await loadHistory(currentRun.run_id);
+    } catch (error) {
+        setMessage($("ma-run-message"), "Budget backend unreachable: " + error.message, true);
+    } finally {
+        $("ma-run-btn").disabled = false;
+    }
+});
+
+async function submitDecision(forceReject) {
+    if (!currentRun) return;
+    const decision = collectDecision(forceReject);
+    decision.note = $("ma-review-note").value.trim();
+    $("ma-submit-btn").disabled = true;
+    $("ma-reject-btn").disabled = true;
+    setMessage($("ma-review-message"), "Saving decision…");
+    const { status, data } = await api("POST", `/budget/multi-agent/runs/${encodeURIComponent(currentRun.run_id)}/review`, decision);
+    if (status === 200) {
+        const r = data.result;
+        setState(r.state);
+        const ids = r.created_expense_ids;
+        setMessage($("ma-review-message"), r.decision === "reject"
+            ? "Rejected. Nothing was added to Budget."
+            : `Saved: ${ids.length} Planned expense(s) added to Budget, ids ${ids.join(", ") || "none"}.` +
+              (r.applied_recorded === false ? " (Note: the Multi-Agent Server could not record this.)" : ""));
+        $("ma-lines").querySelectorAll("input").forEach((el) => { el.disabled = true; });
+    } else {
+        // 409: already decided (nothing written); 400: fix the inputs and submit again.
+        setMessage($("ma-review-message"), `Not saved (${status}): ${data.error}`, true);
+        if (status === 400) { $("ma-submit-btn").disabled = false; $("ma-reject-btn").disabled = false; }
+    }
+    await loadHistory(currentRun.run_id);
+}
+
+$("ma-submit-btn").addEventListener("click", () => submitDecision(false));
+$("ma-reject-btn").addEventListener("click", () => submitDecision(true));
+checkStatus();
+</script>
+</body>
+</html>

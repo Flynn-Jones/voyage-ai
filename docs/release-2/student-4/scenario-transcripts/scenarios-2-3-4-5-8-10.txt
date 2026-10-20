@@ -1,0 +1,49 @@
+### Scenario 10: same review submitted twice (run-d49503fcb1b8)
+  TRIP-1001 rows before: 8
+{"error":"run run-d49503fcb1b8 is 'applied', not awaiting_human_review; only one human decision is allowed per run","status":"error"}
+  [HTTP 409]
+  TRIP-1001 rows after: 8
+
+### Scenario 2: TRIP-1002 cap 2000
+  run run-593b257f4e22 | TRIP-1002: projected $657.50 against a $2000.00 cap ($1342.50 remaining); 3 draft line(s) totalling $82.50.
+  ignored_cancelled: [] | declined: []
+  evidence: [('Budget', 'ok'), ('Itinerary', 'ok')]
+  checks: [] | risk: low
+
+### Scenario 3: TRIP-1003 cap 1500
+  run run-fc705cb5c8c8 | TRIP-1003: projected $1710.00 against a $1500.00 cap ($210.00 over); 3 draft line(s) totalling $110.00.
+  ignored_cancelled: ['JR rail pass'] | declined: []
+  evidence: [('Budget', 'ok'), ('Itinerary', 'ok')]
+  checks: ['overspend', 'actual_above_estimate', 'missing_category'] | risk: high
+    F: Projected $1710.00 is $210.00 over the $1500.00 cap.
+    F: Transport: 'Flight to Tokyo' actual $940.00 is $40.00 above its $900.00 estimate.
+    F: No Food budget recorded or drafted.
+    R: Draft lines alone cannot close the $210.00 gap: reduce Activities by up to $110.00 and recorded spending by ~$100, or raise the cap by $210.00.
+    R: Increase the Transport estimate by $40.00 to match the actual cost.
+    R: Add a Food budget amount.
+
+### Scenario 4: TRIP-9999 cap 1000
+  run run-2edbe9d3a8f7 | No evidence found for TRIP-9999: no budget lines and no scheduled items. Nothing was drafted.
+  ignored_cancelled: [] | declined: []
+  evidence: [('Budget', 'ok'), ('Itinerary', 'ok')]
+  checks: ['no_evidence_found'] | risk: low
+    F: No evidence found for TRIP-9999: no budget lines and no scheduled items. Nothing was drafted.
+    R: Ensure all categories and items are included in future reconciliations
+
+### Scenario 5: invalid caps (no run may be created)
+{"error":"invalid input: budget_cap must be a number greater than 0","status":"error"}  [HTTP 400]
+{"error":"invalid input: budget_cap must be a number greater than 0","status":"error"}  [HTTP 400]
+  runs before: 4, after: 4
+
+### Scenario 8: out-of-scope request in the note
+  run run-493695a73ef2 | TRIP-1001: projected $1354.50 against a $1300.00 cap ($54.50 over); 1 draft line(s) totalling $18.50.
+  ignored_cancelled: [] | declined: ['book a cheaper hotel']
+  evidence: [('Budget', 'ok'), ('Itinerary', 'ok')]
+  checks: ['overspend', 'actual_above_estimate', 'possible_duplicate', 'declined'] | risk: high
+    F: Projected $1354.50 is $54.50 over the $1300.00 cap.
+    F: Transport: 'Flight to Paris' actual $480.00 is $30.00 above its $450.00 estimate.
+    F: Activities: draft line 1 'Visit the local art museum' may duplicate recorded 'Museum passes' (similarity 1.0).
+    F: Declined out-of-scope request 'book a cheaper hotel': Budget only reconciles costs and never books or changes other features' data.
+    R: Review and correct the overestimated transport cost by ~$30.
+  accommodation records before: 0, after: 0
+  create_accommodation calls in audit.jsonl: 0

@@ -29,13 +29,18 @@ services:
       - MCP_ENABLED=true
       - RAG_SERVICE_URL=http://host.docker.internal:7002
       - RAG_ENABLED=true
+      - MULTI_AGENT_SERVICE_URL=http://host.docker.internal:7004
+      - MULTI_AGENT_ENABLED=true
+      - AI_ENABLED=true
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
       - database
     networks:
-      - internal
-      - microservices-net
+      internal:
+        aliases:
+          - budget-backend   # the name budget-fe/nginx.conf proxies to (same as root compose / AWS)
+      microservices-net:
 
   database:
     build: ./budget-db
