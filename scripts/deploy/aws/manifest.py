@@ -143,7 +143,11 @@ SERVICES = [
     # ---------------- Itinerary ----------------
     frontend("itinerary-frontend", "itinerary-frontend", 80, [3005]),
     # itinerary-fe's nginx.conf hardcodes proxy_pass http://itinerary-be:5005 (compose network alias).
-    # Service Connect registers that alias, which is the only name any client uses.
+    # Compose answers to both itinerary-backend and itinerary-be, but ECS Service Connect allows only ONE
+    # client alias per port mapping ("The maximum number of client aliases that you can have in this list
+    # is 1", ECS API reference: ServiceConnectService.clientAliases). So we register itinerary-be:5005:
+    # a repo-wide grep (2026-10-20) found no cloud-run code calling http://itinerary-backend:5005.
+    # The ECS service, image and ECR repository keep the name itinerary-backend.
     internal("itinerary-backend", container("itinerary-backend", 5005, {
         "PORT": "5005", "DATABASE_SERVICE_URL": "http://itinerary-database:6005",
         "DESTINATION_SERVICE_URL": "http://destination-database:6001",
