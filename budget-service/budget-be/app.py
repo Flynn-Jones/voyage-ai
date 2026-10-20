@@ -18,14 +18,15 @@ logging.basicConfig(
     force=True,
 )
 
-from routes.ai_mode import ai_mode_bp
-from routes.mcp_mode import mcp_mode_bp
-from routes.multi_agent_mode import multi_agent_mode_bp
-from routes.normal_ui import normal_ui_bp
-from routes.rag_mode import rag_mode_bp
-
 
 def create_app():
+    # Imported here, after BASE_DIR is on sys.path (the app runs as a script or via gunicorn --chdir).
+    from routes.ai_mode import ai_mode_bp
+    from routes.mcp_mode import mcp_mode_bp
+    from routes.multi_agent_mode import multi_agent_mode_bp
+    from routes.normal_ui import normal_ui_bp
+    from routes.rag_mode import rag_mode_bp
+
     app = Flask(__name__)
     CORS(app)
 
