@@ -1,0 +1,5 @@
+# Run state and audit trail are local runtime data, never committed.
+runs.db
+runs.db-journal
+logs/*
+!logs/.gitkeep

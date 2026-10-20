@@ -103,18 +103,28 @@ One-time setup:
 ```bash
 cd ai-services
 python3 -m venv venv
-./venv/bin/pip install -r mcp-server/requirements.txt -r rag-server/requirements.txt
+./venv/bin/pip install -r mcp-server/requirements.txt -r rag-server/requirements.txt \
+  -r multi-agent-server/requirements.txt
 ```
 
 Then run each in its own terminal:
 
 ```bash
-cd ai-services/mcp-server && ../venv/bin/python mcp_http_server.py   # :7001
-cd ai-services/rag-server && ../venv/bin/python rag_http_server.py   # :7002
+cd ai-services/mcp-server && ../venv/bin/python mcp_http_server.py      # :7001
+cd ai-services/rag-server && ../venv/bin/python rag_http_server.py      # :7002
+cd ai-services/multi-agent-server && ../venv/bin/python server.py       # :7004
 ```
 
-Without these two running, the feature UIs still work; only their MCP and RAG
-modes return an unavailable error.
+Alternatively, `./up-all.sh` starts all three in the background after the containers
+(use `--no-ai` to skip them), and `./down-all.sh` stops them. Their logs are in `ai-services/.run/`.
+
+The **Multi-Agent Server** (Release 2) runs each feature's Planner → Worker → Reviewer →
+Human Review workflow. Drive it from the terminal with
+`python ai-services/multi-agent-server/cli.py workflows`. See
+[ai-services/multi-agent-server/README.md](ai-services/multi-agent-server/README.md) to add a workflow.
+
+Without these servers running, the feature UIs still work; only their MCP, RAG and
+multi-agent modes return an unavailable error.
 
 ### 3. Open the app
 
@@ -127,7 +137,8 @@ modes return an unavailable error.
 | Budget | [3004](http://localhost:3004) | 5004 | 6004 |
 | Itinerary | [3005](http://localhost:3005) | 5005 | 6005 |
 
-Shared, non-containerised: **MCP server 7001**, **RAG server 7002**, Ollama 11434.
+Shared, non-containerised: **MCP server 7001**, **RAG server 7002**, **Multi-Agent Server 7004**,
+Ollama 11434. (7003 is retired; do not reuse it.)
 
 The destination backend is the one exception to the `X00N` port convention: its
 host port is remapped to 5011 because another process on some dev machines owns
@@ -138,6 +149,7 @@ host port is remapped to 5011 because another process on some dev machines owns
 ```bash
 curl localhost:7001/health          # MCP server + its registered tools
 curl localhost:7002/health          # RAG server
+curl localhost:7004/health          # Multi-Agent Server + Ollama/MCP/RAG reachability + workflows
 curl localhost:5002/health          # a feature backend
 curl localhost:6002/health          # a feature database
 

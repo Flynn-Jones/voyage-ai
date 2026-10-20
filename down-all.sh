@@ -5,6 +5,9 @@
 #   ./scripts/down-all.sh              # stop + remove containers only
 #   ./scripts/down-all.sh --volumes    # also remove named volumes (wipes all SQLite data)
 #
+# Also stops the host AI servers (MCP 7001, RAG 7002, Multi-Agent 7004) that
+# up-all.sh started, via scripts/ai-services.sh.
+#
 # Run from the repo root. Skips folders that don't exist yet or don't have a
 # docker-compose.yml yet, and continues past any project that errors out
 # instead of stopping the whole run — useful while some feature folders are
@@ -25,6 +28,9 @@ if [[ "${1:-}" == "--volumes" ]]; then
   FLAG="--volumes"
   echo "==> WARNING: this will also delete all SQLite data volumes."
 fi
+
+echo "==> Stopping shared AI servers (host)"
+"$(dirname "$0")/scripts/ai-services.sh" stop
 
 FAILED=()
 SKIPPED=()

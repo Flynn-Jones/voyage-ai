@@ -6,6 +6,10 @@
 # Usage:
 #   ./scripts/up-all.sh          # build + start everything, detached
 #   ./scripts/up-all.sh --logs   # same, then follow logs from all projects
+#   ./up-all.sh --no-ai          # skip the host AI servers (MCP 7001, RAG 7002, Multi-Agent 7004)
+#
+# The shared AI servers are not containerised; they are started on the host by
+# scripts/ai-services.sh after the containers (skipped if no ai-services venv).
 #
 # Run from the repo root. Skips folders that don't exist yet or don't have a
 # docker-compose.yml yet, and continues past any project that fails to build
@@ -61,7 +65,13 @@ echo
 echo "    Run 'docker compose -f <project>/docker-compose.yml ps' to check a"
 echo "    specific project, or 'docker ps' to see everything running."
 
-if [[ "${1:-}" == "--logs" ]]; then
+if [[ " $* " != *" --no-ai "* ]]; then
+  echo
+  echo "==> Shared AI servers (host, not containerised)"
+  "$(dirname "$0")/scripts/ai-services.sh" start
+fi
+
+if [[ " $* " == *" --logs "* ]]; then
   for p in "${STARTED[@]}"; do
     (cd "$p" && docker compose logs -f &)
   done
