@@ -7,3 +7,4 @@ services:
     environment:
       - MCP_ENABLED=false
       - RAG_ENABLED=false
+      - MULTI_AGENT_ENABLED=false
