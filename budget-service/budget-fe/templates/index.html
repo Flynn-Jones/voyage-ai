@@ -11,15 +11,22 @@
     <div class="voyage-nav__container">
         <span class="voyage-nav__brand">VoyageAI &mdash; Budget</span>
         <div class="voyage-nav__switcher">
-            <a href="http://localhost:3000">Home</a>
-            <a href="http://localhost:3001">Destinations</a>
-            <a href="http://localhost:3002">Accommodation</a>
-            <a href="http://localhost:3003">Activities</a>
-            <a href="http://localhost:3004" class="is-active">Budget</a>
-            <a href="http://localhost:3005">Itinerary</a>
+            <a href="http://localhost:3000" data-port="3000">Home</a>
+            <a href="http://localhost:3001" data-port="3001">Destinations</a>
+            <a href="http://localhost:3002" data-port="3002">Accommodation</a>
+            <a href="http://localhost:3003" data-port="3003">Activities</a>
+            <a href="http://localhost:3004" data-port="3004" class="is-active">Budget</a>
+            <a href="http://localhost:3005" data-port="3005">Itinerary</a>
         </div>
     </div>
 </nav>
+<script>
+// Navbar: link to the same host this page came from (localhost locally, the load balancer on AWS).
+// The href stays as a no-JavaScript fallback. Pattern from shared/design-system/navbar-static.html.
+document.querySelectorAll(".voyage-nav [data-port]").forEach((a) => {
+    a.href = `${location.protocol}//${location.hostname}:${a.dataset.port}/`;
+});
+</script>
 <main class="voyage-main">
     <header class="voyage-hero">
         <div>

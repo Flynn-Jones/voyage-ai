@@ -45,7 +45,7 @@
 </main>
 
 <script>
-const API_BASE = "http://localhost:5004";
+const API_BASE = "/api";  // nginx proxies /api/ to budget-backend:5004 (see budget-fe/nginx.conf)
 
 const analyseForm = document.getElementById("analyse-form");
 const analyseTrip = document.getElementById("analyse-trip");
