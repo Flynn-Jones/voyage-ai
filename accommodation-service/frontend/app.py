@@ -361,6 +361,87 @@ def create_app():
         payload = data.get("results") if action == "retrieve" else data
         return render_rag(query=query, raw_result=json.dumps(payload, indent=2), raw_title=titles[action])
 
+    def fetch_history(run_id):
+        try:
+            response = backend_request("GET", f"/accommodation/multi-agent/runs/{run_id}/history")
+        except RuntimeError:
+            return []
+        if response.status_code != 200:
+            return []
+        data = response.json() if response.headers.get("Content-Type", "").startswith("application/json") else {}
+        history = data.get("result")
+        return history if isinstance(history, list) else []
+
+    def render_multi_agent(**overrides):
+        context = {
+            "destination": "", "budget_cap_raw": "", "interests_raw": "",
+            "run": None, "review_result": None, "history": None,
+            "disabled": False, "error": None,
+        }
+        context.update(overrides)
+        return render_template("multi_agent.html", destinations=fetch_destinations(), **context)
+
+    @app.route("/multi-agent", methods=["GET", "POST"])
+    def multi_agent_page():
+        if request.method == "GET":
+            return render_multi_agent()
+
+        action = request.form.get("action", "run")
+
+        if action == "review":
+            run_id = request.form.get("run_id", "").strip()
+            approved_ids = request.form.getlist("approved_ids")
+            decision = "partial" if approved_ids else "reject"
+
+            try:
+                response = backend_request(
+                    "POST", f"/accommodation/multi-agent/runs/{run_id}/review",
+                    json_body={"decision": decision, "approved_ids": approved_ids,
+                               "note": request.form.get("note", "").strip() or None,
+                               "reviewer": "accommodation-ui"},
+                )
+            except RuntimeError as exc:
+                return render_multi_agent(error=str(exc)), 502
+
+            data = response.json() if response.headers.get("Content-Type", "").startswith("application/json") else {}
+            if response.status_code == 403:
+                return render_multi_agent(disabled=True), 403
+            if response.status_code >= 400:
+                return render_multi_agent(error=data.get("error") or "Review failed."), response.status_code
+
+            return render_multi_agent(review_result=data.get("result"), history=fetch_history(run_id))
+
+        # action == "run"
+        destination = request.form.get("destination", "").strip()
+        budget_cap_raw = request.form.get("budget_cap", "")
+        interests_raw = request.form.get("interests", "")
+        budget_cap = parse_float(budget_cap_raw)
+        echo = {"destination": destination, "budget_cap_raw": budget_cap_raw, "interests_raw": interests_raw}
+
+        if not destination:
+            return render_multi_agent(error="Destination is required.", **echo), 400
+        if budget_cap is None or budget_cap <= 0:
+            return render_multi_agent(error="Budget cap must be a positive number.", **echo), 400
+
+        interests = [item.strip().lower() for item in interests_raw.split(",") if item.strip()]
+        payload = {"destination": destination, "budget_cap": budget_cap}
+        if interests:
+            payload["interests"] = interests
+
+        try:
+            response = backend_request("POST", "/accommodation/multi-agent/run", json_body=payload)
+        except RuntimeError as exc:
+            return render_multi_agent(error=str(exc), **echo), 502
+
+        data = response.json() if response.headers.get("Content-Type", "").startswith("application/json") else {}
+        if response.status_code == 403:
+            return render_multi_agent(disabled=True, **echo), 403
+        if response.status_code >= 400:
+            return render_multi_agent(error=data.get("error") or "Multi-Agent run failed.", **echo), response.status_code
+
+        result = data.get("result") or {}
+        return render_multi_agent(run=result, history=fetch_history(result.get("run_id")), **echo)
+
     @app.route("/health")
     def health():
         return {"status": "ok"}

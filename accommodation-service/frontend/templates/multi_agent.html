@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+
+{% block title %}Multi-Agent &mdash; Accommodation{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <div class="page-header">
+    <div>
+      <h1>Multi-Agent shortlist</h1>
+      <p>
+        Planner picks which read-only tools to call, Worker ranks candidates against your
+        budget cap and interests, Reviewer flags anything worth your attention. Nothing is
+        booked or chosen automatically &mdash; you approve or reject the shortlisted items below.
+      </p>
+    </div>
+  </div>
+
+  {% if disabled %}
+    <div class="alert alert--warning">
+      <strong>Multi-Agent mode is disabled (cloud default).</strong>
+      <p>This deployment runs with <code>MULTI_AGENT_ENABLED=false</code>. The Normal UI tab still works.</p>
+    </div>
+  {% elif error %}
+    <div class="alert alert--error"><strong>Multi-Agent call failed</strong><p>{{ error }}</p></div>
+  {% endif %}
+
+  <form method="post" action="{{ url_for('multi_agent_page') }}" class="stacked-form">
+    <input type="hidden" name="action" value="run">
+    <div class="field-grid">
+      <label>
+        <span>Destination</span>
+        {% if destinations %}
+          <select name="destination" required>
+            <option value="">Select a city</option>
+            {% for destination_option in destinations %}
+              <option value="{{ destination_option.city }}" {% if destination_option.city == destination %}selected{% endif %}>
+                {{ destination_option.city }}{% if destination_option.country %}, {{ destination_option.country }}{% endif %}
+              </option>
+            {% endfor %}
+          </select>
+        {% else %}
+          <input name="destination" placeholder="Tokyo" value="{{ destination or '' }}" required>
+        {% endif %}
+      </label>
+      <label>
+        <span>Budget cap ($/night)</span>
+        <input name="budget_cap" type="number" step="0.01" min="0.01" placeholder="150.00"
+               value="{{ budget_cap_raw or '' }}" required>
+      </label>
+      <label class="full-width">
+        <span>Interests (optional)</span>
+        <input name="interests" placeholder="pool, nightlife" value="{{ interests_raw or '' }}">
+      </label>
+    </div>
+    <div class="form-actions">
+      <button class="button button--primary" type="submit">Run shortlist</button>
+    </div>
+  </form>
+</section>
+
+{% if run %}
+<section class="panel">
+  <h2>
+    Run <code>{{ run.run_id }}</code>
+    <span class="badge badge--secondary">{{ run.state }}</span>
+  </h2>
+
+  <h3>Plan</h3>
+  <p class="hint">{{ run.plan.rationale }}</p>
+  <ul>
+    {% for step in run.plan.steps %}
+      <li><code>{{ step.tool }}</code> &mdash; {{ step.reason }}</li>
+    {% endfor %}
+  </ul>
+
+  <h3>Shortlist</h3>
+  <p class="hint">{{ run.work.summary }}</p>
+  {% if run.work['items'] %}
+  <table class="accommodation-table">
+    <thead>
+      <tr>
+        <th>Approve</th><th>#</th><th>Name</th><th>$/night</th><th>Rating</th>
+        <th>Within budget</th><th>Matched interests</th><th>Score</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in run.work['items'] %}
+        <tr>
+          <td><input type="checkbox" name="approved_ids" value="{{ item.id }}" form="ma-review-form" checked></td>
+          <td>{{ item.id }}</td>
+          <td>{{ item.name }}</td>
+          <td>${{ '%.2f' | format(item.price_per_night) }}</td>
+          <td>{{ item.rating if item.rating is not none else '-' }}</td>
+          <td>
+            {% if item.within_budget %}
+              <span class="badge badge--ok">yes</span>
+            {% else %}
+              <span class="badge badge--fail">over cap</span>
+            {% endif %}
+          </td>
+          <td>{{ (item.matched_interests or []) | join(', ') or '-' }}</td>
+          <td>{{ item.score }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <p class="hint">Nothing matched this destination and budget cap.</p>
+  {% endif %}
+
+  {% if run.work.evidence %}
+    <p class="hint">
+      {% for source in run.work.evidence %}
+        <span class="badge badge--filter">{{ source.source }}: {{ source.detail }}</span>
+      {% endfor %}
+    </p>
+  {% endif %}
+
+  <h3>
+    Reviewer
+    <span class="badge {% if run.review.risk == 'high' %}badge--fail{% elif run.review.risk == 'medium' %}badge--secondary{% else %}badge--ok{% endif %}">
+      {{ run.review.risk }} risk
+    </span>
+  </h3>
+  {% if run.review.findings %}
+    <ul>{% for finding in run.review.findings %}<li>{{ finding }}</li>{% endfor %}</ul>
+  {% endif %}
+  {% if run.review.recommendations %}
+    <p class="hint"><strong>Recommendations:</strong></p>
+    <ul>{% for rec in run.review.recommendations %}<li>{{ rec }}</li>{% endfor %}</ul>
+  {% endif %}
+
+  {% if run.work['items'] %}
+  <h3>Human review</h3>
+  <p class="hint">
+    Untick an item to reject it. Nothing in accommodation-db is written either way &mdash;
+    this only records your decision on the run and tells Multi-Agent it is closed out.
+  </p>
+  <form id="ma-review-form" method="post" action="{{ url_for('multi_agent_page') }}">
+    <input type="hidden" name="action" value="review">
+    <input type="hidden" name="run_id" value="{{ run.run_id }}">
+    <label class="full-width">
+      <span>Decision note (optional)</span>
+      <input name="note" placeholder="Why you approved or rejected items">
+    </label>
+    <div class="form-actions">
+      <button class="button button--primary" type="submit">Submit decision</button>
+    </div>
+  </form>
+  {% endif %}
+</section>
+{% endif %}
+
+{% if review_result %}
+<section class="panel">
+  <h2>
+    Decision recorded
+    <span class="badge badge--secondary">{{ review_result.state }}</span>
+  </h2>
+  <p><strong>Decision:</strong> {{ review_result.decision }}</p>
+  {% if review_result.approved_items %}
+    <p class="hint"><strong>Approved:</strong>
+      {% for item in review_result.approved_items %}<span class="badge badge--ok">{{ item.name }}</span>{% endfor %}
+    </p>
+  {% endif %}
+  {% if review_result.rejected_ids %}
+    <p class="hint"><strong>Rejected ids:</strong> {{ review_result.rejected_ids | join(', ') }}</p>
+  {% endif %}
+  <p class="hint">
+    Run lifecycle closed:
+    {% if review_result.applied_recorded %}
+      <span class="badge badge--ok">applied</span>
+    {% else %}
+      <span class="badge badge--filter">{{ review_result.state }}</span>
+    {% endif %}
+  </p>
+</section>
+{% endif %}
+
+{% if history %}
+<section class="panel">
+  <h2>History</h2>
+  <ul>
+    {% for event in history %}
+      <li>
+        <span class="badge badge--secondary">{{ event.step }}</span>
+        {{ event.agent or '-' }} &rarr; {{ event.state }}
+        <span class="hint">{{ event.ts }}</span>
+      </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% endblock %}
