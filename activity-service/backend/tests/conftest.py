@@ -1,5 +1,4 @@
 import os
-import sqlite3
 import sys
 
 import pytest
@@ -7,23 +6,6 @@ import pytest
 BACKEND_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if BACKEND_ROOT not in sys.path:
     sys.path.insert(0, BACKEND_ROOT)
-
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS activities (
-    activity_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    activity_name TEXT NOT NULL,
-    activity_type TEXT,
-    activity_cost REAL,
-    duration TEXT
-);
-
-CREATE TABLE IF NOT EXISTS activities_assignment (
-    assignment_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    activity_id INTEGER NOT NULL,
-    assignment_time TEXT,
-    FOREIGN KEY (activity_id) REFERENCES activities (activity_id)
-);
-"""
 
 
 class DummyResponse:
@@ -37,22 +19,17 @@ class DummyResponse:
     def json(self):
         return self._payload
 
+    @property
+    def text(self):
+        return "" if self._payload is None else str(self._payload)
+
 
 @pytest.fixture
-def client(tmp_path, monkeypatch):
-    """A Flask test client backed by a fresh temp SQLite file per test (for
-    activity_store's direct-SQLite writes) — fully isolated, no shared state
-    between tests and no dependency on a running database-service for the
-    write path."""
-    db_path = str(tmp_path / "test-activity.sqlite")
-    conn = sqlite3.connect(db_path)
-    conn.executescript(SCHEMA)
-    conn.commit()
-    conn.close()
-
-    from services import activity_store
-    monkeypatch.setattr(activity_store, "DB_PATH", db_path)
-
+def client():
+    """A Flask test client. The backend never touches SQLite directly (it
+    reads AND writes through database-service's HTTP API), so every test
+    that hits create/read/update/delete mocks db_client's requests calls —
+    no temp database file needed here any more."""
     import app as app_module
     flask_app = app_module.create_app()
     with flask_app.test_client() as test_client:
