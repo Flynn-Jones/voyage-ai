@@ -1,0 +1,127 @@
+# Accommodation (student-2) — accommodation_shortlist live run transcripts
+# date: 2026-10-21 02:03-02:04 UTC
+# Stack: real accommodation-be/db containers (docker compose, AI enabled), real shared
+# Multi-Agent Server (:7004) and MCP server (:7001) on the host, real Ollama (qwen2.5:7b).
+# requested through accommodation-be's own routes (routes/multi_agent_mode.py), not curled
+# against the Multi-Agent Server directly, to prove the new backend wiring works end to end.
+
+================================================================================
+Scenario 1 — shortlist found, human partially approves, run applied
+================================================================================
+
+$ curl -s -X POST http://localhost:5002/accommodation/multi-agent/run \
+    -H 'Content-Type: application/json' \
+    -d '{"destination":"Tokyo","budget_cap":150,"interests":["pool"]}'
+
+{
+  "result": {
+    "run_id": "run-0417a2081db2",
+    "state": "awaiting_human_review",
+    "plan": {
+      "steps": [{"tool": "search_accommodations",
+                 "reason": "To find pool-equipped accommodations within the budget cap of $150.00/night in Tokyo"}],
+      "rationale": "Starting with the filtered search ensures we meet the budget and interest criteria."
+    },
+    "work": {
+      "items": [
+        {"id": 1, "name": "Nui. Hostel & Bar Lounge", "price_per_night": 38.0, "rating": 4.6,
+         "matched_interests": [], "within_budget": true, "score": 4.6, "accommodation_id": 2,
+         "evidence_ref": "accommodation-db:/accommodations/2"},
+        {"id": 2, "name": "Shinjuku Granbell Hotel", "price_per_night": 145.0, "rating": 4.3,
+         "matched_interests": [], "within_budget": true, "score": 4.3, "accommodation_id": 1,
+         "evidence_ref": "accommodation-db:/accommodations/1"},
+        {"id": 3, "name": "Asakusa Traditional Guesthouse", "price_per_night": 65.0, "rating": 4.2,
+         "matched_interests": [], "within_budget": true, "score": 4.2, "accommodation_id": 4,
+         "evidence_ref": "accommodation-db:/accommodations/4"}
+      ],
+      "summary": "Tokyo: 3 candidate(s) considered, 3 shortlisted; top pick 'Nui. Hostel & Bar Lounge' at $38.00/night (within the $150.00 cap).",
+      "checks": [{"code": "weak_match",
+                  "text": "Top pick 'Nui. Hostel & Bar Lounge' matches none of the requested interests (pool)."}]
+    },
+    "review": {
+      "risk": "medium",
+      "findings": ["Top pick 'Nui. Hostel & Bar Lounge' matches none of the requested interests (pool)."],
+      "recommendations": ["Exclude 'Nui. Hostel & Bar Lounge' from the shortlist as it does not meet the interest in a pool."]
+    }
+  },
+  "status": "success"
+}
+
+# Human reviews: approves the hotel and guesthouse (closer to the pool interest than the hostel
+# the Reviewer flagged), rejects the hostel.
+
+$ curl -s -X POST http://localhost:5002/accommodation/multi-agent/runs/run-0417a2081db2/review \
+    -H 'Content-Type: application/json' \
+    -d '{"decision":"partial","approved_ids":[2,3],"rejected_ids":[1],
+         "note":"skip the hostel, prefer the pool-adjacent options","reviewer":"demo-user"}'
+
+{
+  "result": {
+    "run_id": "run-0417a2081db2",
+    "decision": "partial",
+    "state": "applied",
+    "approved_items": [
+      {"id": 2, "name": "Shinjuku Granbell Hotel", ...},
+      {"id": 3, "name": "Asakusa Traditional Guesthouse", ...}
+    ],
+    "rejected_ids": ["1"],
+    "applied_recorded": true
+  },
+  "status": "success"
+}
+
+# GET .../runs/run-0417a2081db2/history -> created -> plan (planner, llm, 8779ms) ->
+# work (worker, workflow, 152ms, 2x search_accommodations) -> review (reviewer, llm, 6573ms) ->
+# human_review (partial, applied_recorded) -> applied (backend, created_ids: [], target:
+# "none (read-only workflow)"). Full JSON in audit-excerpts.jsonl.
+
+================================================================================
+Scenario 2 — no candidates match the budget cap, human rejects
+================================================================================
+
+$ curl -s -X POST http://localhost:5002/accommodation/multi-agent/run \
+    -H 'Content-Type: application/json' -d '{"destination":"Tokyo","budget_cap":20}'
+
+{
+  "result": {
+    "run_id": "run-18199a48477d",
+    "state": "awaiting_human_review",
+    "plan": {"steps": [{"tool": "search_accommodations",
+                         "reason": "To find accommodations within the $20.00/night budget in Tokyo"}],
+             "rationale": "Using the search_accommodations tool will directly provide the required information on accommodations within the specified budget."},
+    "work": {
+      "items": [],
+      "summary": "No accommodation found in Tokyo within $20.00/night. Nothing was shortlisted.",
+      "checks": [{"code": "no_candidates", "text": "No accommodation matched destination and budget cap $20.00."}]
+    },
+    "review": {
+      "risk": "low",
+      "findings": ["No accommodation matched destination and budget cap $20.00."],
+      "recommendations": ["Widen the budget cap or try a nearby destination; nothing matched this search."]
+    }
+  },
+  "status": "success"
+}
+
+# The Reviewer's findings/recommendations exactly match the deterministic fallback_review()
+# text (validate_review grounds every run in the computed checks) even though this went through
+# the real LLM path — proof the grounding logic holds on a live model, not just the mocked tests.
+
+$ curl -s -X POST http://localhost:5002/accommodation/multi-agent/runs/run-18199a48477d/review \
+    -H 'Content-Type: application/json' \
+    -d '{"decision":"reject","note":"too far over budget, will widen cap instead","reviewer":"demo-user"}'
+
+{
+  "result": {
+    "run_id": "run-18199a48477d",
+    "decision": "reject",
+    "state": "rejected",
+    "approved_items": [],
+    "rejected_ids": [],
+    "applied_recorded": null
+  },
+  "status": "success"
+}
+
+# A rejected run is never reported to /applied (applied_recorded stays null) — nothing is
+# left pending, and the run's terminal state is "rejected", not "applied".

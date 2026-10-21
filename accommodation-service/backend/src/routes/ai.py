@@ -11,6 +11,10 @@ bp = Blueprint("ai", __name__)
 logger = logging.getLogger(__name__)
 
 
+def _ai_disabled_response():
+    return jsonify({"status": "error", "error": "AI-Mode disabled"}), 403
+
+
 def _plan_request(payload: dict[str, Any]) -> dict[str, Any]:
     city = (payload.get("destination_city") or "").strip()
     interests = payload.get("interests") or []
@@ -71,12 +75,16 @@ def _rank_records(records: list[dict[str, Any]], plan: dict[str, Any]) -> list[d
 
 @bp.get("/ai/health")
 def ai_health():
+    if not llm_client.AI_ENABLED:
+        return _ai_disabled_response()
     status = llm_client.get_ollama_status()
     return jsonify(status)
 
 
 @bp.post("/ai/recommend")
 def ai_recommend():
+    if not llm_client.AI_ENABLED:
+        return _ai_disabled_response()
     payload = request.get_json(silent=True) or {}
     plan = _plan_request(payload)
     filters = _query_filters(plan)

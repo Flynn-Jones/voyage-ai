@@ -10,6 +10,7 @@
 # justify every finding (docs/release-2/pre-commit.md).
 files: |
   (?x)^(
+    accommodation-service/|
     ai-services/|
     budget-service/|
     shared/

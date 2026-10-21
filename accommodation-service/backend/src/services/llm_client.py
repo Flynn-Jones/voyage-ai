@@ -11,6 +11,8 @@ from services import prompt_loader
 
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434"))
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:7b")
+# AI-Mode switch: false in the cloud (and CI), where no Ollama is deployed.
+AI_ENABLED = os.environ.get("AI_ENABLED", "true").strip().lower() in ("1", "true", "yes", "on")
 
 
 class LLMServiceError(Exception):
