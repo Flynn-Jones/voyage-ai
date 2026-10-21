@@ -1,9 +1,8 @@
 import json
 import os
-from typing import Any
 
 import requests
-from flask import Flask, render_template, request, redirect, url_for, jsonify
+from flask import Flask, render_template, request, redirect, url_for
 
 BACKEND_SERVICE_URL = os.environ.get(
     "BACKEND_SERVICE_URL",
@@ -373,4 +372,4 @@ app = create_app()
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=PORT, debug=True, use_reloader=False)
+    app.run(host="0.0.0.0", port=PORT, debug=True, use_reloader=False)  # noqa: S104 - container bind

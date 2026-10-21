@@ -1,0 +1,62 @@
+# Evidence: a real `git commit` blocked by the installed pre-commit hook — Accommodation (student-2)
+# date: 2026-10-21T02:xx Z
+# `pre-commit install` was run first (`.git/hooks/pre-commit` now exists and actually fires on
+# `git commit`, not just on a manual `pre-commit run`). A throwaway file was staged under
+# accommodation-service/backend/src/_canary_demo.py containing:
+#   - a fake AWS access key (AKIAIOSFODNN7EXAMPLE)
+#   - subprocess.run(f"...", shell=True)
+# `git commit` was then run directly — this is the actual command a developer types, not a
+# simulation of one. The canary was never actually committed: HEAD stayed at df402f0 throughout,
+# and the file was `git reset` + deleted immediately after this run, never staged again.
+
+$ git add .pre-commit-config.yaml accommodation-service/backend/src/_canary_demo.py
+$ git commit -m "canary: should be blocked by pre-commit hooks"
+
+[WARNING] Unstaged files detected.
+[INFO] Stashing unstaged files to /Users/giang/.cache/pre-commit/patch1792551703-6963.
+ruff (lint + S security rules, see ruff.toml)............................Failed
+- hook id: ruff
+- exit code: 1
+
+S602 `subprocess` call with `shell=True` identified, security issue
+ --> accommodation-service/backend/src/_canary_demo.py:7:5
+  |
+6 | def run_backup(path):
+7 |     subprocess.run(f"tar -czf backup.tar.gz {path}", shell=True)
+  |     ^^^^^^^^^^^^^^
+
+Found 1 error.
+
+Detect secrets...........................................................Failed
+- hook id: detect-secrets
+- exit code: 1
+
+ERROR: Potential secrets about to be committed to git repo!
+
+Secret Type: AWS Access Key
+Location:    accommodation-service/backend/src/_canary_demo.py:3
+
+Possible mitigations:
+  - For information about putting your secrets in a safer place, please ask in
+    #security
+  - Mark false positives with an inline `pragma: allowlist secret` comment
+
+If a secret has already been committed, visit
+https://help.github.com/articles/removing-sensitive-data-from-a-repository
+
+pip-audit (requirements*.txt)........................(no files to check)Skipped
+[INFO] Restored changes from /Users/giang/.cache/pre-commit/patch1792551703-6963.
+
+$ git log --oneline -1
+df402f0 Budget (Student 4) Release 2: Trip Budget Reconciler, pre-commit, CI and cloud readiness (#21)
+# ^ unchanged — the commit never happened. The hook's own stash/restore cycle also correctly
+# preserved every other unstaged working-tree change untouched (verified: `git status` before
+# and after this run matched exactly, and the full backend test suite still passed afterwards).
+
+$ git reset .pre-commit-config.yaml accommodation-service/backend/src/_canary_demo.py
+$ rm accommodation-service/backend/src/_canary_demo.py
+
+# Both the shell-injection risk (S602) and the hardcoded AWS key were caught before anything
+# reached git history, via the real git commit path (not a manual `pre-commit run`), proving
+# this requirement is actually wired up for this clone: "Local pre-commit security scans
+# executed when committing code" — not merely runnable on request.

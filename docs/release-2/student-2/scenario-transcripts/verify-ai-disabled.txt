@@ -1,0 +1,34 @@
+# Accommodation (student-2) — every AI-shaped route returns 403 under docker-compose.ci.yml
+# date: 2026-10-21T01:10Z UTC (approx) — live containers, MCP_ENABLED=RAG_ENABLED=AI_ENABLED=MULTI_AGENT_ENABLED=false
+
+$ curl -s -o /tmp/body.txt -w "%{http_code}\n" -X POST http://localhost:5002/accommodation/mcp/by-destination \
+    -H 'Content-Type: application/json' -d '{"destination":"Tokyo"}'
+403
+{
+  "error": "MCP mode is disabled.",
+  "status": "error"
+}
+
+$ curl -s -o /tmp/body.txt -w "%{http_code}\n" -X POST http://localhost:5002/accommodation/rag/refresh \
+    -H 'Content-Type: application/json' -d '{}'
+403
+{
+  "error": "RAG mode is disabled.",
+  "status": "error"
+}
+
+$ curl -s -o /tmp/body.txt -w "%{http_code}\n" -X POST http://localhost:5002/ai/recommend \
+    -H 'Content-Type: application/json' -d '{"destination_city":"Tokyo"}'
+403
+{
+  "error": "AI-Mode disabled",
+  "status": "error"
+}
+
+$ curl -s -o /tmp/body.txt -w "%{http_code}\n" -X POST http://localhost:5002/accommodation/multi-agent/run \
+    -H 'Content-Type: application/json' -d '{"destination":"Tokyo","budget_cap":150}'
+403
+{
+  "error": "Multi-Agent mode is disabled (cloud default).",
+  "status": "error"
+}

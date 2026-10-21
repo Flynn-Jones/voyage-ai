@@ -1,0 +1,25 @@
+# pre-commit security scan
+date:       2026-10-21T02:52:39Z
+who:        student-2
+branch:     main
+commit:     df402f0
+pre-commit: pre-commit 4.7.0
+scope:      files: | (?x)^( accommodation-service/| ai-services/| budget-service/| shared/ ) 
+
+[INFO] Initializing environment for https://github.com/astral-sh/ruff-pre-commit.
+[INFO] Initializing environment for https://github.com/Yelp/detect-secrets.
+[INFO] Initializing environment for local:pip-audit==2.10.1.
+[INFO] Installing environment for https://github.com/astral-sh/ruff-pre-commit.
+[INFO] Once installed this environment will be reused.
+[INFO] This may take a few minutes...
+[INFO] Installing environment for https://github.com/Yelp/detect-secrets.
+[INFO] Once installed this environment will be reused.
+[INFO] This may take a few minutes...
+[INFO] Installing environment for local.
+[INFO] Once installed this environment will be reused.
+[INFO] This may take a few minutes...
+ruff (lint + S security rules, see ruff.toml)............................Passed
+Detect secrets...........................................................Passed
+pip-audit (requirements*.txt)............................................Passed
+
+exit status: 0 (PASS)

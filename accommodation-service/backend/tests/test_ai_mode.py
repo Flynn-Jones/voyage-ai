@@ -1,7 +1,6 @@
-import pytest
 
 from app import create_app
-from services import database_api
+from services import database_api, llm_client
 
 
 class DummyResponse:
@@ -18,6 +17,7 @@ def test_ai_health_reports_unreachable(monkeypatch):
     def fake_get(url, timeout):
         raise OSError("down")
 
+    monkeypatch.setattr(llm_client, "AI_ENABLED", True)
     monkeypatch.setattr("services.llm_client.requests.get", fake_get)
 
     app = create_app()
@@ -27,6 +27,28 @@ def test_ai_health_reports_unreachable(monkeypatch):
     assert response.status_code == 200
     assert response.get_json()["ollama"] == "unreachable"
     assert response.get_json()["loaded"] is False
+
+
+def test_ai_health_returns_403_when_disabled(monkeypatch):
+    monkeypatch.setattr(llm_client, "AI_ENABLED", False)
+
+    app = create_app()
+    with app.test_client() as client:
+        response = client.get("/ai/health")
+
+    assert response.status_code == 403
+    assert response.get_json()["error"] == "AI-Mode disabled"
+
+
+def test_ai_recommend_returns_403_when_disabled(monkeypatch):
+    monkeypatch.setattr(llm_client, "AI_ENABLED", False)
+
+    app = create_app()
+    with app.test_client() as client:
+        response = client.post("/ai/recommend", json={"destination_city": "Tokyo"})
+
+    assert response.status_code == 403
+    assert response.get_json()["error"] == "AI-Mode disabled"
 
 
 def test_ai_recommend_uses_db_forwarding_and_llm(monkeypatch):
