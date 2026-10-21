@@ -5,6 +5,7 @@ from flask_cors import CORS
 from routes.activity_routes import activity_api
 from routes.ai_routes import ai_api
 from routes.mcp_mode import mcp_mode_bp
+from routes.multi_agent_mode import multi_agent_mode_bp
 from routes.rag_mode import rag_mode_bp
 
 
@@ -15,6 +16,7 @@ def create_app():
     app.register_blueprint(ai_api)
     app.register_blueprint(mcp_mode_bp)
     app.register_blueprint(rag_mode_bp)
+    app.register_blueprint(multi_agent_mode_bp)
     return app
 
 
