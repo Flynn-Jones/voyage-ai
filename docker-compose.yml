@@ -188,7 +188,6 @@ services:
     environment:
       DATABASE_SERVICE_URL: http://activity-database:6003
       ACCOMMODATION_SERVICE_URL: http://accommodation-database:6002
-      ACTIVITY_DB_PATH: /data/database-service.sqlite
       OLLAMA_URL: http://host.docker.internal:11434
       # AI Mode summaries/chat. qwen2.5:7b isn't pulled locally; same default as
       # activity-service/docker-compose.yml.
@@ -204,7 +203,6 @@ services:
       # intent step); the code default, qwen2.5:7b, isn't pulled locally.
       OLLAMA_INTENT_MODEL: ${OLLAMA_INTENT_MODEL:-llama3.1:8b}
     volumes:
-      - activity-db-data:/data
       # prompts/mcp/ for the Ask box; ",z" lets SELinux hosts read the mount.
       - ./activity-service/prompts:/prompts:ro,z
     extra_hosts:
@@ -223,16 +221,13 @@ services:
       ACTIVITY_DB_PATH: /data/database-service.sqlite
     volumes:
       - activity-db-data:/data
-    # activity-backend writes SQLite directly to the same shared volume
-    # (root cause: activity-service/backend/services/activity_store.py — a
-    # student-owned data-path violation, not something root can fix). If the
-    # backend's sqlite3.connect() touches the file before this container has
-    # run init_schema(), it creates an empty, table-less database and every
-    # activity write 500s afterward. A plain depends_on only orders startup,
-    # not readiness, so gate on this healthcheck instead. No curl in the
-    # image, so probe with Python; /health is dependency-free (db_routes.py)
-    # but init_schema() runs in the app factory before app.run(), so a 200
-    # here proves the schema already exists.
+    # activity-backend now reaches this tier only over HTTP (fixed: it used to
+    # open this same SQLite file directly — see git history for
+    # activity-service/backend/services/activity_store.py, removed). A plain
+    # depends_on only orders container startup, not HTTP readiness, so gate on
+    # this healthcheck instead so the backend isn't making calls before the
+    # database's Flask server (and its init_schema()) is actually up. No curl
+    # in the image, so probe with Python.
     healthcheck:
       test: ["CMD", "python", "-c",
              "import urllib.request; urllib.request.urlopen('http://localhost:6003/health', timeout=2)"]

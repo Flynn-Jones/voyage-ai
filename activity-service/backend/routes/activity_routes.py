@@ -1,7 +1,7 @@
 """Activity Manager business logic: validates input, delegates to services, returns JSON."""
 from flask import Blueprint, jsonify, request
 
-from services import activity_store, ai_client, db_client
+from services import ai_client, db_client
 
 activity_api = Blueprint("activity_api", __name__)
 
@@ -64,7 +64,10 @@ def add_activity():
     if error:
         return jsonify({"error": error}), 400
 
-    created = activity_store.create_activity(data)
+    try:
+        created = db_client.create_activity(data)
+    except db_client.DatabaseServiceError:
+        return jsonify({"error": "database service unavailable"}), 502
     return jsonify(created), 201
 
 
@@ -80,18 +83,22 @@ def edit_activity(activity_id):
             return jsonify({"error": "activity_cost must be a number"}), 400
 
     try:
-        updated = activity_store.update_activity(activity_id, data)
-    except activity_store.ActivityNotFoundError:
+        updated = db_client.update_activity(activity_id, data)
+    except db_client.NotFoundError:
         return jsonify({"error": "activity not found"}), 404
+    except db_client.DatabaseServiceError:
+        return jsonify({"error": "database service unavailable"}), 502
     return jsonify(updated)
 
 
 @activity_api.route("/api/delete_activity/<int:activity_id>", methods=["DELETE"])
 def delete_activity(activity_id):
     try:
-        activity_store.delete_activity(activity_id)
-    except activity_store.ActivityNotFoundError:
+        db_client.delete_activity(activity_id)
+    except db_client.NotFoundError:
         return jsonify({"error": "activity not found"}), 404
+    except db_client.DatabaseServiceError:
+        return jsonify({"error": "database service unavailable"}), 502
     return jsonify({"message": "deleted"})
 
 
