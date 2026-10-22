@@ -90,10 +90,11 @@ def create_app():
 
     app.config["backend_request"] = backend_request
 
-    def render_activity_browser(template, show_actions):
-        """Home and list pages share one filter form and results table. The
-        backend does the filtering; an htmx filter request gets back only the
-        results fragment for #results."""
+    @app.route("/")
+    def index():
+        """The Activities page: filter form plus the results table with Edit
+        and Delete on every row. The backend does the filtering; an htmx
+        filter request gets back only the results fragment for #results."""
         filters = {name: request.args.get(name, "").strip() for name in ACTIVITY_FILTER_FIELDS}
         active = {name: value for name, value in filters.items() if value}
         try:
@@ -103,7 +104,7 @@ def create_app():
             activities = []
             error = str(exc)
         context = {"activities": activities, "error": error, "filters": filters,
-                   "filtered": bool(active), "show_actions": show_actions}
+                   "filtered": bool(active), "show_actions": True}
         if is_hx_request():
             return render_template("_activity_results.html", **context)
 
@@ -114,15 +115,13 @@ def create_app():
             all_activities = []
         activity_types = sorted({(a.get("activity_type") or "").strip() for a in all_activities} - {""},
                                 key=str.lower)
-        return render_template(template, activity_types=activity_types, **context)
-
-    @app.route("/")
-    def index():
-        return render_activity_browser("index.html", show_actions=False)
+        return render_template("index.html", activity_types=activity_types, **context)
 
     @app.route("/activities")
     def activities_list():
-        return render_activity_browser("activities_list.html", show_actions=True)
+        # The separate Manual Mode list page was folded into the Activities
+        # page; keep old links and bookmarks (filters included) working.
+        return redirect(url_for("index", **request.args), code=301)
 
     @app.route("/activities/<int:activity_id>")
     def activity_detail(activity_id):

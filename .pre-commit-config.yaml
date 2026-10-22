@@ -14,6 +14,7 @@ files: |
     ai-services/|
     budget-service/|
     itinerary-service/|
+    student-1/|
     shared/
   )
 exclude: (^|/)(venv|\.venv|chroma|node_modules)/

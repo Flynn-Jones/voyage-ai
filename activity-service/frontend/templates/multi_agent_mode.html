@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_mode_links.html" import mode_header, mode_links %}
+{% from "_mode_header.html" import mode_header %}
 
 {% block title %}VoyageAI — Activities Multi-Agent Mode{% endblock %}
 
@@ -8,7 +8,6 @@
   {% call mode_header("Multi-Agent Mode") %}
     Planner &rarr; Worker &rarr; Reviewer &rarr; you. The agents read activities and scheduled times (read-only), then recommend. Only you can Accept, Partially Accept or Reject, and nothing is written to the activity database.
   {% endcall %}
-  {{ mode_links("multi_agent_mode") }}
 
   <div class="act-mcp">
     <section class="act-mcp__panel">

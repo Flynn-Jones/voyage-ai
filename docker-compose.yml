@@ -66,6 +66,15 @@ services:
       # above the backend's own MCP 10 / RAG 120 so its envelope arrives first.
       MCP_REQUEST_TIMEOUT_SECONDS: ${MCP_REQUEST_TIMEOUT_SECONDS:-15}
       RAG_REQUEST_TIMEOUT_SECONDS: ${RAG_REQUEST_TIMEOUT_SECONDS:-130}
+      # Release 2: Multi-Agent runs are synchronous; keep this above the backend's 240s.
+      MULTI_AGENT_REQUEST_TIMEOUT_SECONDS: ${MULTI_AGENT_REQUEST_TIMEOUT_SECONDS:-250}
+      # Browser-facing navigation links; override these for a deployed hostname.
+      PUBLIC_HOME_URL: ${PUBLIC_HOME_URL:-http://localhost:3000}
+      PUBLIC_DESTINATION_URL: ${PUBLIC_DESTINATION_URL:-http://localhost:3001}
+      PUBLIC_ACCOMMODATION_URL: ${PUBLIC_ACCOMMODATION_URL:-http://localhost:3002}
+      PUBLIC_ACTIVITY_URL: ${PUBLIC_ACTIVITY_URL:-http://localhost:3003}
+      PUBLIC_BUDGET_URL: ${PUBLIC_BUDGET_URL:-http://localhost:3004}
+      PUBLIC_ITINERARY_URL: ${PUBLIC_ITINERARY_URL:-http://localhost:3005}
     depends_on:
       - destination-backend
     networks:
@@ -94,6 +103,13 @@ services:
       RAG_SERVICE_URL: http://host.docker.internal:7002
       RAG_ENABLED: ${DESTINATION_RAG_ENABLED:-true}
       RAG_TIMEOUT_SECONDS: "120"
+      # Release 2: AI-Mode kill switch and the ONE shared Multi-Agent Server (:7004,
+      # host-run). Both are false in the cloud. Literal URL on purpose (not the
+      # ${MULTI_AGENT_SERVICE_URL} shell var other features read).
+      AI_ENABLED: ${DESTINATION_AI_ENABLED:-true}
+      MULTI_AGENT_SERVICE_URL: http://host.docker.internal:7004
+      MULTI_AGENT_ENABLED: ${DESTINATION_MULTI_AGENT_ENABLED:-true}
+      MULTI_AGENT_TIMEOUT_SECONDS: "240"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -217,7 +233,7 @@ services:
       - voyage-net
 
   activity-database:
-    build: ./activity-service/database-service
+    build: ./activity-service/database
     ports:
       - "6003:6003"
     environment:

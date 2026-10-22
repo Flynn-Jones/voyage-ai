@@ -16,12 +16,12 @@
         <a href="{{ url_for('new_accommodation_form') }}">New</a>
       </div>
       <div class="voyage-nav__switcher">
-        <a href="http://localhost:3000">Home</a>
-        <a href="http://localhost:3001">Destinations</a>
-        <a href="http://localhost:3002" class="is-active">Accommodation</a>
-        <a href="http://localhost:3003">Activities</a>
-        <a href="http://localhost:3004">Budget</a>
-        <a href="http://localhost:3005">Itinerary</a>
+        <a href="http://{{ request.host.split(":")[0] }}:3000">Home</a>
+        <a href="http://{{ request.host.split(":")[0] }}:3001">Destinations</a>
+        <a href="http://{{ request.host.split(":")[0] }}:3002" class="is-active">Accommodation</a>
+        <a href="http://{{ request.host.split(":")[0] }}:3003">Activities</a>
+        <a href="http://{{ request.host.split(":")[0] }}:3004">Budget</a>
+        <a href="http://{{ request.host.split(":")[0] }}:3005">Itinerary</a>
       </div>
     </div>
   </nav>
@@ -35,7 +35,8 @@
          'edit_accommodation_form', 'create_accommodation', 'update_accommodation']),
        ('AI Mode', url_for('recommend_page'), ['recommend_page', 'recommend']),
        ('MCP Mode', url_for('mcp_page'), ['mcp_page']),
-       ('RAG Mode', url_for('rag_page'), ['rag_page'])
+       ('RAG Mode', url_for('rag_page'), ['rag_page']),
+       ('Multi-Agent', url_for('multi_agent_page'), ['multi_agent_page'])
      ] %}
   <nav class="mode-bar" aria-label="Application modes">
     <div class="mode-bar__container">

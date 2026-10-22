@@ -1,0 +1,11 @@
+{# Panel header for the AI pages: title, the {% call %} body as the
+   description, and Back to Home. #}
+{% macro mode_header(title) %}
+<div class="page-header">
+  <div>
+    <h1>{{ title }}</h1>
+    <p>{{ caller() }}</p>
+  </div>
+  <a class="button button--secondary" href="{{ url_for('index') }}">&larr; Back to Home</a>
+</div>
+{% endmacro %}

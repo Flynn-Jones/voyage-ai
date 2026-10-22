@@ -25,9 +25,9 @@ for path in (SHARED_RAG, REPO_ROOT / "activity-service" / "backend"):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
-import activity_context  # noqa: E402  (shared server)
 import rag_http_server  # noqa: E402  (shared server)
 import rag_pipeline as rp  # noqa: E402  (shared server)
+from conftest import load_backend_app  # noqa: E402
 
 ACTIVITIES = [
     {"activity_id": 1, "activity_name": "Harbour Kayaking Tour", "activity_type": "Adventure",
@@ -69,7 +69,7 @@ def backend(monkeypatch):
     monkeypatch.setattr(rag_api.requests, "post", fake_post)
     monkeypatch.setattr(rag_api, "RAG_ENABLED", True)
 
-    import app as app_module
+    app_module = load_backend_app()
     with app_module.create_app().test_client() as client:
         yield client, forwarded, rag_api, monkeypatch
 
@@ -182,7 +182,7 @@ def live(tmp_path, monkeypatch):
     monkeypatch.setattr(rag_api, "RAG_SERVICE_URL", f"http://127.0.0.1:{server.server_port}")
     monkeypatch.setattr(rag_api, "RAG_ENABLED", True)
 
-    import app as app_module
+    app_module = load_backend_app()
     with app_module.create_app().test_client() as client:
         client.generated = generated
         yield client
@@ -231,7 +231,7 @@ def test_end_to_end_irrelevant_question_is_insufficient(live):
 
 
 def test_end_to_end_activity_db_down_still_refreshes(live, monkeypatch):
-    monkeypatch.setattr(activity_context, "ACTIVITY_DB_URL", "http://activity-db-down.invalid:6003")
+    monkeypatch.setattr(rp, "ACTIVITY_DB_URL", "http://activity-db-down.invalid:6003")
     monkeypatch.setattr(rp.requests, "get", lambda url, params=None, timeout=None: (_ for _ in ()).throw(
         requests.exceptions.ConnectionError("refused")))
     body = live.post("/api/activity/rag/refresh").get_json()

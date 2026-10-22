@@ -1,0 +1,22 @@
+# UI scenario (ui-approve): frontend :3001 -> backend -> MAS (run run-04c260a2a0c4)
+Run run-04c260a2a0c4  workflow=destination_recommend  state=applied
+  requested_by: destination-backend   created: 2026-10-22T09:06:16.143+00:00
+  PLAN
+    - list_destinations {}
+    rationale: The list_destinations tool will provide a list of destinations that match the specified interests, cost, and trip duration in Japan.
+  WORK  3 destination(s) considered, 3 recommended; top pick 'Kyoto, Japan' at $130.00/day (within the $160.00/day cap).
+    [2] {"destination_id": 2, "city": "Kyoto", "country": "Japan", "average_daily_cost": 130.0, "recommended_trip_length": 4, "travel_style": "Cultural", "matched_interests": ["culture", "history"], "within_budget": true, "fits_trip_length": true, "estimated_trip_cost": 520.0, "score": 6, "evidence_ref": "destination-db:/destinations/2"}
+    [1] {"destination_id": 1, "city": "Tokyo", "country": "Japan", "average_daily_cost": 150.0, "recommended_trip_length": 6, "travel_style": "City break", "matched_interests": ["culture"], "within_budget": true, "fits_trip_length": false, "estimated_trip_cost": 600.0, "score": 3, "evidence_ref": "destination-db:/destinations/1"}
+    [3] {"destination_id": 3, "city": "Osaka", "country": "Japan", "average_daily_cost": 125.0, "recommended_trip_length": 3, "travel_style": "Food and nightlife", "matched_interests": [], "within_budget": true, "fits_trip_length": true, "estimated_trip_cost": 500.0, "score": 2, "evidence_ref": "destination-db:/destinations/3"}
+  REVIEW  risk=low
+    > No adjustments are necessary based on the provided information.
+  HUMAN  approve by ui-flynn: approve via UI
+  APPLIED  {'created_ids': [], 'target': 'none (read-only destination_recommend)'}
+
+  8  2026-10-22T09:06:16.147+00:00  created                  running                {"requested_by": "destination-backend"}
+  9  2026-10-22T09:06:21.048+00:00  plan           planner   running                {"source": "llm", "attempts": [{"attempt": 1, "ok": true}], "duration_ms": 4899}
+ 10  2026-10-22T09:06:21.093+00:00  work           worker    running                {"source": "workflow", "duration_ms": 41, "tools_called": ["list_destinations"]}
+ 11  2026-10-22T09:06:24.752+00:00  review         reviewer  running                {"source": "llm", "attempts": [{"attempt": 1, "ok": true}], "duration_ms": 3658}
+ 12  2026-10-22T09:06:24.755+00:00  human_review   human     awaiting_human_review  {}
+ 13  2026-10-22T09:06:24.894+00:00  human_review   human     approved               {"decision": "approve", "approved_ids": ["2", "1", "3"], "note": "approve via UI", "reviewer": "ui-flynn"}
+ 14  2026-10-22T09:06:24.898+00:00  applied        backend   applied                {"target": "none (read-only destination_recommend)"}

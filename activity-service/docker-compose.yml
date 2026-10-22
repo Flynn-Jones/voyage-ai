@@ -59,7 +59,7 @@ services:
       - microservices-net
 
   database:
-    build: ./database-service
+    build: ./database
     container_name: activity-service-database  # renamed from "database-service": that name
                                                 # collides with an unrelated project's container
                                                 # on this machine (enrolment-app-open-ai)

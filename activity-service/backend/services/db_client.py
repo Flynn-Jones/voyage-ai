@@ -1,4 +1,4 @@
-"""HTTP client wrapper around activity-service/database-service (port 6003), reads only."""
+"""HTTP client wrapper around activity-service/database (port 6003), reads only."""
 import os
 
 import requests

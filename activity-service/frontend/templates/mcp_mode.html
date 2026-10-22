@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_mode_links.html" import mode_header, mode_links %}
+{% from "_mode_header.html" import mode_header %}
 
 {% block title %}VoyageAI — Activities MCP Mode{% endblock %}
 
@@ -8,7 +8,6 @@
   {% call mode_header("MCP Mode") %}
     Calls activity-service's MCP server directly. Every call shows which tool ran, with what arguments, and exactly what it returned. All tools are read-only.
   {% endcall %}
-  {{ mode_links("mcp_mode") }}
 
   {% include "tabs/mcp.html" %}
 </section>

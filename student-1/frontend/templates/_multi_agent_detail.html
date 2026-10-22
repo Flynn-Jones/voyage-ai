@@ -1,0 +1,157 @@
+{% if error %}
+<div class="alert alert--error">{{ error }}</div>
+{% endif %}
+{% if notice %}
+<div class="comparison-meta"><strong>{{ notice }}</strong></div>
+{% endif %}
+{% if run %}
+<h2>Run <code>{{ run.run_id }}</code> <span class="badge">{{ run.state }}</span></h2>
+<p class="comparison-meta">Workflow <code>{{ run.workflow }}</code> &middot; requested by {{ run.requested_by }} &middot; {{ run.created_at }}</p>
+
+{% if run.error %}
+<div class="alert alert--error">Run failed: {{ run.error }}</div>
+{% endif %}
+
+<h3>1. Planner</h3>
+<div class="description-box">
+  {% if run.plan %}
+  <p>{{ run.plan.rationale }}</p>
+  <ul>
+    {% for step in run.plan.steps %}
+    <li><code>{{ step.tool }}</code> &mdash; {{ step.reason }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty-state">No plan recorded.</p>
+  {% endif %}
+</div>
+
+<h3>2. Worker</h3>
+{% if run.work %}
+<p>{{ run.work.summary }}</p>
+{% if run.work.items %}
+<table class="data-table">
+  <thead>
+    <tr><th>#</th><th>City</th><th>Country</th><th>Avg daily cost</th><th>Trip length</th><th>Matched interests</th><th>Budget</th><th>Est. trip cost</th><th>Score</th><th>Evidence</th></tr>
+  </thead>
+  <tbody>
+    {% for i in run.work['items'] %}
+    <tr>
+      <td>{{ i.id }}</td>
+      <td>{{ i.city }}</td>
+      <td>{{ i.country }}</td>
+      <td>{{ '$%.2f'|format(i.average_daily_cost) if i.average_daily_cost is not none else '—' }}</td>
+      <td>{{ (i.recommended_trip_length ~ ' days') if i.recommended_trip_length is not none else '—' }}</td>
+      <td>{{ i.matched_interests|join(', ') or '—' }}</td>
+      <td>{{ 'within' if i.within_budget else 'over' }}</td>
+      <td>{{ '$%.2f'|format(i.estimated_trip_cost) if i.estimated_trip_cost is not none else '—' }}</td>
+      <td>{{ i.score }}</td>
+      <td><code>{{ i.evidence_ref or '—' }}</code></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="empty-state">Nothing was recommended.</p>
+{% endif %}
+{% if run.work.evidence %}
+<p class="comparison-meta">Evidence:
+  {% for e in run.work.evidence %}<code>{{ e.source }}</code> {{ e.status }} &mdash; {{ e.detail }}{{ '; ' if not loop.last }}{% endfor %}
+</p>
+{% endif %}
+{% endif %}
+
+<h3>3. Reviewer</h3>
+{% if run.review %}
+<div class="description-box">
+  <p><strong>Risk:</strong> <span class="badge">{{ run.review.risk }}</span></p>
+  {% if run.review.findings %}
+  <p><strong>Findings</strong></p>
+  <ul>{% for f in run.review.findings %}<li>{{ f }}</li>{% endfor %}</ul>
+  {% endif %}
+  {% if run.review.recommendations %}
+  <p><strong>Recommendations</strong></p>
+  <ul>{% for r in run.review.recommendations %}<li>{{ r }}</li>{% endfor %}</ul>
+  {% endif %}
+</div>
+{% else %}
+<p class="empty-state">No review recorded.</p>
+{% endif %}
+
+<h3>4. Human Review</h3>
+{% if run.state == 'awaiting_human_review' %}
+<form class="stacked-form"
+      method="post" action="{{ url_for('multi_agent_review', run_id=run.run_id) }}"
+      hx-post="{{ url_for('multi_agent_review', run_id=run.run_id) }}"
+      hx-target="#ma-detail" hx-swap="innerHTML">
+  {% if run.work and run.work['items'] %}
+  <table class="data-table">
+    <thead><tr><th>Accept</th><th>Item</th><th>Correction note (optional)</th></tr></thead>
+    <tbody>
+      {% for i in run.work['items'] %}
+      <tr>
+        <td>
+          <input type="hidden" name="item_id" value="{{ i.id }}">
+          <input type="checkbox" name="approved_ids" value="{{ i.id }}" checked>
+        </td>
+        <td>{{ i.city }}, {{ i.country }}</td>
+        <td><input type="text" name="correction_{{ i.id }}" maxlength="200" placeholder="e.g. prefers a cheaper option"></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+  <div class="field-grid">
+    <label class="full-width">
+      <span>Decision</span>
+      {% for value, label in decisions %}
+      <span><input type="radio" name="decision" value="{{ value }}" {{ 'checked' if loop.first }}> {{ label }}</span>
+      {% endfor %}
+    </label>
+    <label>
+      <span>Reviewer</span>
+      <input type="text" name="reviewer" maxlength="100" placeholder="your name">
+    </label>
+    <label class="full-width">
+      <span>Note</span>
+      <input type="text" name="note" maxlength="1000" placeholder="why this decision">
+    </label>
+  </div>
+  <div class="form-actions">
+    <button class="button button--primary" type="submit">Submit decision</button>
+  </div>
+</form>
+{% elif run.decision %}
+<div class="description-box">
+  <p><strong>Decision:</strong> {{ run.decision.decision }} by {{ run.decision.reviewer }}</p>
+  {% if run.decision.note %}<p><strong>Note:</strong> {{ run.decision.note }}</p>{% endif %}
+  <p><strong>Approved:</strong> {{ run.decision.approved_ids|join(', ') or 'none' }}
+     &middot; <strong>Rejected:</strong> {{ run.decision.rejected_ids|join(', ') or 'none' }}</p>
+  {% if run.decision.edits %}<p><strong>Corrections:</strong> {{ run.decision.edits }}</p>{% endif %}
+  {% if run.applied %}<p><strong>Closed:</strong> {{ run.applied.target }} (no destination was changed)</p>{% endif %}
+</div>
+{% else %}
+<p class="empty-state">No human decision recorded.</p>
+{% endif %}
+
+<h3>History</h3>
+{% if history %}
+<table class="data-table">
+  <thead><tr><th>#</th><th>Time</th><th>Step</th><th>Agent</th><th>State</th><th>Detail</th></tr></thead>
+  <tbody>
+    {% for e in history %}
+    <tr>
+      <td>{{ e.seq }}</td>
+      <td>{{ e.ts }}</td>
+      <td>{{ e.step }}</td>
+      <td>{{ e.agent or '—' }}</td>
+      <td>{{ e.state }}</td>
+      <td>{% for key, value in (e.detail or {}).items() %}{{ key }}: {{ value|string|truncate(80) }}{{ '; ' if not loop.last }}{% endfor %}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="empty-state">No history available.</p>
+{% endif %}
+{% endif %}

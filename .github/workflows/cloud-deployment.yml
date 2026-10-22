@@ -1,1 +1,143 @@
-# Only for RELEASE 01
+name: cloud-deployment
+
+# Builds and redeploys all 18 VoyageAI containers to the existing voyageai-cluster
+# ECS Fargate deployment (ECR + ECS + ALB, see docs/release-2/cloud/cloud-architecture.md),
+# then validates with scripts/deploy/aws/smoke-test.sh and uploads the evidence.
+#
+# One-time prerequisite (run once, locally, before this workflow can authenticate):
+#   bash scripts/deploy/aws/gh-oidc-setup.sh
+# That creates the AWS IAM role this workflow assumes via OIDC and pushes its ARN to
+# the AWS_ROLE_ARN GitHub secret - no AWS access keys are stored anywhere.
+#
+# This workflow redeploys code to infrastructure that already exists (ECR repos, the
+# ECS cluster, the ALB, security groups, the task execution role, the Service Connect
+# namespace) - it never creates or deletes any of that. Those are one-time, human-run
+# setup steps (see docs/release-2/cloud/aws-setup-guide.md).
+
+on:
+  workflow_dispatch:
+  # push:
+  #   branches:
+  #     - main
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ap-southeast-2
+  CLUSTER: voyageai-cluster
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC, no stored keys)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deployment script dependencies
+        run: pip install pyyaml
+
+      - name: Resolve account ID and image tag
+        id: vars
+        run: |
+          echo "account_id=$(aws sts get-caller-identity --query Account --output text)" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to ECR
+        run: |
+          aws ecr get-login-password --region "$AWS_REGION" \
+            | docker login --username AWS --password-stdin "${{ steps.vars.outputs.account_id }}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+
+      - name: Build and push all 18 service images
+        env:
+          AWS_ACCOUNT_ID: ${{ steps.vars.outputs.account_id }}
+          GIT_SHA: ${{ steps.vars.outputs.sha }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import subprocess
+
+          import yaml
+
+          region = os.environ["AWS_REGION"]
+          account = os.environ["AWS_ACCOUNT_ID"]
+          sha = os.environ["GIT_SHA"]
+          ecr = f"{account}.dkr.ecr.{region}.amazonaws.com"
+
+          with open("scripts/deploy/aws/services.yml") as f:
+              manifest = yaml.safe_load(f)
+
+          for s in manifest["services"]:
+              uri = f"{ecr}/{s['ecr_repo']}:{sha}"
+              context = s["context"]  # NOT derivable from dockerfile's directory - see services.yml
+              print(f"=== build {s['name']} ===", flush=True)
+              subprocess.run(
+                  ["docker", "build", "--platform", "linux/amd64", "-f", s["dockerfile"], "-t", uri, context],
+                  check=True,
+              )
+              subprocess.run(["docker", "push", uri], check=True)
+          PY
+
+      - name: Register updated task definitions
+        env:
+          AWS_ACCOUNT_ID: ${{ steps.vars.outputs.account_id }}
+          GIT_SHA: ${{ steps.vars.outputs.sha }}
+        run: |
+          export EXEC_ROLE_ARN=$(aws iam get-role --role-name ecsTaskExecutionRole --query Role.Arn --output text)
+          python3 scripts/deploy/aws/taskdefs.py
+
+      - name: Roll out the new revisions and wait for stability
+        run: |
+          python3 - <<'PY'
+          import subprocess
+
+          import yaml
+
+          CLUSTER = "voyageai-cluster"
+          REGION = "ap-southeast-2"
+
+          with open("scripts/deploy/aws/services.yml") as f:
+              manifest = yaml.safe_load(f)
+
+          names = [s["name"] for s in manifest["services"]]
+
+          for name in names:
+              subprocess.run(
+                  ["aws", "ecs", "update-service", "--cluster", CLUSTER, "--service", name,
+                   "--task-definition", name, "--force-new-deployment", "--region", REGION],
+                  check=True, stdout=subprocess.DEVNULL,
+              )
+              print("rolling", name, flush=True)
+
+          # `ecs wait services-stable` accepts at most 10 services per call.
+          for i in range(0, len(names), 10):
+              batch = names[i:i + 10]
+              print("waiting for", batch, flush=True)
+              subprocess.run(
+                  ["aws", "ecs", "wait", "services-stable", "--cluster", CLUSTER,
+                   "--services", *batch, "--region", REGION],
+                  check=True,
+              )
+          PY
+
+      - name: Validate deployment and generate evidence
+        run: bash scripts/deploy/aws/smoke-test.sh
+
+      - name: Upload deployment evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloud-deployment-evidence
+          path: docs/release-2/cloud/

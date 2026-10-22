@@ -1,0 +1,11 @@
+# Everything activity-service/tests needs, in one environment:
+#   pip install -r tests/requirements.txt   (from activity-service/)
+-r ../backend/requirements.txt
+-r ../frontend/requirements.txt
+-r ../database/requirements.txt
+pytest==9.1.1
+
+# The shared MCP/RAG bridge tests (test_shared_*_bridge.py) drive the real
+# shared servers in-process; they skip themselves if these aren't installed.
+-r ../../ai-services/mcp-server/requirements.txt
+-r ../../ai-services/rag-server/requirements.txt

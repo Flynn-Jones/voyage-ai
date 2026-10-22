@@ -12,13 +12,32 @@
     <div class="voyage-nav__container">
       <span class="voyage-nav__brand">VoyageAI &mdash; Activities</span>
       <div class="voyage-nav__switcher">
-        <a href="http://localhost:3000">Home</a>
-        <a href="http://localhost:3001">Destinations</a>
-        <a href="http://localhost:3002">Accommodation</a>
-        <a href="http://localhost:3003" class="is-active">Activities</a>
-        <a href="http://localhost:3004">Budget</a>
-        <a href="http://localhost:3005">Itinerary</a>
+        <a href="http://{{ request.host.split(":")[0] }}:3000">Home</a>
+        <a href="http://{{ request.host.split(":")[0] }}:3001">Destinations</a>
+        <a href="http://{{ request.host.split(":")[0] }}:3002">Accommodation</a>
+        <a href="http://{{ request.host.split(":")[0] }}:3003" class="is-active">Activities</a>
+        <a href="http://{{ request.host.split(":")[0] }}:3004">Budget</a>
+        <a href="http://{{ request.host.split(":")[0] }}:3005">Itinerary</a>
       </div>
+    </div>
+  </nav>
+  {# Second-row Activity navigation, the same .mode-bar / .mode-btn as
+     Destination's (student-1). Active item comes from the current endpoint. #}
+  {% set activity_tabs = [
+       ('Activities', url_for('index'),
+        ['index', 'activity_detail', 'edit_activity_form', 'update_activity']),
+       ('Register activity', url_for('register_activity_form'), ['register_activity_form', 'create_activity']),
+       ('AI Mode', url_for('ai_mode'), ['ai_mode']),
+       ('MCP Mode', url_for('mcp_mode'), ['mcp_mode']),
+       ('RAG Mode', url_for('rag_mode'), ['rag_mode']),
+       ('Multi-Agent Mode', url_for('multi_agent_mode'), ['multi_agent_mode'])
+     ] %}
+  <nav class="mode-bar" aria-label="Activity Manager">
+    <div class="mode-bar__container">
+      {% for label, href, endpoints in activity_tabs %}
+        {% set active = request.endpoint in endpoints %}
+        <a class="mode-btn{% if active %} is-active{% endif %}"{% if active %} aria-current="page"{% endif %} href="{{ href }}">{{ label }}</a>
+      {% endfor %}
     </div>
   </nav>
 

@@ -5,8 +5,13 @@ Requires the stack to be running:
     pytest student-1/tests/test_ai_compare_live.py -v
 
 Skips (rather than silently passing or failing) if Ollama isn't reachable
-from this machine, so the suite stays honest on a machine without it.
+from this machine, so the suite stays honest on a machine without it. Also
+skips when the stack was started with DESTINATION_AI_ENABLED=false (the cloud
+profile CI uses): the disabled behaviour is asserted in
+test_shared_disabled_live.py instead.
 """
+import os
+
 import requests
 import pytest
 
@@ -26,6 +31,10 @@ pytestmark = [
     pytest.mark.live,
     pytest.mark.skipif(
         not _ollama_available(), reason="Ollama is not reachable at http://localhost:11434"
+    ),
+    pytest.mark.skipif(
+        os.environ.get("DESTINATION_AI_ENABLED", "").strip().lower() == "false",
+        reason="DESTINATION_AI_ENABLED is false for this stack",
     ),
 ]
 

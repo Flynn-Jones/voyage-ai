@@ -20,7 +20,7 @@ SCOPE = "activity"
 CALLER = "agentic_loop"
 RETRIEVE_QUERY = "total number of activities"
 COUNT_QUERY = "How many activities are there?"
-# A record from activity-service/database-service/seed_mock_data.py (the demo seed).
+# A record from activity-service/database/seed_mock_data.py (the demo seed).
 ANSWER_QUERY = "What does the Harbour Sunset Kayak cost?"
 
 
@@ -42,7 +42,6 @@ def collect(app_dir: Path, repo_root: Path) -> tuple[bool, str]:
     prompts_dir = repo_root / "activity-service" / "prompts" / "lab8"
     required_paths = [
         shared_rag / "rag_pipeline.py",
-        shared_rag / "activity_context.py",
         shared_rag / "tool-contracts.md",
         prompts_dir / "implementation" / "rag_implementation_prompt.txt",
         prompts_dir / "review" / "rag_review_prompt.txt",
@@ -51,7 +50,7 @@ def collect(app_dir: Path, repo_root: Path) -> tuple[bool, str]:
     missing = [str(path.relative_to(repo_root)) for path in required_paths if not path.exists()]
     if missing:
         return False, "Activity RAG evidence incomplete. Missing: " + ", ".join(missing)
-    if 'scope == activity_context.SERVICE' not in (shared_rag / "rag_pipeline.py").read_text(encoding="utf-8"):
+    if 'scope == ACTIVITY_SERVICE' not in (shared_rag / "rag_pipeline.py").read_text(encoding="utf-8"):
         return False, "shared rag_pipeline.py does not route scope=\"activity\""
 
     base = {"k": 5, "caller": CALLER, "scope": SCOPE}

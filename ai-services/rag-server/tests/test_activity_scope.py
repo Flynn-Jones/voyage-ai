@@ -17,7 +17,6 @@ import requests
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import activity_context  # noqa: E402
 import rag_http_server  # noqa: E402
 import rag_pipeline as rp  # noqa: E402
 
@@ -79,8 +78,8 @@ def env(tmp_path, monkeypatch):
     activity_api = {"/activities": ACTIVITIES, "/assignments": ASSIGNMENTS}
 
     def fake_get(url, params=None, timeout=None):
-        if url.startswith(activity_context.ACTIVITY_DB_URL):
-            path = url[len(activity_context.ACTIVITY_DB_URL):]
+        if url.startswith(rp.ACTIVITY_DB_URL):
+            path = url[len(rp.ACTIVITY_DB_URL):]
             if state["activity_up"] and path in activity_api:
                 return FakeResponse(200, activity_api[path])
         elif url.endswith("/destinations"):
@@ -175,15 +174,15 @@ def test_activity_db_down_degrades_refresh_not_fails_it(env):
 def test_unscoped_results_are_identical_with_or_without_activity_data(env, monkeypatch, query):
     # Budget / Accommodation / Destination send unscoped queries; adding Activity's
     # slice to the shared corpus must not change a single result they get.
-    real_docs = activity_context.load_doc_chunks
+    real_docs = rp.load_activity_doc_chunks
     env["activity_up"] = False
-    monkeypatch.setattr(activity_context, "load_doc_chunks", lambda root: [])
+    monkeypatch.setattr(rp, "load_activity_doc_chunks", lambda root: [])
     rp.refresh_corpus()
     assert rp.refresh_corpus()["activity_chunk_count"] == 0
     before = rp.retrieve_context(query, 5)["results"]
 
     env["activity_up"] = True
-    monkeypatch.setattr(activity_context, "load_doc_chunks", real_docs)
+    monkeypatch.setattr(rp, "load_activity_doc_chunks", real_docs)
     assert rp.refresh_corpus()["activity_chunk_count"] > 0
     after = rp.retrieve_context(query, 5)["results"]
 
@@ -383,13 +382,13 @@ def test_rows_without_a_real_id_and_name_are_not_indexed(env, monkeypatch):
             "/assignments": [{"assignment_id": 7}, {"assignment_id": "3", "activity_id": 1}, ASSIGNMENTS[0]]}
 
     def fake_get(url, params=None, timeout=None):
-        path = url[len(activity_context.ACTIVITY_DB_URL):]
+        path = url[len(rp.ACTIVITY_DB_URL):]
         if path in junk:
             return FakeResponse(200, junk[path])
         raise requests.exceptions.ConnectionError(url)
     monkeypatch.setattr(rp.requests, "get", fake_get)
 
-    ids = {c["chunk_id"] for c in activity_context.load_chunks()}
+    ids = {c["chunk_id"] for c in rp.load_activity_records()}
     assert {"activity_1", "assignment_1"} <= ids
     assert "activity_2" not in ids and "assignment_7" not in ids and "assignment_3" not in ids
 
