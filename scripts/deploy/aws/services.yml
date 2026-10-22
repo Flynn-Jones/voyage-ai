@@ -1,0 +1,236 @@
+# Canonical per-service manifest for the AWS Fargate deployment described in
+# docs/release-2/cloud/aws-setup-guide.md and docs/release-2/cloud/cloud-architecture.md.
+#
+# This is the single source of truth the setup guide's CLI commands are parameterised
+# from (ECR repo name, Dockerfile path, container port, Service Connect discovery name,
+# env vars). It is also the evidence file ai-services/agentic_loop's
+# `--mode cloud-deployment-review` reads to confirm the fleet shape and that every AI
+# flag is forced off in the cloud.
+#
+# Ports mirror the local dev convention in the root README/CLAUDE.md (each service
+# group owns a 3xxx/5xxx/6xxx triple). `alb_listener_port` is only set on frontends —
+# they are the only tier with a public target group; api/database tiers are reachable
+# only inside the cluster via Service Connect.
+
+cluster_name: voyageai-cluster
+service_connect_namespace: voyageai.local
+alb_name: voyageai-alb
+aws_region: ap-southeast-2 # change to the team's chosen region before running the guide
+
+# Env vars present on every api-tier and frontend-tier container, forced off in the
+# cloud per docs/release-2/student-4/architecture.md ("In the cloud every AI path is
+# off") — ai-services/CLAUDE.md: MCP/RAG/Multi-Agent/Ollama run on the host only and
+# are never deployed here.
+common_disabled_ai_env:
+  AI_ENABLED: "false"
+  MCP_ENABLED: "false"
+  RAG_ENABLED: "false"
+  MULTI_AGENT_ENABLED: "false"
+
+services:
+  - group: shared
+    tier: frontend
+    name: shared-frontend
+    ecr_repo: voyageai/shared-frontend
+    dockerfile: shared/frontend/Dockerfile
+    container_port: 3000
+    alb_listener_port: 3000
+    service_connect_name: shared-frontend
+    env:
+      API_URL: http://shared-api.voyageai.local:5000
+
+  - group: shared
+    tier: api
+    name: shared-api
+    ecr_repo: voyageai/shared-api
+    dockerfile: shared/api/Dockerfile
+    container_port: 5000
+    service_connect_name: shared-api
+    env:
+      DATABASE_SERVICE_URL: http://shared-database.voyageai.local:6000
+
+  - group: shared
+    tier: database
+    name: shared-database
+    ecr_repo: voyageai/shared-database
+    dockerfile: shared/database/Dockerfile
+    container_port: 6000
+    service_connect_name: shared-database
+    env: {}
+
+  - group: student-1
+    tier: frontend
+    name: destination-frontend
+    ecr_repo: voyageai/destination-frontend
+    dockerfile: student-1/frontend/Dockerfile
+    container_port: 3001
+    alb_listener_port: 3001
+    service_connect_name: destination-frontend
+    env:
+      API_URL: http://destination-api.voyageai.local:5001
+
+  - group: student-1
+    tier: api
+    name: destination-api
+    ecr_repo: voyageai/destination-api
+    dockerfile: student-1/api/Dockerfile
+    container_port: 5001
+    service_connect_name: destination-api
+    env:
+      DATABASE_SERVICE_URL: http://destination-database.voyageai.local:6001
+      MCP_SERVICE_URL: ""
+      MCP_ENABLED: "false"
+      RAG_SERVICE_URL: ""
+      RAG_ENABLED: "false"
+
+  - group: student-1
+    tier: database
+    name: destination-database
+    ecr_repo: voyageai/destination-database
+    dockerfile: student-1/database/Dockerfile
+    container_port: 6001
+    service_connect_name: destination-database
+    env: {}
+
+  - group: accommodation-service
+    tier: frontend
+    name: accommodation-frontend
+    ecr_repo: voyageai/accommodation-frontend
+    dockerfile: accommodation-service/frontend/Dockerfile
+    container_port: 3002 # Dockerfile EXPOSE says 3000 (bug) - task def must use the real listen port, 3002
+    alb_listener_port: 3002
+    service_connect_name: accommodation-frontend
+    env:
+      API_URL: http://accommodation-api.voyageai.local:5002
+
+  - group: accommodation-service
+    tier: api
+    name: accommodation-api
+    ecr_repo: voyageai/accommodation-api
+    dockerfile: accommodation-service/api/Dockerfile
+    container_port: 5002 # Dockerfile EXPOSE says 6002 (bug) - task def must use the real listen port, 5002
+    service_connect_name: accommodation-api
+    env:
+      DATABASE_SERVICE_URL: http://accommodation-database.voyageai.local:6002
+      DESTINATION_SERVICE_URL: http://destination-api.voyageai.local:5001
+      MCP_SERVICE_URL: ""
+      MCP_ENABLED: "false"
+      RAG_SERVICE_URL: ""
+      RAG_ENABLED: "false"
+
+  - group: accommodation-service
+    tier: database
+    name: accommodation-database
+    ecr_repo: voyageai/accommodation-database
+    dockerfile: accommodation-service/database/Dockerfile
+    container_port: 6002
+    service_connect_name: accommodation-database
+    env: {}
+
+  - group: activity-service
+    tier: frontend
+    name: activity-frontend
+    ecr_repo: voyageai/activity-frontend
+    dockerfile: activity-service/frontend/Dockerfile
+    container_port: 3004 # container listens on 3004 internally; external/ALB port is 3003
+    alb_listener_port: 3003
+    service_connect_name: activity-frontend
+    env:
+      API_URL: http://activity-api.voyageai.local:5003
+
+  - group: activity-service
+    tier: api
+    name: activity-api
+    ecr_repo: voyageai/activity-api
+    dockerfile: activity-service/api/Dockerfile
+    container_port: 5003
+    service_connect_name: activity-api
+    env:
+      DATABASE_SERVICE_URL: http://activity-database.voyageai.local:6003
+      ACCOMMODATION_SERVICE_URL: http://accommodation-api.voyageai.local:5002
+      ACTIVITY_MCP_SERVICE_URL: ""
+      ACTIVITY_MCP_ENABLED: "false"
+      ACTIVITY_RAG_SERVICE_URL: ""
+      ACTIVITY_RAG_ENABLED: "false"
+
+  - group: activity-service
+    tier: database
+    name: activity-database
+    ecr_repo: voyageai/activity-database
+    dockerfile: activity-service/database/Dockerfile
+    container_port: 6003
+    service_connect_name: activity-database
+    env: {}
+
+  - group: budget-service
+    tier: frontend
+    name: budget-fe
+    ecr_repo: voyageai/budget-fe
+    dockerfile: budget-service/frontend/Dockerfile
+    container_port: 80 # nginx; proxies /api/ to budget-backend:5004 (hardcoded in nginx.conf)
+    alb_listener_port: 3004
+    service_connect_name: budget-fe
+    env: {}
+
+  - group: budget-service
+    tier: api
+    name: budget-backend # must stay exactly this name - budget-fe's nginx.conf hardcodes it
+    ecr_repo: voyageai/budget-be
+    dockerfile: budget-service/api/Dockerfile
+    container_port: 5004
+    service_connect_name: budget-backend
+    env:
+      DATABASE_SERVICE_URL: http://budget-database.voyageai.local:6004
+      ACCOMMODATION_SERVICE_URL: http://accommodation-api.voyageai.local:5002
+      MCP_SERVICE_URL: ""
+      MCP_ENABLED: "false"
+      RAG_SERVICE_URL: ""
+      RAG_ENABLED: "false"
+      MULTI_AGENT_SERVICE_URL: ""
+      MULTI_AGENT_ENABLED: "false"
+      AI_ENABLED: "false"
+
+  - group: budget-service
+    tier: database
+    name: budget-database # referenced as "budget-database (reseeded)" in docs/release-2/student-4/architecture.md
+    ecr_repo: voyageai/budget-db
+    dockerfile: budget-service/database/Dockerfile
+    container_port: 6004
+    service_connect_name: budget-database
+    env:
+      BUDGET_DB_RESEED: "1" # Fargate storage is ephemeral per task; reseed on every boot
+
+  - group: itinerary-service
+    tier: frontend
+    name: itinerary-fe
+    ecr_repo: voyageai/itinerary-fe
+    dockerfile: itinerary-service/frontend/Dockerfile
+    container_port: 80 # nginx; proxies to itinerary-be:5005 (hardcoded in nginx.conf)
+    alb_listener_port: 3005
+    service_connect_name: itinerary-fe
+    env: {}
+
+  - group: itinerary-service
+    tier: api
+    name: itinerary-be # must stay exactly this name - itinerary-fe's nginx.conf hardcodes it
+    ecr_repo: voyageai/itinerary-be
+    dockerfile: itinerary-service/api/Dockerfile
+    container_port: 5005
+    service_connect_name: itinerary-be
+    env:
+      DATABASE_SERVICE_URL: http://itinerary-db.voyageai.local:6005
+      DESTINATION_SERVICE_URL: http://destination-api.voyageai.local:5001
+      ACTIVITY_SERVICE_URL: http://activity-api.voyageai.local:5003
+      MCP_SERVICE_URL: ""
+      MCP_ENABLED: "false"
+      RAG_SERVICE_URL: ""
+      RAG_ENABLED: "false"
+
+  - group: itinerary-service
+    tier: database
+    name: itinerary-db
+    ecr_repo: voyageai/itinerary-db
+    dockerfile: itinerary-service/database/Dockerfile
+    container_port: 6005
+    service_connect_name: itinerary-db
+    env: {}
