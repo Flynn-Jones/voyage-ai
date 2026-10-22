@@ -19,6 +19,15 @@ echo "=== VoyageAI AI host deploy ==="
 
 INSTANCE_ID=$(aws ssm get-parameter --name "$PARAM_PREFIX/instance-id" --region "$AWS_REGION" --query 'Parameter.Value' --output text)
 BUCKET=$(aws ssm get-parameter --name "$PARAM_PREFIX/bundle-bucket" --region "$AWS_REGION" --query 'Parameter.Value' --output text)
+# *.voyageai.local (Service Connect) is NOT resolvable outside the ECS task mesh - this EC2
+# instance was never part of it. Reach the 5 feature databases through the internal NLB
+# from ai-db-nlb-setup.sh instead (run that first; re-run it if a database task gets
+# replaced, since its target groups are registered by IP, not auto-synced).
+DB_NLB_DNS=$(aws ssm get-parameter --name "/voyageai/db-nlb/dns-name" --region "$AWS_REGION" --query 'Parameter.Value' --output text 2>/dev/null || true)
+if [ -z "$DB_NLB_DNS" ] || [ "$DB_NLB_DNS" = "None" ]; then
+  echo "No database NLB tracked - run ai-db-nlb-setup.sh first." >&2
+  exit 1
+fi
 
 if [ -z "$INSTANCE_ID" ] || [ "$INSTANCE_ID" = "None" ]; then
   echo "No AI host instance tracked - run ai-ec2-setup.sh first." >&2
@@ -66,11 +75,11 @@ fi
 
 COMMON_ENV="Environment=OLLAMA_BASE_URL=http://localhost:11434
 Environment=OLLAMA_MODEL=qwen2.5:7b
-Environment=BUDGET_DB_URL=http://budget-database.voyageai.local:6004
-Environment=ACCOMMODATION_DB_URL=http://accommodation-database.voyageai.local:6002
-Environment=DESTINATION_DB_URL=http://destination-database.voyageai.local:6001
-Environment=ACTIVITY_DB_URL=http://activity-database.voyageai.local:6003
-Environment=ITINERARY_DB_URL=http://itinerary-db.voyageai.local:6005"
+Environment=BUDGET_DB_URL=http://__DB_NLB__:6004
+Environment=ACCOMMODATION_DB_URL=http://__DB_NLB__:6002
+Environment=DESTINATION_DB_URL=http://__DB_NLB__:6001
+Environment=ACTIVITY_DB_URL=http://__DB_NLB__:6003
+Environment=ITINERARY_DB_URL=http://__DB_NLB__:6005"
 
 cat > /etc/systemd/system/voyageai-mcp.service <<EOF
 [Unit]
@@ -128,6 +137,7 @@ REMOTE
 )
 REMOTE_SCRIPT="${REMOTE_SCRIPT//__BUCKET__/$BUCKET}"
 REMOTE_SCRIPT="${REMOTE_SCRIPT//__REGION__/$AWS_REGION}"
+REMOTE_SCRIPT="${REMOTE_SCRIPT//__DB_NLB__/$DB_NLB_DNS}"
 
 # Step 3: ship it via SSM Run Command (no SSH, matches "no public inbound" throughout).
 PARAMS_FILE="/tmp/voyageai-ssm-params.json"
