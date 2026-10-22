@@ -12,12 +12,12 @@
     <div class="voyage-nav__container">
       <span class="voyage-nav__brand">VoyageAI &mdash; Destinations</span>
       <div class="voyage-nav__switcher">
-        <a href="http://localhost:3000">Home</a>
-        <a href="http://localhost:3001" class="is-active">Destinations</a>
-        <a href="http://localhost:3002">Accommodation</a>
-        <a href="http://localhost:3003">Activities</a>
-        <a href="http://localhost:3004">Budget</a>
-        <a href="http://localhost:3005">Itinerary</a>
+        <a href="http://{{ request.host.split(":")[0] }}:3000">Home</a>
+        <a href="http://{{ request.host.split(":")[0] }}:3001" class="is-active">Destinations</a>
+        <a href="http://{{ request.host.split(":")[0] }}:3002">Accommodation</a>
+        <a href="http://{{ request.host.split(":")[0] }}:3003">Activities</a>
+        <a href="http://{{ request.host.split(":")[0] }}:3004">Budget</a>
+        <a href="http://{{ request.host.split(":")[0] }}:3005">Itinerary</a>
       </div>
     </div>
   </nav>
