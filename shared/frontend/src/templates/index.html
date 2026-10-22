@@ -13,7 +13,7 @@
   <article class="voyage-card">
     <h2>{{ feature.name }}</h2>
     <p>Managed by {{ feature.owner }} &mdash; running on port {{ feature.port }}.</p>
-    <a class="voyage-card__link" href="http://localhost:{{ feature.port }}">Open {{ feature.name }}</a>
+    <a class="voyage-card__link" href="http://{{ request.host.split(":")[0] }}:{{ feature.port }}">Open {{ feature.name }}</a>
   </article>
   {% endfor %}
 </section>
