@@ -6,7 +6,15 @@
 # parameterised from (ECR repo name, Dockerfile path + build context, container port,
 # Service Connect discovery name, env vars). It is also the evidence file
 # ai-services/agentic_loop's `--mode cloud-deployment-review` reads to confirm the
-# fleet shape and that every AI flag is forced off in the cloud.
+# fleet shape.
+#
+# Phase 2 (docs/release-2/cloud/phase-2-ai-mode-plan.md): all 5 feature APIs now point
+# MCP_SERVICE_URL/RAG_SERVICE_URL/MULTI_AGENT_SERVICE_URL/OLLAMA_*_URL at the AI host EC2
+# instance (ai-ec2-setup.sh) and override common_disabled_ai_env's flags to "true" in
+# their own env block (itinerary has no Multi-Agent integration, so no MULTI_AGENT_* vars
+# there). The AI host's private IP (172.31.45.32) is hardcoded below rather than resolved
+# dynamically - if that instance is ever replaced, update these 5 services' *_SERVICE_URL/
+# OLLAMA_*_URL values and re-run cloud-deployment.yml.
 #
 # `context` is NOT derivable from `dockerfile`'s directory - several Dockerfiles expect
 # the service GROUP root as their build context (because they `COPY <tier> ./<tier>`),
@@ -24,10 +32,9 @@ service_connect_namespace: voyageai.local
 alb_name: voyageai-alb
 aws_region: ap-southeast-2 # change to the team's chosen region before running the guide
 
-# Env vars present on every api-tier and frontend-tier container, forced off in the
-# cloud per docs/release-2/student-4/architecture.md ("In the cloud every AI path is
-# off") — ai-services/CLAUDE.md: MCP/RAG/Multi-Agent/Ollama run on the host only and
-# are never deployed here.
+# Default env vars for every api-tier and frontend-tier container - AI off unless a
+# service's own env block overrides a flag to "true" (see the Phase 2 note above; as of
+# this manifest, the 5 feature APIs do).
 common_disabled_ai_env:
   AI_ENABLED: "false"
   MCP_ENABLED: "false"
@@ -90,10 +97,15 @@ services:
     service_connect_name: destination-api
     env:
       DATABASE_SERVICE_URL: http://destination-database.voyageai.local:6001
-      MCP_SERVICE_URL: ""
-      MCP_ENABLED: "false"
-      RAG_SERVICE_URL: ""
-      RAG_ENABLED: "false"
+      MCP_SERVICE_URL: http://172.31.45.32:7001
+      MCP_ENABLED: "true"
+      RAG_SERVICE_URL: http://172.31.45.32:7002
+      RAG_ENABLED: "true"
+      MULTI_AGENT_SERVICE_URL: http://172.31.45.32:7004
+      MULTI_AGENT_ENABLED: "true"
+      AI_ENABLED: "true"
+      OLLAMA_BASE_URL: http://172.31.45.32:11434
+      OLLAMA_MODEL: qwen2.5:1.5b
 
   - group: student-1
     tier: database
@@ -128,10 +140,15 @@ services:
     env:
       DATABASE_SERVICE_URL: http://accommodation-database.voyageai.local:6002
       DESTINATION_SERVICE_URL: http://destination-api.voyageai.local:5001
-      MCP_SERVICE_URL: ""
-      MCP_ENABLED: "false"
-      RAG_SERVICE_URL: ""
-      RAG_ENABLED: "false"
+      MCP_SERVICE_URL: http://172.31.45.32:7001
+      MCP_ENABLED: "true"
+      RAG_SERVICE_URL: http://172.31.45.32:7002
+      RAG_ENABLED: "true"
+      MULTI_AGENT_SERVICE_URL: http://172.31.45.32:7004
+      MULTI_AGENT_ENABLED: "true"
+      AI_ENABLED: "true"
+      OLLAMA_HOST: http://172.31.45.32:11434
+      OLLAMA_MODEL: qwen2.5:1.5b
 
   - group: accommodation-service
     tier: database
@@ -166,10 +183,21 @@ services:
     env:
       DATABASE_SERVICE_URL: http://activity-database.voyageai.local:6003
       ACCOMMODATION_SERVICE_URL: http://accommodation-api.voyageai.local:5002
-      ACTIVITY_MCP_SERVICE_URL: ""
-      ACTIVITY_MCP_ENABLED: "false"
-      ACTIVITY_RAG_SERVICE_URL: ""
-      ACTIVITY_RAG_ENABLED: "false"
+      # NOTE: activity's own code reads plain MCP_SERVICE_URL/MCP_ENABLED/RAG_SERVICE_URL/
+      # RAG_ENABLED (see routes/mcp_mode.py, routes/rag_mode.py) - the ACTIVITY_-prefixed
+      # names this file used before were never read by any code; fixed to the real names.
+      MCP_SERVICE_URL: http://172.31.45.32:7001
+      MCP_ENABLED: "true"
+      RAG_SERVICE_URL: http://172.31.45.32:7002
+      RAG_ENABLED: "true"
+      MULTI_AGENT_SERVICE_URL: http://172.31.45.32:7004
+      MULTI_AGENT_ENABLED: "true"
+      # activity's own direct-chat feature has no _ENABLED flag (always on) and uses
+      # OLLAMA_URL, not OLLAMA_BASE_URL; its own default model (llama3.1:8b) isn't pulled
+      # on the AI host, only qwen2.5:1.5b is - override both.
+      OLLAMA_URL: http://172.31.45.32:11434
+      OLLAMA_MODEL: qwen2.5:1.5b
+      OLLAMA_INTENT_MODEL: qwen2.5:1.5b
 
   - group: activity-service
     tier: database
@@ -203,13 +231,15 @@ services:
     env:
       DATABASE_SERVICE_URL: http://budget-database.voyageai.local:6004
       ACCOMMODATION_SERVICE_URL: http://accommodation-api.voyageai.local:5002
-      MCP_SERVICE_URL: ""
-      MCP_ENABLED: "false"
-      RAG_SERVICE_URL: ""
-      RAG_ENABLED: "false"
-      MULTI_AGENT_SERVICE_URL: ""
-      MULTI_AGENT_ENABLED: "false"
-      AI_ENABLED: "false"
+      MCP_SERVICE_URL: http://172.31.45.32:7001
+      MCP_ENABLED: "true"
+      RAG_SERVICE_URL: http://172.31.45.32:7002
+      RAG_ENABLED: "true"
+      MULTI_AGENT_SERVICE_URL: http://172.31.45.32:7004
+      MULTI_AGENT_ENABLED: "true"
+      AI_ENABLED: "true"
+      OLLAMA_BASE_URL: http://172.31.45.32:11434
+      OLLAMA_MODEL: qwen2.5:1.5b
 
   - group: budget-service
     tier: database
@@ -245,10 +275,14 @@ services:
       DATABASE_SERVICE_URL: http://itinerary-db.voyageai.local:6005
       DESTINATION_SERVICE_URL: http://destination-api.voyageai.local:5001
       ACTIVITY_SERVICE_URL: http://activity-api.voyageai.local:5003
-      MCP_SERVICE_URL: ""
-      MCP_ENABLED: "false"
-      RAG_SERVICE_URL: ""
-      RAG_ENABLED: "false"
+      MCP_SERVICE_URL: http://172.31.45.32:7001
+      MCP_ENABLED: "true"
+      RAG_SERVICE_URL: http://172.31.45.32:7002
+      RAG_ENABLED: "true"
+      # itinerary has no Multi-Agent integration (no workflow/routes exist) and its
+      # ai-review route has no _ENABLED flag at all - it just needs Ollama reachable.
+      OLLAMA_BASE_URL: http://172.31.45.32:11434
+      OLLAMA_MODEL: qwen2.5:1.5b
 
   - group: itinerary-service
     tier: database

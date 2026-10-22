@@ -74,7 +74,7 @@ fi
 /opt/voyageai/venv/bin/pip install --quiet -r /opt/voyageai/multi-agent-server/requirements.txt
 
 COMMON_ENV="Environment=OLLAMA_BASE_URL=http://localhost:11434
-Environment=OLLAMA_MODEL=qwen2.5:7b
+Environment=OLLAMA_MODEL=qwen2.5:1.5b
 Environment=BUDGET_DB_URL=http://__DB_NLB__:6004
 Environment=ACCOMMODATION_DB_URL=http://__DB_NLB__:6002
 Environment=DESTINATION_DB_URL=http://__DB_NLB__:6001

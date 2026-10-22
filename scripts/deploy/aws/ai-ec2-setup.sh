@@ -18,9 +18,9 @@ set -euo pipefail
 
 AWS_REGION="${AWS_REGION:-ap-southeast-2}"
 INSTANCE_TYPE="${AI_HOST_INSTANCE_TYPE:-m7i-flex.large}"  # free-tier-eligible, 2 vCPU/8GB - enough for
-                                                           # qwen2.5:7b; swap to g4dn.xlarge + a GPU AMI
+                                                           # qwen2.5:1.5b; swap to g4dn.xlarge + a GPU AMI
                                                            # to upgrade later (not free-tier eligible)
-OLLAMA_MODEL="${AI_HOST_OLLAMA_MODEL:-qwen2.5:7b}"
+OLLAMA_MODEL="${AI_HOST_OLLAMA_MODEL:-qwen2.5:1.5b}"
 SG_NAME="voyageai-ai-host-sg"
 ROLE_NAME="voyageai-ai-host-role"
 PROFILE_NAME="voyageai-ai-host-profile"
