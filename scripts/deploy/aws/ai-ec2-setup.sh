@@ -17,7 +17,9 @@ set -euo pipefail
 # this script only prepares the box (Ollama + Python + the model), not the servers.
 
 AWS_REGION="${AWS_REGION:-ap-southeast-2}"
-INSTANCE_TYPE="${AI_HOST_INSTANCE_TYPE:-t3.xlarge}"  # swap to g4dn.xlarge + a GPU AMI to upgrade later
+INSTANCE_TYPE="${AI_HOST_INSTANCE_TYPE:-m7i-flex.large}"  # free-tier-eligible, 2 vCPU/8GB - enough for
+                                                           # qwen2.5:7b; swap to g4dn.xlarge + a GPU AMI
+                                                           # to upgrade later (not free-tier eligible)
 OLLAMA_MODEL="${AI_HOST_OLLAMA_MODEL:-qwen2.5:7b}"
 SG_NAME="voyageai-ai-host-sg"
 ROLE_NAME="voyageai-ai-host-role"

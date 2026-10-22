@@ -32,11 +32,14 @@ someone's laptop. Concretely:
   (:11434) already used locally, supervised by systemd units instead of a developer running them in
   a terminal. **No new Dockerfiles, no second ECS cluster, no Service Connect wiring** for these
   four — real complexity avoided, not deferred.
-- **Instance size: CPU-only to start** (e.g. `t3.xlarge`, ~$0.15/hr on-demand) — simplest to
-  provision, no GPU driver/AMI concerns, acceptable if multi-second `qwen2.5:7b` responses are fine
-  for a demo. **Upgrading to a GPU instance later is a one-line change** (swap to `g4dn.xlarge`,
-  ~$0.50–0.75/hr, and use an NVIDIA-ready AMI) if faster responses turn out to matter — not a
-  re-architecture, just a different `--instance-type` and AMI.
+- **Instance size: CPU-only to start, `m7i-flex.large` (2 vCPU / 8GB RAM)** — this account's Free
+  Tier restriction blocks launching any non-free-tier-eligible instance type at all (confirmed via
+  `aws ec2 describe-instance-types --filters Name=free-tier-eligible,Values=true`), and
+  `m7i-flex.large` is the largest-memory option on that list, with enough headroom to actually load
+  `qwen2.5:7b` (≈4.7GB quantized). **Upgrading to a GPU instance later is a one-line change** (swap to
+  `g4dn.xlarge`, ~$0.50–0.75/hr, and use an NVIDIA-ready AMI) if faster responses turn out to matter
+  and the account's Free Tier restriction allows it — not a re-architecture, just a different
+  `--instance-type` and AMI.
 - Rejected: a second ECS Fargate cluster (Fargate has no GPU option at all, and would mean writing
   Dockerfiles for services this project has explicitly chosen not to containerise) and Bedrock (its
   per-token pricing is attractive, but it requires rewriting `core/ai.py`'s Ollama HTTP client and
@@ -62,7 +65,7 @@ code changes — it's exactly the client shape already documented in `ai-service
    (new, one-time) creates a security group scoped to the ECS task security group only (plus a
    matching ingress rule on `voyageai-task-sg` for ports 6000–6005, since MCP/RAG read the feature
    databases directly — see "Networking" above), a private S3 bucket + IAM role for code delivery,
-   and launches a `t3.xlarge` running Amazon Linux whose user-data installs Ollama (its own installer
+   and launches a `m7i-flex.large` running Amazon Linux whose user-data installs Ollama (its own installer
    sets up its systemd unit) and pulls `qwen2.5:7b`. It records the instance ID, private IP, and
    bundle bucket in SSM Parameter Store under `/voyageai/ai-host/*` — no fragile local files.
 2. **Deploy the application code.** `scripts/deploy/aws/ai-ec2-deploy.sh` (new, repeatable) packages
@@ -94,7 +97,7 @@ code changes — it's exactly the client shape already documented in `ai-service
 
 ## Open questions for the team to resolve before starting
 
-1. Whether `t3.xlarge` CPU-only response times are acceptable for the showcase, or whether the
+1. Whether `m7i-flex.large` CPU-only response times are acceptable for the showcase, or whether the
    `g4dn.xlarge` GPU upgrade (one-line change — see the Decision section above) is worth the extra
    cost before the demo.
 2. Whether the showcase video needs AI Mode live in the cloud at all, or whether a recorded
