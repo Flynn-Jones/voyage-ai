@@ -46,14 +46,17 @@ MULTI_AGENT_DECISIONS = (
     ("reject", "Reject"),
 )
 
-# Top navigation targets. Local defaults; deployments override them per service.
+# Top navigation targets. Env var overrides win when set and safe (see inject_nav_urls);
+# otherwise the default is built from the incoming request's own host, not a hardcoded
+# "localhost" - the same host works whether the page was requested through the local
+# dev port, Docker Compose, or the real ALB DNS name in the cloud.
 NAV_URL_DEFAULTS = (
-    ("home", "PUBLIC_HOME_URL", "http://localhost:3000"),
-    ("destinations", "PUBLIC_DESTINATION_URL", "http://localhost:3001"),
-    ("accommodation", "PUBLIC_ACCOMMODATION_URL", "http://localhost:3002"),
-    ("activities", "PUBLIC_ACTIVITY_URL", "http://localhost:3003"),
-    ("budget", "PUBLIC_BUDGET_URL", "http://localhost:3004"),
-    ("itinerary", "PUBLIC_ITINERARY_URL", "http://localhost:3005"),
+    ("home", "PUBLIC_HOME_URL", 3000),
+    ("destinations", "PUBLIC_DESTINATION_URL", 3001),
+    ("accommodation", "PUBLIC_ACCOMMODATION_URL", 3002),
+    ("activities", "PUBLIC_ACTIVITY_URL", 3003),
+    ("budget", "PUBLIC_BUDGET_URL", 3004),
+    ("itinerary", "PUBLIC_ITINERARY_URL", 3005),
 )
 
 DEFAULT_COMPARE_PREFERENCES = "nightlife and food"
@@ -318,12 +321,13 @@ def create_app():
 
     @app.context_processor
     def inject_nav_urls():
+        host = request.host.split(":")[0]
         urls = {}
-        for key, env_name, default in NAV_URL_DEFAULTS:
+        for key, env_name, port in NAV_URL_DEFAULTS:
             value = (os.environ.get(env_name) or "").strip()
             # Only absolute http(s) URLs or site-relative paths; anything else keeps the default.
             ok = value.startswith(("http://", "https://")) or (value.startswith("/") and not value.startswith("//"))
-            urls[key] = value if ok else default
+            urls[key] = value if ok else f"http://{host}:{port}"
         return {"nav_urls": urls}
 
     @app.route("/")
