@@ -1,12 +1,14 @@
 # Student 5 Release 2 post-commit CI/CD endpoint report
 
-GitHub Actions status: **Pending commit, push and workflow execution.** Local checks are separate
-from GitHub evidence; no Actions success is claimed here.
+GitHub Actions status: **SUCCESS**. The GitHub-hosted `student-5` workflow completed successfully
+for the exact tested commit below, including the live POST/PUT endpoint and disabled-service checks.
 
 - Workflow: `.github/workflows/student-5.yml` (`itinerary-release-1`, retained job ID and check name).
-- Actions run URL: **TODO: actual successful student-5 run URL**.
-- Tested commit SHA: **TODO: exact SHA from that run**.
-- Run date/result: **TODO: actual date and conclusion**.
+- Actions run URL: [39765017520](https://github.com/Flynn-Jones/voyage-ai/actions/runs/39765017520).
+- Tested commit SHA: `1fba88d8dc3407486648977b913790848415fef9` (workflow run SHA matched).
+- Run date/result: **2026-10-22, SUCCESS**; completed at 10:42:47 UTC.
+- Tested endpoints: `POST /api/itinerary` and `PUT /api/itinerary/<id>`.
+- Published artifacts verified: `student-5-endpoint-tests` and `student-5-report`.
 
 ## Two endpoint functions
 
@@ -65,7 +67,7 @@ python -m pytest -m live itinerary-service/ci -v --junitxml=itinerary-service/re
 
 Optional URLs: `ITINERARY_BE_URL`, `ITINERARY_DB_URL`; HTTP evidence directory:
 `ITINERARY_CI_REPORT_DIR`. Do not run CI's volume-removing teardown against a local demo dataset.
-No commit/push or cloud deployment is part of this task.
+These commands reproduce the local CI checks without deploying a cloud environment.
 
 ## Local validation (2026-10-22)
 
@@ -84,11 +86,11 @@ No commit/push or cloud deployment is part of this task.
 
 Local JUnit and HTTP/test output are in ignored `itinerary-service/reports/post-commit/`. They record
 local execution, not GitHub Actions results. Raw tooling, caches and runtime output are not repository
-evidence. The real Actions runner, artifact uploads and run URL/SHA still require the push below.
+evidence. The successful GitHub-hosted run and its published artifacts are recorded above.
 
-## Obtain actual Actions evidence
+## Separate workflow results
 
-After review, commit and push these changes to `student-5/itinerary-feature`. Its path-filtered push
-triggers `student-5`; manual workflow dispatch on that branch is also supported. Confirm success for
-the exact pushed SHA, download both artifacts, inspect JUnit for zero failures/errors/skips in the live
-suite, then replace the TODO fields above with the actual run URL/SHA/date/result.
+The separate [integration workflow](https://github.com/Flynn-Jones/voyage-ai/actions/runs/39765015676)
+and [cloud workflow](https://github.com/Flynn-Jones/voyage-ai/actions/runs/39765014073) reported failures
+with zero jobs. They were not part of the successful Student 5 endpoint-test result. No cloud
+deployment work was performed for this validation.
