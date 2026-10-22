@@ -233,7 +233,7 @@ services:
       - voyage-net
 
   activity-database:
-    build: ./activity-service/database-service
+    build: ./activity-service/database
     ports:
       - "6003:6003"
     environment:

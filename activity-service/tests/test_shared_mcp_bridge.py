@@ -28,6 +28,7 @@ from starlette.testclient import TestClient  # noqa: E402
 
 import mcp_http_server  # noqa: E402  (shared server)
 import tools as shared_tools  # noqa: E402  (shared server)
+from conftest import load_backend_app  # noqa: E402
 
 TOOL_NAMES = ["list_activities", "get_activity", "get_activity_assignments", "list_assignments", "get_assignment"]
 
@@ -100,7 +101,7 @@ def bridge(monkeypatch, shared_mcp):
     monkeypatch.setattr(mcp_mode.requests, "post", to_shared_server)
     monkeypatch.setattr(mcp_mode, "MCP_ENABLED", True)
 
-    import app as app_module
+    app_module = load_backend_app()
     with app_module.create_app().test_client() as client:
         client.forwarded = forwarded
         client.mcp_mode = mcp_mode

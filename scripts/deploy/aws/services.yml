@@ -175,8 +175,8 @@ services:
     tier: database
     name: activity-database
     ecr_repo: voyageai/activity-database
-    dockerfile: activity-service/database-service/Dockerfile # tier directory is "database-service", not "database"
-    context: activity-service/database-service
+    dockerfile: activity-service/database/Dockerfile
+    context: activity-service/database
     container_port: 6003
     service_connect_name: activity-database
     env: {}

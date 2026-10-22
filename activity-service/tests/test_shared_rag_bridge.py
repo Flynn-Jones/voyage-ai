@@ -28,6 +28,7 @@ for path in (SHARED_RAG, REPO_ROOT / "activity-service" / "backend"):
 import activity_context  # noqa: E402  (shared server)
 import rag_http_server  # noqa: E402  (shared server)
 import rag_pipeline as rp  # noqa: E402  (shared server)
+from conftest import load_backend_app  # noqa: E402
 
 ACTIVITIES = [
     {"activity_id": 1, "activity_name": "Harbour Kayaking Tour", "activity_type": "Adventure",
@@ -69,7 +70,7 @@ def backend(monkeypatch):
     monkeypatch.setattr(rag_api.requests, "post", fake_post)
     monkeypatch.setattr(rag_api, "RAG_ENABLED", True)
 
-    import app as app_module
+    app_module = load_backend_app()
     with app_module.create_app().test_client() as client:
         yield client, forwarded, rag_api, monkeypatch
 
@@ -182,7 +183,7 @@ def live(tmp_path, monkeypatch):
     monkeypatch.setattr(rag_api, "RAG_SERVICE_URL", f"http://127.0.0.1:{server.server_port}")
     monkeypatch.setattr(rag_api, "RAG_ENABLED", True)
 
-    import app as app_module
+    app_module = load_backend_app()
     with app_module.create_app().test_client() as client:
         client.generated = generated
         yield client

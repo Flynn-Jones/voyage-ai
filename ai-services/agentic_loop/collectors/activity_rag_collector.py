@@ -20,7 +20,7 @@ SCOPE = "activity"
 CALLER = "agentic_loop"
 RETRIEVE_QUERY = "total number of activities"
 COUNT_QUERY = "How many activities are there?"
-# A record from activity-service/database-service/seed_mock_data.py (the demo seed).
+# A record from activity-service/database/seed_mock_data.py (the demo seed).
 ANSWER_QUERY = "What does the Harbour Sunset Kayak cost?"
 
 
