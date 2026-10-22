@@ -22,10 +22,15 @@ RUN = {
     "plan": {"objective": "Check 2026-10-06 for overlaps.",
              "steps": [{"agent": "Worker", "action": "Read activities", "tool": "list_activities"},
                        {"agent": "Human", "action": "Decide"}]},
-    "work": {"items": [{"id": "1-2", "first": "#1 Kayaking 09:00-11:00", "second": "#2 Museum 10:30-12:00",
-                        "overlap_minutes": 30}],
-             "summary": "1 overlapping pair(s) among 3 activities on 2026-10-06.",
-             "totals": {"task": "overlaps", "date": "2026-10-06"},
+    "work": {"items": [{"kind": "overlap", "id": "1-2", "first": "#1 Kayaking 09:00-11:00",
+                        "second": "#2 Museum 10:30-12:00", "overlap_minutes": 30},
+                       {"kind": "free_slot", "id": "slot-1", "start": "12:00", "end": "14:00",
+                        "proposal": "Proposed: free 2h slot on 2026-10-06, 12:00-14:00 (not saved)"}],
+             "scheduled": [{"assignment_id": 1, "activity_id": 1, "name": "Kayaking",
+                            "time": "2026-10-06T09:00", "duration": "2 hours"}],
+             "summary": "3 activities scheduled on 2026-10-06; 1 overlapping pair(s); 1 proposed 2h slot(s) "
+                        "that clash with nothing.",
+             "totals": {"date": "2026-10-06", "slot_hours": 2.0},
              "worker_output": "Output:\nKayaking overlaps Museum.", "worker_output_source": "llm"},
     "review": {"risk": "medium", "findings": ["#1 Kayaking 09:00-11:00 overlaps #2 by 30 min."],
                "recommendations": [], "correction": "", "retest": "", "recommendation": "Accept"},
@@ -38,22 +43,25 @@ def make_app(app_module, monkeypatch, calls, status_code, payload):
     return app_module.create_app().test_client()
 
 
-def test_page_has_tasks_samples_and_tab(client):
+def test_page_is_one_day_check_with_samples_and_tab(client):
     resp = client.get("/multi-agent")
     assert resp.status_code == 200
     assert b"Multi-Agent Mode" in resp.data
-    assert b'value="free_slots"' in resp.data
-    assert b"Propose a 2-hour walking tour" in resp.data
+    assert b'name="task"' not in resp.data  # one job, no task picker
+    assert b'<input type="date" name="date" required>' in resp.data
+    assert b"Find room for a 2-hour walking tour" in resp.data
 
 
 def test_run_posts_form_and_renders_all_agents(app_module, monkeypatch):
     calls = []
     client = make_app(app_module, monkeypatch, calls, 201, {"status": "success", "result": RUN})
-    resp = client.post("/multi-agent/run", data={"task": "overlaps", "date": "2026-10-06", "slot_hours": "2"})
+    resp = client.post("/multi-agent/run", data={"date": "2026-10-06", "slot_hours": "2"})
     assert resp.status_code == 200
     assert calls[0]["url"].endswith("/api/activity/multi-agent/workflow")
-    assert calls[0]["json"] == {"task": "overlaps", "date": "2026-10-06"}
-    for text in (b"Check 2026-10-06 for overlaps.", b"MCP:list_activities", b"Kayaking overlaps Museum",
+    assert calls[0]["json"] == {"date": "2026-10-06", "slot_hours": 2.0}
+    for text in (b"schedule check &middot; 2026-10-06", b"2026-10-06T09:00 &middot; #1 Kayaking",
+                 b"Clash: #1 Kayaking 09:00-11:00", b"Proposed: free 2h slot on 2026-10-06, 12:00-14:00",
+                 b"Check 2026-10-06 for overlaps.", b"MCP:list_activities", b"Kayaking overlaps Museum",
                  b"Risk: medium", b"recommends Accept", b"Record Decision", b"run-abc"):
         assert text in resp.data
 
@@ -61,7 +69,7 @@ def test_run_posts_form_and_renders_all_agents(app_module, monkeypatch):
 def test_run_error_is_shown_on_card(app_module, monkeypatch):
     calls = []
     client = make_app(app_module, monkeypatch, calls, 403, {"status": "error", "error": "Multi-Agent mode is disabled."})
-    resp = client.post("/multi-agent/run", data={"task": "summary"})
+    resp = client.post("/multi-agent/run", data={"date": "2026-10-06"})
     assert resp.status_code == 200
     assert b"Multi-Agent mode is disabled." in resp.data
     assert b"Record Decision" not in resp.data

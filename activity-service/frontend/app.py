@@ -26,17 +26,12 @@ MCP_TOOLS = [
 # RAG Mode's actions, each forwarded to /api/activity/rag/<kind> on the backend.
 RAG_ACTIONS = ("refresh", "retrieve", "answer")
 
-# Multi-Agent Mode's tasks (the activity_schedule_check workflow validates them) and the
-# request datalist. The activity schema has no trip id, so a day stands in for a trip.
-MULTI_AGENT_TASKS = {
-    "summary": "Activity summary",
-    "overlaps": "Check a day for overlapping activities",
-    "free_slots": "Propose clash-free slots on a day",
-}
+# Multi-Agent Mode's request datalist. The activity_schedule_check workflow checks one day (the
+# activity schema has no trip id, so a day stands in for a trip).
 MULTI_AGENT_SAMPLES = (
-    "Generate an activity summary for my trip.",
-    "Check day 2026-10-06 for overlapping activities.",
-    "Propose a 2-hour walking tour on 2026-10-06 without clashes.",
+    "Check my 2026-10-06 schedule for clashes and free time.",
+    "Find room for a 2-hour walking tour on 2026-10-06.",
+    "Is my day on 2026-10-07 overbooked?",
 )
 ACTIVITY_FILTER_FIELDS = (
     "q", "type", "min_cost", "max_cost", "min_duration", "max_duration", "date_from", "date_to", "sort",
@@ -242,22 +237,21 @@ def create_app():
 
     @app.route("/multi-agent")
     def multi_agent_mode():
-        return render_template("multi_agent_mode.html", tasks=MULTI_AGENT_TASKS, samples=MULTI_AGENT_SAMPLES)
+        return render_template("multi_agent_mode.html", samples=MULTI_AGENT_SAMPLES)
 
     @app.route("/multi-agent/run", methods=["POST"])
     def multi_agent_run():
         # Always 200 so htmx swaps the card in; the backend's status is shown on the card.
-        payload = {"task": request.form.get("task", "")}
+        payload = {}
         if request.form.get("date", "").strip():
             payload["date"] = request.form["date"].strip()
         if request.form.get("request", "").strip():
             payload["request"] = request.form["request"].strip()
-        if payload["task"] == "free_slots":
-            try:
-                payload["slot_hours"] = float(request.form.get("slot_hours", "2") or "2")
-            except ValueError:
-                return render_template("tabs/_multi_agent_run.html", run=None, status_code=None,
-                                       error="Slot length must be a number of hours.")
+        try:
+            payload["slot_hours"] = float(request.form.get("slot_hours", "2") or "2")
+        except ValueError:
+            return render_template("tabs/_multi_agent_run.html", run=None, status_code=None,
+                                   error="Slot length must be a number of hours.")
         try:
             response = backend_request("POST", "/api/activity/multi-agent/workflow", json_body=payload)
         except RuntimeError as exc:

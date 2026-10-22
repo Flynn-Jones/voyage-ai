@@ -51,8 +51,8 @@ def server(monkeypatch):
 
     def start_run(run_input):
         calls.append(("start_run", run_input))
-        if run_input.get("task") not in ("summary", "overlaps", "free_slots"):
-            return 400, {"status": "error", "error": "invalid input: task must be one of ..."}
+        if not run_input.get("date"):
+            return 400, {"status": "error", "error": "invalid input: date (YYYY-MM-DD) is required"}
         return ok(RUN, 201)
 
     monkeypatch.setattr(multi_agent_api, "MULTI_AGENT_ENABLED", True)
@@ -69,23 +69,24 @@ DECISION = {"decision": "Accept", "reason": "Clash matches the schedule", "revie
 
 def test_start_workflow_marks_human_decision_pending(client, server):
     resp = client.post("/api/activity/multi-agent/workflow",
-                       json={"task": "overlaps", "date": "2026-10-06", "ignored": "x"})
+                       json={"date": "2026-10-06", "slot_hours": 2, "task": "summary", "ignored": "x"})
     assert resp.status_code == 201
     result = resp.get_json()["result"]
     assert result["human_approval_required"] is True
     assert result["human_decision"]["status"] == "pending"
     assert result["human_decision"]["allowed_values"] == ["Accept", "Partially Accept", "Reject"]
-    assert server[0] == ("start_run", {"task": "overlaps", "date": "2026-10-06"})
+    # only the workflow's own fields are forwarded; the old "task" field is dropped like any other
+    assert server[0] == ("start_run", {"date": "2026-10-06", "slot_hours": 2})
 
 
 def test_start_workflow_passes_through_invalid_input(client, server):
-    resp = client.post("/api/activity/multi-agent/workflow", json={"task": "nope"})
+    resp = client.post("/api/activity/multi-agent/workflow", json={"slot_hours": 2})
     assert resp.status_code == 400
 
 
 def test_disabled_mode_is_403_everywhere(client, monkeypatch):
     monkeypatch.setattr(multi_agent_api, "MULTI_AGENT_ENABLED", False)
-    assert client.post("/api/activity/multi-agent/workflow", json={"task": "summary"}).status_code == 403
+    assert client.post("/api/activity/multi-agent/workflow", json={"date": "2026-10-06"}).status_code == 403
     assert client.get("/api/activity/multi-agent/runs/run-1").status_code == 403
     assert client.get("/api/activity/multi-agent/runs/run-1/history").status_code == 403
     assert client.post("/api/activity/multi-agent/runs/run-1/decision", json=DECISION).status_code == 403
@@ -98,7 +99,7 @@ def test_server_down_is_502(client, monkeypatch):
         raise multi_agent_api.MultiAgentServiceError("unreachable")
 
     monkeypatch.setattr(multi_agent_api, "start_run", boom)
-    resp = client.post("/api/activity/multi-agent/workflow", json={"task": "summary"})
+    resp = client.post("/api/activity/multi-agent/workflow", json={"date": "2026-10-06"})
     assert resp.status_code == 502
     assert "unreachable" in resp.get_json()["error"]
 

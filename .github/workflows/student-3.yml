@@ -180,7 +180,7 @@ jobs:
           }
           check /api/activity/mcp/list-activities '{}'
           check /api/activity/rag/answer '{"query":"How many activities are there?","k":5}'
-          check /api/activity/multi-agent/workflow '{"task":"summary"}'
+          check /api/activity/multi-agent/workflow '{"date":"2026-10-06"}'
           exit $fail
 
       - name: Smoke check public routes

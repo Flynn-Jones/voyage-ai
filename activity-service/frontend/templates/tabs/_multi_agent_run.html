@@ -3,9 +3,9 @@
    /multi-agent/runs/<id>/decision and is replaced by tabs/_multi_agent_decision.html. #}
 <div class="act-mcp__call{% if error %} act-mcp__call--error{% endif %}">
   <div class="act-mcp__call-head">
-    {# POST /workflows/<name>/runs does not echo the input; the workflow's totals carry task and date. #}
+    {# POST /workflows/<name>/runs does not echo the input; the workflow's totals carry the date. #}
     {% set totals = run.work.totals if run else {} %}
-    <code>{% if run %}{{ totals.task }}{% if totals.date %} &middot; {{ totals.date }}{% endif %}{% else %}workflow{% endif %}</code>
+    <code>{% if run %}schedule check &middot; {{ totals.date }}{% else %}workflow{% endif %}</code>
     <span class="act-mcp__status{% if error %} act-mcp__status--error{% endif %}">
       {% if status_code %}HTTP {{ status_code }}{% else %}no response{% endif %}
     </span>
@@ -24,6 +24,13 @@
     </ol>
 
     <span class="act-mcp__label">Worker &middot; {{ run.work.summary }}</span>
+    {% if run.work.scheduled %}
+    <ul class="act-ma__list">
+      {% for s in run.work.scheduled %}
+      <li>{{ s.time }} &middot; #{{ s.activity_id }} {{ s.name }} <span class="act-rag__meta">({{ s.duration }})</span></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
     {% if run.work["items"] %}
     <table class="act-ma__table">
       <tbody>
@@ -31,11 +38,8 @@
         <tr>
           <td><code>{{ item.id }}</code></td>
           <td>
-            {% if item.proposal %}{{ item.proposal }}
-            {% elif item.first %}{{ item.first }} &harr; {{ item.second }} ({{ item.overlap_minutes }} min)
-            {% else %}{{ item.name }} &middot; {{ item.type }} &middot; {{ item.cost }} &middot; {{ item.duration }}
-              {% if item.scheduled %}<span class="act-rag__meta">&middot; {{ item.scheduled | join(", ") }}</span>{% endif %}
-            {% endif %}
+            {% if item.kind == "overlap" %}Clash: {{ item.first }} &harr; {{ item.second }} ({{ item.overlap_minutes }} min)
+            {% else %}{{ item.proposal }}{% endif %}
           </td>
         </tr>
       {% endfor %}

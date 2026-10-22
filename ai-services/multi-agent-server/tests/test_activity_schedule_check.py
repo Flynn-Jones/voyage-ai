@@ -111,13 +111,12 @@ def test_registered_with_read_only_allowlist(client):
 
 @pytest.mark.parametrize("bad", [
     {},
-    {"task": "drop_tables"},
-    {"task": "overlaps"},
-    {"task": "free_slots", "date": "06/10/2026"},
-    {"task": "overlaps", "date": "2026-02-30"},
-    {"task": "free_slots", "date": "2026-10-06", "slot_hours": 0},
-    {"task": "free_slots", "date": "2026-10-06", "slot_hours": True},
-    {"task": "summary", "request": "x" * 301},
+    {"request": "Check my day."},
+    {"date": "06/10/2026"},
+    {"date": "2026-02-30"},
+    {"date": "2026-10-06", "slot_hours": 0},
+    {"date": "2026-10-06", "slot_hours": True},
+    {"date": "2026-10-06", "request": "x" * 301},
 ])
 def test_invalid_input_is_400_and_creates_no_run(activity, bad):
     client, fake, _, _ = activity
@@ -135,11 +134,11 @@ def test_duration_minutes(text, minutes):
     assert duration_minutes(text) == minutes
 
 
-# ---------------------------------------------------------------- tasks (deterministic fallbacks)
+# ---------------------------------------------------------------- the day check (deterministic fallbacks)
 
-def test_overlaps_full_lifecycle(activity):
+def test_day_check_full_lifecycle(activity):
     client, fake, _, _ = activity
-    status, body = start(client, task="overlaps", date="2026-10-06")
+    status, body = start(client, date="2026-10-06")
     assert status == 201, body
     run = body["result"]
     assert run["state"] == "awaiting_human_review"
@@ -148,8 +147,12 @@ def test_overlaps_full_lifecycle(activity):
         ["list_activities", "list_assignments"]
 
     work = run["work"]
-    assert [i["id"] for i in work["items"]] == ["1-2"]
+    # One run: the day's activities, the clashing pair, and a clash-free 2h slot.
+    assert [s["name"] for s in work["scheduled"]] == ["Harbour Kayaking", "Museum Tour", "Night Market"]
+    assert [(i["kind"], i["id"]) for i in work["items"]] == [("overlap", "1-2"), ("free_slot", "slot-1")]
     assert work["items"][0]["overlap_minutes"] == 30
+    assert work["summary"] == ("3 activities scheduled on 2026-10-06; 1 overlapping pair(s); "
+                               "1 proposed 2h slot(s) that clash with nothing.")
     assert work["worker_output_source"] == "fallback"
     assert work["worker_output"].startswith("Output:")
     assert codes(work) == ["clash"]
@@ -163,34 +166,35 @@ def test_overlaps_full_lifecycle(activity):
 
 def test_free_slots_never_clash(activity):
     client, _, _, _ = activity
-    work = start(client, task="free_slots", date="2026-10-06", slot_hours=2)[1]["result"]["work"]
-    assert [(i["id"], i["start"], i["end"]) for i in work["items"]] == [("slot-1", "12:00", "14:00")]
-    assert work["items"][0]["proposal"].startswith("Proposed:")
+    work = start(client, date="2026-10-06", slot_hours=2)[1]["result"]["work"]
+    slots = [i for i in work["items"] if i["kind"] == "free_slot"]
+    assert [(i["id"], i["start"], i["end"]) for i in slots] == [("slot-1", "12:00", "14:00")]
+    assert slots[0]["proposal"].startswith("Proposed:")
     assert "proposal_conflict" not in codes(work)
 
 
 def test_unreadable_duration_blocks_rest_of_day_and_is_flagged(activity):
     client, _, _, _ = activity
-    run = start(client, task="free_slots", date="2026-10-07", slot_hours=1)[1]["result"]
+    run = start(client, date="2026-10-07", slot_hours=1)[1]["result"]
     assert [(i["start"], i["end"]) for i in run["work"]["items"]] == [("08:00", "09:00")]
     assert "unknown_duration" in codes(run["work"])
     assert run["review"]["recommendation"] == "Partially Accept"
 
 
-def test_summary_all_and_by_day(activity):
+def test_scheduled_activities_are_only_that_day(activity):
     client, _, _, _ = activity
-    work = start(client, task="summary")[1]["result"]["work"]
-    assert [i["id"] for i in work["items"]] == [1, 2, 3, 4]
-    assert work["items"][0]["scheduled"] == ["2026-10-06T09:00"]
-
-    work = start(client, task="summary", date="2026-10-07")[1]["result"]["work"]
-    assert [i["id"] for i in work["items"]] == [4]
+    work = start(client, date="2026-10-07")[1]["result"]["work"]
+    assert work["scheduled"] == [{"assignment_id": 4, "activity_id": 4, "name": "Mystery Walk",
+                                  "time": "2026-10-07T09:00", "duration": "a while"}]
+    assert work["totals"]["scheduled_on_day"] == 1 and work["totals"]["activities"] == 4
 
 
 def test_empty_day_is_reported_not_invented(activity):
     client, _, _, _ = activity
-    run = start(client, task="overlaps", date="2026-12-25")[1]["result"]
-    assert run["work"]["items"] == []
+    run = start(client, date="2026-12-25")[1]["result"]
+    assert run["work"]["scheduled"] == []
+    # an empty day is one free gap, so one slot is proposed at its start
+    assert [(i["kind"], i["start"], i["end"]) for i in run["work"]["items"]] == [("free_slot", "08:00", "10:00")]
     assert codes(run["work"]) == ["no_records"]
     assert run["review"]["risk"] == "low"
 
@@ -198,9 +202,9 @@ def test_empty_day_is_reported_not_invented(activity):
 def test_database_down_is_high_risk_reject(activity):
     client, fake, _, _ = activity
     fake.down = {"list_activities", "list_assignments"}
-    run = start(client, task="summary")[1]["result"]
+    run = start(client, date="2026-10-06")[1]["result"]
     assert run["state"] == "awaiting_human_review"
-    assert run["work"]["items"] == []
+    assert run["work"]["items"] == []  # no free slots are guessed without the schedule
     assert "No activities found" in run["work"]["worker_output"]
     assert codes(run["work"]).count("no_data") == 2
     assert run["review"]["risk"] == "high" and run["review"]["recommendation"] == "Reject"
@@ -211,7 +215,7 @@ def test_database_down_is_high_risk_reject(activity):
 
 def test_prompt_files_are_sent_to_the_agents(activity):
     client, _, chat, _ = activity
-    start(client, task="overlaps", date="2026-10-06")
+    start(client, date="2026-10-06")
     prompts = [user for _, user in chat.calls]
     assert any("Planner Agent for VoyageAI" in p for p in prompts)
     assert any("Reviewer Agent for VoyageAI" in p for p in prompts)
@@ -221,7 +225,7 @@ def test_prompt_files_are_sent_to_the_agents(activity):
 def test_valid_llm_plan_is_used(activity):
     client, _, chat, _ = activity
     chat.replies["Planner"] = [GOOD_PLAN]
-    run = start(client, task="overlaps", date="2026-10-06")[1]["result"]
+    run = start(client, date="2026-10-06")[1]["result"]
     assert run["plan"]["objective"] == GOOD_PLAN["objective"]
     audit = client.app.store.read_audit(run["run_id"])
     assert next(e for e in audit if e["step"] == "plan")["source"] == "llm"
@@ -237,7 +241,7 @@ def test_valid_llm_plan_is_used(activity):
 def test_unsafe_or_incomplete_llm_plan_falls_back(activity, bad_plan):
     client, _, chat, _ = activity
     chat.replies["Planner"] = [bad_plan, bad_plan]
-    run = start(client, task="overlaps", date="2026-10-06")[1]["result"]
+    run = start(client, date="2026-10-06")[1]["result"]
     audit = client.app.store.read_audit(run["run_id"])
     assert next(e for e in audit if e["step"] == "plan")["source"] == "fallback"
 
@@ -250,7 +254,7 @@ def test_worker_citing_unknown_id_is_caught_and_review_cannot_downgrade(activity
     ]
     chat.replies["Reviewer"] = [{"risk": "low", "findings": ["all good"], "recommendations": ["Book #99"],
                                  "correction": "", "retest": "", "recommendation": "Accept"}]
-    run = start(client, task="overlaps", date="2026-10-06")[1]["result"]
+    run = start(client, date="2026-10-06")[1]["result"]
     assert run["work"]["worker_output_source"] == "llm"
     assert "unsupported_claim" in codes(run["work"])
     review = run["review"]
@@ -267,7 +271,7 @@ def test_worker_denying_existing_evidence_and_echoed_decisions_are_caught(activi
     chat.replies["Reviewer"] = [{"risk": "low", "findings": [], "recommendations": ["Accept", "Partially Accept",
                                                                                    "Reject"],
                                  "correction": "", "retest": "", "recommendation": "Accept"}]
-    run = start(client, task="overlaps", date="2026-10-06")[1]["result"]
+    run = start(client, date="2026-10-06")[1]["result"]
     assert "unsupported_claim" in codes(run["work"])
     assert run["review"]["recommendation"] == "Partially Accept"
     assert not {"Accept", "Partially Accept", "Reject"} & set(run["review"]["recommendations"])
@@ -284,5 +288,5 @@ def test_validate_review_rejects_unknown_recommendation():
 
 def test_work_output_is_json_serialisable(activity):
     client, _, _, _ = activity
-    run = start(client, task="free_slots", date="2026-10-06")[1]["result"]
+    run = start(client, date="2026-10-06")[1]["result"]
     json.dumps(run["work"])
