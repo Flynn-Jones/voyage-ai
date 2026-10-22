@@ -1,0 +1,35 @@
+{
+  "startup": "documented host Python entrypoints + docker compose -f itinerary-service/docker-compose.yml up -d --build",
+  "compose_override_files": [],
+  "container_environment": {
+    "AI_ENABLED": "true",
+    "MCP_ENABLED": "true",
+    "RAG_ENABLED": "true",
+    "MULTI_AGENT_ENABLED": "true",
+    "OLLAMA_MODEL": "qwen2.5:7b",
+    "OLLAMA_TIMEOUT_SECONDS": "60",
+    "MCP_SERVICE_URL": "http://host.docker.internal:7001",
+    "RAG_SERVICE_URL": "http://host.docker.internal:7002",
+    "MULTI_AGENT_SERVICE_URL": "http://host.docker.internal:7004",
+    "MULTI_AGENT_TIMEOUT_SECONDS": "240"
+  },
+  "host_python": "3.11.2",
+  "host_packages": {
+    "mcp": "1.30.0",
+    "chromadb": "1.5.9",
+    "requests": "2.34.2",
+    "Flask": "3.1.3",
+    "pytest": "9.0.3",
+    "ruff": "0.17.1",
+    "detect-secrets": "1.5.0",
+    "pip-audit": "2.10.1"
+  },
+  "docker": "29.6.2",
+  "container_python": "Python 3.11.17",
+  "nginx": "nginx version: nginx/1.27.5",
+  "ollama": "0.40.7",
+  "shared_model": "qwen2.5:7b",
+  "rag_data_directory": "ignored .venv/live-release2/rag",
+  "multi_agent_storage": "standard runs.db and logs/audit.jsonl (ignored)",
+  "containers": "itinerary-be running healthy\nitinerary-db running healthy\nitinerary-fe running"
+}

@@ -19,6 +19,10 @@ class UpstreamValidationError(DatabaseServiceError):
     """The database API rejected a representation as invalid."""
 
 
+class ApplicationConflict(DatabaseServiceError):
+    """Stale schedule or conflicting replay; no changes are applied."""
+
+
 def get_database_service_url():
     return os.environ.get("DATABASE_SERVICE_URL", "http://localhost:6005").rstrip("/")
 
@@ -50,6 +54,8 @@ def _request(method, path, expected_status, expected_json=None, **kwargs):
         raise UpstreamValidationError(
             _error_message(response, "database service rejected the itinerary item")
         )
+    if response.status_code == 409:
+        raise ApplicationConflict(_error_message(response, "application conflicts with the current itinerary"))
     if response.status_code != expected_status:
         raise DatabaseServiceError(
             f"itinerary database service returned unexpected status {response.status_code}"
@@ -88,3 +94,7 @@ def delete_item(item_id):
 
 def get_items_by_day(day):
     return _request("GET", f"/itinerary-items/day/{day}", 200, list)
+
+
+def apply_multi_agent(run_id, payload):
+    return _request("POST", f"/multi-agent/applications/{run_id}", 200, dict, json=payload)

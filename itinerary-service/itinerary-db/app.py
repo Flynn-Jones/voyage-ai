@@ -5,6 +5,7 @@ from flask import Flask, jsonify, request
 from database import DEFAULT_DB_FILE, get_connection
 from init_db import initialize_database
 from validation import ValidationError, validate_itinerary_item
+from multi_agent_application import application_bp
 
 
 def create_app(db_file=None):
@@ -12,6 +13,7 @@ def create_app(db_file=None):
     initialize_database(database_path)
     app = Flask(__name__)
     app.config["DB_FILE"] = database_path
+    app.register_blueprint(application_bp)
 
     def connection():
         return get_connection(app.config["DB_FILE"])

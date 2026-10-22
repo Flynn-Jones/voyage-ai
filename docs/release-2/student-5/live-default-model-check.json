@@ -1,0 +1,45 @@
+{
+  "method": "POST",
+  "url": "http://127.0.0.1:3005/api/itinerary/ai-review",
+  "http_status": 200,
+  "elapsed_seconds": 21.39,
+  "body": {
+    "act": {
+      "records_retrieved": 1,
+      "requested_day": 98,
+      "source": "itinerary database API over HTTP"
+    },
+    "adapt": {
+      "advisory_only": true,
+      "model": "qwen2.5:7b",
+      "recommendation": "On Day 98, the traveller is scheduled for a 1-hour session starting at 09:00 with an estimated cost of $10.00 for \"Temporary Student 5 Release 2 validation.\" The schedule is well-paced with no gaps or overlaps, ensuring a smooth transition between activities."
+    },
+    "observe": {
+      "day_span_minutes": 60,
+      "earliest_start": "09:00",
+      "gaps": [],
+      "invalid_cost_items": [],
+      "invalid_schedule_items": [],
+      "item_count": 1,
+      "latest_end": "10:00",
+      "long_continuous_day": false,
+      "overlaps": [],
+      "short_gaps": [],
+      "total_estimated_cost": 10.0,
+      "total_scheduled_minutes": 60,
+      "valid_schedule_item_count": 1
+    },
+    "plan": {
+      "checks": [
+        "schedule coverage and duration",
+        "overlapping itinerary items",
+        "short gaps and continuous-day intensity",
+        "estimated cost",
+        "missing or invalid schedule values"
+      ],
+      "data_required": "all itinerary records for the requested day",
+      "requested_day": 98
+    }
+  },
+  "configured_model": "qwen2.5:7b"
+}

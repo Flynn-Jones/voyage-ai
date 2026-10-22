@@ -255,7 +255,7 @@ ordinary unit tests mock it. It does not validate browser rendering or Docker ne
 CI sets `MCP_ENABLED=false` and `RAG_ENABLED=false` for container smoke tests;
 isolated unit tests explicitly enable mocked paths where needed.
 
-## Release 2 foundation
+## Release 2 configuration
 
 The existing AI review, MCP and RAG modes remain enabled by default locally.
 `AI_ENABLED=false` makes `/api/itinerary/ai-review` return HTTP 403 with
@@ -264,8 +264,8 @@ database/Ollama. AI configuration is loaded when the backend app is created;
 restart/recreate it after changing the environment. MCP/RAG keep their existing
 per-request flag handling and 403 responses.
 
-Multi-Agent settings are reserved configuration only. This foundation adds no
-Multi-Agent routes, workflow, frontend controls or outbound calls.
+Multi-Agent mode is opt-in locally and disabled by default. It uses the existing
+shared server and the `itinerary_schedule_review` workflow described below.
 
 | Setting | Host backend default | Standalone Compose default |
 | --- | --- | --- |
@@ -276,8 +276,9 @@ Multi-Agent routes, workflow, frontend controls or outbound calls.
 | `MULTI_AGENT_TIMEOUT_SECONDS` | 240 | 240 |
 
 The timeout follows the shared feature-client convention (seconds); invalid or
-non-positive values fall back to 240. It is not used until a Multi-Agent client
-exists. Existing MCP/RAG URL and timeout settings above are unchanged.
+non-positive values fall back to 240. Existing MCP/RAG URL and timeout settings
+above are unchanged. Nginx allows up to 650 seconds for Multi-Agent requests;
+keep any timeout override below that proxy limit.
 
 Root Compose uses `ITINERARY_` prefixes for every setting in this table and the
 MCP/RAG URLs/timeouts. Set all four enabled flags to `false` for the cloud baseline.
@@ -291,6 +292,109 @@ AI_ENABLED=false MCP_ENABLED=false RAG_ENABLED=false MULTI_AGENT_ENABLED=false \
 Security scans now include `itinerary-service/` in the shared pre-commit scope.
 See `docs/release-2/student-5/pre-commit-security-report.md` for results and
 justified validation-only findings.
+
+## Release 2 Multi-Agent itinerary review
+
+`itinerary_schedule_review` is a plugin in the existing shared server on port 7004.
+Planner -> Worker -> Reviewer -> Human Review uses the existing run store,
+history, audit, retry/fallback and one-decision-per-run lifecycle. There is no
+second server and no shared database writer.
+
+The required `trip_reference` and optional positive integer `day` are enforced at
+the backend, workflow, evidence and application boundaries. The read-only Worker
+calls `get_itinerary` with that exact scope, sorts records by day/start/id, and
+proposes shifting overlapping items later on the same day. Durations, activity,
+destination and cost are preserved. Calculations are deterministic Python;
+Planner/Reviewer use the shared model wrappers with validated, grounded fallback
+output. Empty evidence and shifts beyond 23:59 require manual review. Malformed,
+unavailable or out-of-scope evidence fails the run instead of producing changes.
+
+Start the shared MCP server and the shared Multi-Agent Server on the host:
+
+```text
+python -m pip install -r ai-services/multi-agent-server/requirements.txt
+python ai-services/mcp-server/mcp_http_server.py
+python ai-services/multi-agent-server/server.py
+```
+
+Run the two servers in separate terminals. `get_itinerary` reads the database
+API at localhost:6005 by default (`ITINERARY_DB_URL`). Ollama provides Planner/
+Reviewer model output; the server records fallback sources when it is unavailable.
+RAG is not used for this structured schedule task. Enable the owning backend:
+
+```powershell
+# Root integrated Compose
+$env:ITINERARY_MULTI_AGENT_ENABLED = "true"
+docker compose up -d --build
+# Or standalone: set MULTI_AGENT_ENABLED=true and use itinerary-service/docker-compose.yml.
+```
+
+Open the Multi-Agent section at localhost:3005. Enter a trip and optional day.
+Inspect Planner, Worker, Reviewer and history, then approve all, partially accept
+selected proposals, correct times/notes, or reject all. Corrections preserve
+duration and cannot move records to another trip/day. Recording a decision does
+not save changes. **Apply approved changes** is a separate action, enabled only
+for approving decisions. Load/refresh by run ID to recover a run after a reload.
+The seeded trips have no overlaps; create a temporary trip with overlapping
+records through normal CRUD to demonstrate proposals.
+
+All public routes are under `/api/itinerary/multi-agent` and return the shared
+`status/result` or `status/error` envelope:
+
+| Method | Route suffix | Purpose |
+| --- | --- | --- |
+| POST | `/run` | Start the fixed Itinerary workflow with `{trip_reference, day?}` |
+| GET | `/runs/<run_id>` | Inspect this workflow's run and status |
+| GET | `/runs/<run_id>/history` | Inspect its shared agent/human history |
+| POST | `/runs/<run_id>/review` | Shared `approve`, `partial`, `correct`, `reject` decision contract |
+| POST | `/runs/<run_id>/apply` | Apply only the stored, explicitly approved output |
+
+All five routes return 403 before processing when disabled. Invalid input is 400;
+unknown/foreign runs or workflows are 404; already decided/applied or stale/
+conflicting changes are 409; unavailable/malformed services are 502 and shared
+server request timeouts are 504. The workflow name is fixed, not browser-selected.
+
+### Atomic application and retry
+
+The backend validates the full run and every approved record against the shared
+human decision, then posts to the **internal database API**
+`POST /multi-agent/applications/<run_id>`. The database revalidates scope and
+immutable fields, locks the transaction, compares original snapshots with current
+records, rejects new/worsened overlaps (including partial/corrected selections),
+and commits all updates plus a durable `itinerary_multi_agent_applications`
+receipt together. No inserts/deletes are proposed. This schema addition is
+idempotent on startup and preserves existing records.
+
+The receipt prevents repeated writes across retries, concurrent requests and
+restarts. An identical retry returns the existing receipt; a different payload
+for the same run is rejected. The backend then reuses shared `POST /runs/<id>/applied`
+with `target=itinerary-db`. The shared field is named `created_ids`; here it
+contains the updated existing item IDs, also exposed as `updated_item_ids`.
+If acknowledgement fails, the response explicitly says changes were saved and
+acknowledgement is pending. Refresh and retry the same run; never start a new run
+just to retry application. A stale-snapshot conflict requires a fresh review.
+
+The internal database API has the same trusted-service/network boundary as
+existing CRUD. This change does not introduce authentication or per-user run
+ownership. Keep backend/database endpoints private in a deployed environment.
+Real-world opening hours, transfers, reservations and travel feasibility remain
+human checks; partial acceptance can leave existing overlaps, but cannot create
+or worsen any overlap. Review is limited to 200 records per request/trip application.
+
+### Automated validation
+
+Run the existing Student 5 test command above; it now also covers the Multi-Agent
+backend, atomic database application, a real local HTTP lifecycle with the shared
+runner (model/transport mocked), and optional headless Edge UI scenarios. The UI
+test needs Edge and `websocket-client`, otherwise it is explicitly skipped. It
+uses a temporary browser profile and mock API, never the development database.
+
+Run the shared server tests separately to preserve service module isolation:
+
+```text
+cd ai-services/multi-agent-server
+python -m pytest -q
+```
 
 ## Release 1 limits
 

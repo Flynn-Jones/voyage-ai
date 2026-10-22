@@ -326,7 +326,7 @@ services:
       RAG_ENABLED: ${ITINERARY_RAG_ENABLED:-true}
       RAG_SERVICE_URL: ${ITINERARY_RAG_SERVICE_URL:-http://host.docker.internal:7002}
       RAG_TIMEOUT_SECONDS: ${ITINERARY_RAG_TIMEOUT_SECONDS:-120}
-      # Configuration only; the Student 5 Multi-Agent workflow is not implemented yet.
+      # Opt in locally; all AI switches stay false for the cloud baseline.
       MULTI_AGENT_ENABLED: ${ITINERARY_MULTI_AGENT_ENABLED:-false}
       MULTI_AGENT_SERVICE_URL: ${ITINERARY_MULTI_AGENT_SERVICE_URL:-http://host.docker.internal:7004}
       MULTI_AGENT_TIMEOUT_SECONDS: ${ITINERARY_MULTI_AGENT_TIMEOUT_SECONDS:-240}
