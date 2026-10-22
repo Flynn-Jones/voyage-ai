@@ -6,6 +6,7 @@
   <title>VoyageAI Itinerary Manager</title>
   <link rel="stylesheet" href="/css/styles.css">
   <script src="/js/app.js" defer></script>
+  <script src="/js/multi-agent.js" defer></script>
 </head>
 <body>
   <nav class="voyage-nav">
@@ -100,6 +101,35 @@
       <button id="rag-refresh" class="button button--secondary" type="button">Refresh shared knowledge</button>
       <p id="rag-refresh-result" role="status"></p>
       <div id="rag-result" class="release1-result" aria-live="polite"></div>
+    </section>
+    <section class="panel ai-review" aria-labelledby="multi-agent-title">
+      <h2 id="multi-agent-title">Multi-Agent itinerary review</h2>
+      <p class="ai-intro">Review one trip for overlapping times. Proposed same-day shifts preserve duration, activity and cost. Check booking constraints yourself. Nothing is saved until you record a decision and select Apply approved changes.</p>
+      <form id="multi-agent-form" class="ai-form">
+        <label>Trip reference<input name="trip_reference" required maxlength="120" placeholder="TRIP-1001"></label>
+        <label>Day (optional)<input name="day" type="number" min="1" step="1"></label>
+        <button class="button button--primary">Start review</button>
+      </form>
+      <div class="form-actions">
+        <label>Run ID<input id="multi-agent-run-id" placeholder="run-…"></label>
+        <button id="multi-agent-refresh" class="button button--secondary" type="button">Load / refresh run</button>
+      </div>
+      <p id="multi-agent-status" role="status" aria-live="polite"></p>
+      <div id="multi-agent-output" class="workflow-grid"></div>
+      <div id="multi-agent-controls" hidden>
+        <form id="multi-agent-decision">
+          <p>Select proposals for partial acceptance. To correct them, edit times or notes, then choose Correct. Trip, day, duration, identifiers and cost remain fixed.</p>
+          <div id="multi-agent-proposals"></div>
+          <label>Review note<textarea id="multi-agent-note" rows="2"></textarea></label>
+          <div class="form-actions multi-agent-actions">
+            <button class="button button--primary" value="approve">Approve all</button>
+            <button class="button button--secondary" value="partial">Partially accept selected</button>
+            <button class="button button--secondary" value="correct">Correct</button>
+            <button class="button button--danger" value="reject">Reject all</button>
+          </div>
+        </form>
+        <button id="multi-agent-apply" class="button button--primary" type="button">Apply approved changes</button>
+      </div>
     </section>
   </main>
   <footer class="voyage-footer">VoyageAI &mdash; ASD 2026 Group 50</footer>

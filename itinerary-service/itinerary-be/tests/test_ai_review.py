@@ -10,9 +10,9 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
-from app import create_app
-from services import database_api, llm_client
-from services.schedule_analyzer import analyze_schedule
+from app import create_app  # noqa: E402 - import this service after setting its isolated module path
+from services import database_api, llm_client  # noqa: E402 - import this service after setting its isolated module path
+from services.schedule_analyzer import analyze_schedule  # noqa: E402 - import this service after setting its isolated module path
 
 ITEMS = [
     {"itinerary_item_id": 1, "trip_reference": "TRIP-A", "day": 4, "start_time": "09:00", "end_time": "11:00", "activity_id": 1, "destination_id": 1, "estimated_cost": 20.5, "notes": "Museum"},
@@ -20,7 +20,8 @@ ITEMS = [
 ]
 
 @pytest.fixture()
-def client():
+def client(monkeypatch):
+    monkeypatch.setenv("AI_ENABLED", "true")
     application = create_app()
     application.config.update(TESTING=True)
     return application.test_client()
@@ -110,3 +111,41 @@ def test_review_does_not_mutate_itinerary(client, monkeypatch):
     database_mock.assert_called_once()
     llm_mock.assert_called_once()
     assert ITEMS == before
+
+
+@pytest.mark.parametrize("value", ["false", "FALSE", "0", "off", "no", "", "invalid"])
+@pytest.mark.parametrize("body", [{"prompt": "Review Day 4"}, {}, []])
+def test_ai_disabled_before_validation_or_dependencies(monkeypatch, value, body):
+    monkeypatch.setenv("AI_ENABLED", value)
+    database_mock = Mock()
+    model_mock = Mock()
+    monkeypatch.setattr(database_api, "get_items_by_day", database_mock)
+    monkeypatch.setattr(llm_client, "review_itinerary", model_mock)
+    result = create_app().test_client().post("/api/itinerary/ai-review", json=body)
+    assert result.status_code == 403
+    assert result.get_json() == {"error": "AI Mode is disabled"}
+    database_mock.assert_not_called()
+    model_mock.assert_not_called()
+
+
+def test_ai_disabled_before_json_parsing(monkeypatch):
+    monkeypatch.setenv("AI_ENABLED", "false")
+    result = create_app().test_client().post(
+        "/api/itinerary/ai-review", data="{", content_type="application/json",
+    )
+    assert result.status_code == 403
+
+
+@pytest.mark.parametrize("value", [None, "true", "TRUE", "1", "yes", "on", " true "])
+def test_ai_enabled_preserves_review_response(monkeypatch, value):
+    if value is None:
+        monkeypatch.delenv("AI_ENABLED", raising=False)
+    else:
+        monkeypatch.setenv("AI_ENABLED", value)
+    database_mock, model_mock = mock_success(monkeypatch)
+    result = create_app().test_client().post("/api/itinerary/ai-review", json={"prompt": "Review Day 4"})
+    assert result.status_code == 200
+    assert set(result.get_json()) == {"plan", "act", "observe", "adapt"}
+    assert result.get_json()["adapt"]["advisory_only"] is True
+    database_mock.assert_called_once_with(4)
+    model_mock.assert_called_once()

@@ -1,0 +1,18 @@
+Full Student 5 tests
+Command: .venv/Scripts/python.exe -B -m pytest itinerary-service/itinerary-be/tests itinerary-service/itinerary-db/tests itinerary-service/tests -q -p no:cacheprovider
+Exit status: 0
+........................................................................ [ 24%]
+........................................................................ [ 49%]
+........................................................................ [ 74%]
+........................................................................ [ 98%]
+...                                                                      [100%]
+291 passed in 9.45s
+
+Full shared Multi-Agent tests
+Working directory: ai-services/multi-agent-server
+Command: ../../.venv/Scripts/python.exe -B -m pytest -q -p no:cacheprovider
+Exit status: 0
+........................................................................ [ 47%]
+........................................................................ [ 94%]
+........                                                                 [100%]
+152 passed in 8.39s

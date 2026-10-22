@@ -1,0 +1,103 @@
+{
+  "frontend": {
+    "port": 3005,
+    "http_status": 200,
+    "body": {
+      "html_served": true,
+      "includes_multi_agent_section": true
+    }
+  },
+  "backend": {
+    "port": 5005,
+    "http_status": 200,
+    "body": {
+      "service": "itinerary-be",
+      "status": "running"
+    }
+  },
+  "database": {
+    "port": 6005,
+    "http_status": 200,
+    "body": {
+      "service": "itinerary-db",
+      "status": "running"
+    }
+  },
+  "mcp": {
+    "port": 7001,
+    "http_status": 200,
+    "body": {
+      "status": "ok",
+      "service": "mcp-server",
+      "transport": "streamable-http",
+      "mcp_path": "/mcp",
+      "tools": [
+        "get_itinerary",
+        "list_expenses",
+        "get_accommodation_by_destination",
+        "search_accommodations",
+        "create_accommodation",
+        "project_files",
+        "ci_report",
+        "list_destinations",
+        "list_activities",
+        "get_activity",
+        "get_activity_assignments",
+        "list_assignments",
+        "get_assignment"
+      ]
+    }
+  },
+  "rag": {
+    "port": 7002,
+    "http_status": 200,
+    "body": {
+      "status": "ok",
+      "service": "rag-server"
+    }
+  },
+  "multi_agent": {
+    "port": 7004,
+    "http_status": 200,
+    "body": {
+      "status": "success",
+      "result": {
+        "status": "ok",
+        "service": "multi-agent-server",
+        "port": 7004,
+        "ollama_reachable": true,
+        "mcp_reachable": true,
+        "rag_reachable": true,
+        "workflows": [
+          "accommodation_shortlist",
+          "activity_schedule_check",
+          "budget_reconcile",
+          "example_readonly",
+          "itinerary_schedule_review"
+        ]
+      }
+    }
+  },
+  "ollama": {
+    "port": 11434,
+    "http_status": 200,
+    "body": {
+      "version": "0.40.7"
+    }
+  },
+  "models": [
+    "qwen2.5:7b",
+    "deepseek-r1:8b",
+    "llama3.1:8b",
+    "qwen2.5:0.5b"
+  ],
+  "final_health_after_restoration": {
+    "frontend": 200,
+    "backend": 200,
+    "database": 200,
+    "mcp": 200,
+    "rag": 200,
+    "multi_agent": 200,
+    "ollama": 200
+  }
+}

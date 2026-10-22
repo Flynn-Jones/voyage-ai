@@ -6,21 +6,26 @@ on:
     branches: [main, student-5/itinerary-feature]
     paths:
       - "itinerary-service/**"
+      - "docs/release-2/student-5/**"
       - ".github/workflows/student-5.yml"
       - "ai-services/mcp-server/**"
       - "ai-services/rag-server/**"
       - "ai-services/agentic_loop/**"
+      - "ai-services/multi-agent-server/**"
       - "prompts/mcp/**"
       - "prompts/rag/**"
       - "docker-compose.yml"
 
 jobs:
   itinerary-release-1:
+    # Retain the existing check name; this job now also validates Release 2 endpoints.
     name: Student 5 Release 1 Validation
     runs-on: ubuntu-latest
     env:
+      AI_ENABLED: "false"
       MCP_ENABLED: "false"
       RAG_ENABLED: "false"
+      MULTI_AGENT_ENABLED: "false"
 
     steps:
       - name: Check Out Repository
@@ -47,22 +52,34 @@ jobs:
           python -c "import sys; sys.path.insert(0, 'itinerary-service/itinerary-be'); from app import create_app; assert any(str(rule) == '/api/itinerary/ai-review' for rule in create_app().url_map.iter_rules())"
 
       - name: Student 5 Python Tests
-        run: python -m pytest itinerary-service/itinerary-be/tests itinerary-service/itinerary-db/tests -q
+        run: python -m pytest itinerary-service/itinerary-be/tests itinerary-service/itinerary-db/tests -q --junitxml=itinerary-service/reports/post-commit/junit-unit-tests.xml
 
       - name: Shared Itinerary Contract Tests
-        run: python -m pytest itinerary-service/tests -q
+        run: python -m pytest itinerary-service/tests -q --junitxml=itinerary-service/reports/post-commit/junit-contract-tests.xml
 
       - name: Validate Docker Compose
-        run: docker compose -f itinerary-service/docker-compose.yml config --quiet
+        run: |
+          docker compose -f itinerary-service/docker-compose.yml config --quiet
+          docker compose -f itinerary-service/docker-compose.yml -f itinerary-service/docker-compose.ci.yml config --quiet
 
       - name: Create External Network
         run: docker network inspect microservices-net >/dev/null 2>&1 || docker network create microservices-net
 
       - name: Build Itinerary Containers
-        run: docker compose -f itinerary-service/docker-compose.yml build itinerary-fe itinerary-be itinerary-db
+        run: docker compose -f itinerary-service/docker-compose.yml -f itinerary-service/docker-compose.ci.yml build itinerary-fe itinerary-be itinerary-db
 
       - name: Start Itinerary Services
-        run: docker compose -f itinerary-service/docker-compose.yml up -d
+        run: docker compose -f itinerary-service/docker-compose.yml -f itinerary-service/docker-compose.ci.yml up -d
+
+      - name: Verify Container Baseline Switches
+        run: |
+          docker compose -f itinerary-service/docker-compose.yml -f itinerary-service/docker-compose.ci.yml exec -T itinerary-be python -c '
+          import os
+          flags = ("AI_ENABLED", "MCP_ENABLED", "RAG_ENABLED", "MULTI_AGENT_ENABLED")
+          values = {key: os.environ.get(key) for key in flags}
+          print(values)
+          assert all(value == "false" for value in values.values()), values
+          '
 
       - name: Backend Health Check
         run: |
@@ -106,6 +123,13 @@ jobs:
         run: |
           set -euo pipefail
           api="http://localhost:5005/api/itinerary"
+          item_id=""
+          cleanup() {
+            if [ -n "$item_id" ]; then
+              curl --fail --silent --show-error --max-time 15 -X DELETE "$api/$item_id" >/dev/null
+            fi
+          }
+          trap cleanup EXIT
           curl --fail --silent --show-error "$api" >/dev/null
 
           created=$(curl --fail --silent --show-error \
@@ -125,41 +149,53 @@ jobs:
           status=$(curl --silent --output /dev/null --write-out "%{http_code}" "$api/$item_id")
           test "$status" = "404"
           echo "CRUD smoke test passed for temporary item $item_id"
+          item_id=""
 
       - name: Verify Optional Services Disabled
         run: |
-          for route in mcp/itinerary rag/answer rag/retrieve rag/refresh; do
-            code=$(curl -sS -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{}' "http://localhost:5005/api/itinerary/$route")
+          for route in ai-review mcp/itinerary rag/answer rag/retrieve rag/refresh multi-agent/run; do
+            body=$(mktemp)
+            code=$(curl --max-time 15 -sS -o "$body" -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{}' "http://localhost:5005/api/itinerary/$route")
             test "$code" = "403"
+            python -c 'import json,sys; assert "disabled" in json.load(open(sys.argv[1]))["error"].lower()' "$body"
+            rm -f "$body"
+            echo "PASS $route -> 403 disabled"
           done
 
-      - name: Generate Student 5 Evidence
+      - name: Release 2 Live POST and PUT Endpoint Tests
+        shell: bash
         run: |
-          mkdir -p itinerary-service/reports
-          timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          cat > itinerary-service/reports/report.json <<EOF
-          {
-            "workflow_name": "student-5",
-            "run_id": "${{ github.run_id }}",
-            "commit_sha": "${{ github.sha }}",
-            "branch": "${{ github.ref_name }}",
-            "generated_timestamp": "$timestamp",
-            "validation": "Release 0 and Release 1 Python tests, shared itinerary contracts, Compose, container builds, health checks, CRUD smoke and MCP/RAG disabled checks passed"
-          }
-          EOF
-          cat > itinerary-service/reports/report.md <<EOF
-          ## Student 5 (Itinerary Manager) Workflow Report
+          set -euo pipefail
+          mkdir -p itinerary-service/reports/post-commit
+          python -m pytest -m live itinerary-service/ci -v \
+            --junitxml=itinerary-service/reports/post-commit/junit-endpoint-tests.xml \
+            2>&1 | tee itinerary-service/reports/post-commit/endpoint-tests.txt
 
-          - Workflow: student-5
-          - Run ID: ${{ github.run_id }}
-          - Commit SHA: ${{ github.sha }}
-          - Branch: ${{ github.ref_name }}
-          - AI validation uses mocked Ollama tests; no model is downloaded in CI.
-          - MCP and RAG container routes are explicitly disabled; enabled integration paths are unit tested with mocks.
-          EOF
-          echo "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" > itinerary-service/reports/run-view.md
+      - name: Generate Student 5 Evidence
+        if: always()
+        env:
+          VALIDATION_STATUS: ${{ job.status }}
+        run: |
+          python itinerary-service/ci/write_report.py
+          mkdir -p itinerary-service/reports/post-commit
+          cp docs/release-2/student-5/post-commit-cicd-report.md itinerary-service/reports/post-commit/
+
+      - name: Container Logs on Failure
+        if: failure()
+        run: |
+          mkdir -p itinerary-service/reports/post-commit
+          docker compose -f itinerary-service/docker-compose.yml -f itinerary-service/docker-compose.ci.yml logs --no-color > itinerary-service/reports/post-commit/container-logs.txt 2>&1
+
+      - name: Upload Student 5 Endpoint Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: student-5-endpoint-tests
+          path: itinerary-service/reports/post-commit
+          if-no-files-found: warn
 
       - name: Upload Student 5 Evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: student-5-report
@@ -167,4 +203,4 @@ jobs:
 
       - name: Cleanup
         if: always()
-        run: docker compose -f itinerary-service/docker-compose.yml down --volumes --remove-orphans
+        run: docker compose -f itinerary-service/docker-compose.yml -f itinerary-service/docker-compose.ci.yml down --volumes --remove-orphans

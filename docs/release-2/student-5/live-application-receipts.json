@@ -1,0 +1,172 @@
+[
+  {
+    "run_id": "run-0a70fe12b8bd",
+    "workflow": "itinerary_schedule_review",
+    "trip_reference": "R2-LIVE-20261022-PARTIAL",
+    "day": 87,
+    "decision": "partial",
+    "changes": [
+      {
+        "original": {
+          "activity_id": 1,
+          "day": 87,
+          "destination_id": 1,
+          "end_time": "11:30",
+          "estimated_cost": 10.0,
+          "itinerary_item_id": 28,
+          "notes": "Temporary Student 5 Release 2 validation",
+          "start_time": "10:30",
+          "trip_reference": "R2-LIVE-20261022-PARTIAL"
+        },
+        "updated": {
+          "activity_id": 1,
+          "day": 87,
+          "destination_id": 1,
+          "end_time": "13:00",
+          "estimated_cost": 10.0,
+          "itinerary_item_id": 28,
+          "notes": "Temporary Student 5 Release 2 validation",
+          "start_time": "12:00",
+          "trip_reference": "R2-LIVE-20261022-PARTIAL"
+        }
+      }
+    ],
+    "receipt": {
+      "run_id": "run-0a70fe12b8bd",
+      "updated_item_ids": [
+        28
+      ],
+      "replayed": false
+    }
+  },
+  {
+    "run_id": "run-3bc2a8fe1842",
+    "workflow": "itinerary_schedule_review",
+    "trip_reference": "R2-LIVE-20261022-APPROVE",
+    "day": 87,
+    "decision": "approve",
+    "changes": [
+      {
+        "original": {
+          "activity_id": 1,
+          "day": 87,
+          "destination_id": 1,
+          "end_time": "11:00",
+          "estimated_cost": 10.0,
+          "itinerary_item_id": 23,
+          "notes": "Temporary Student 5 Release 2 validation",
+          "start_time": "10:00",
+          "trip_reference": "R2-LIVE-20261022-APPROVE"
+        },
+        "updated": {
+          "activity_id": 1,
+          "day": 87,
+          "destination_id": 1,
+          "end_time": "12:00",
+          "estimated_cost": 10.0,
+          "itinerary_item_id": 23,
+          "notes": "Temporary Student 5 Release 2 validation",
+          "start_time": "11:00",
+          "trip_reference": "R2-LIVE-20261022-APPROVE"
+        }
+      },
+      {
+        "original": {
+          "activity_id": 1,
+          "day": 87,
+          "destination_id": 1,
+          "end_time": "11:30",
+          "estimated_cost": 10.0,
+          "itinerary_item_id": 24,
+          "notes": "Temporary Student 5 Release 2 validation",
+          "start_time": "10:30",
+          "trip_reference": "R2-LIVE-20261022-APPROVE"
+        },
+        "updated": {
+          "activity_id": 1,
+          "day": 87,
+          "destination_id": 1,
+          "end_time": "13:00",
+          "estimated_cost": 10.0,
+          "itinerary_item_id": 24,
+          "notes": "Temporary Student 5 Release 2 validation",
+          "start_time": "12:00",
+          "trip_reference": "R2-LIVE-20261022-APPROVE"
+        }
+      }
+    ],
+    "receipt": {
+      "run_id": "run-3bc2a8fe1842",
+      "updated_item_ids": [
+        23,
+        24
+      ],
+      "replayed": false
+    }
+  },
+  {
+    "run_id": "run-875d21878fe4",
+    "workflow": "itinerary_schedule_review",
+    "trip_reference": "R2-LIVE-20261022-CORRECT",
+    "day": 87,
+    "decision": "correct",
+    "changes": [
+      {
+        "original": {
+          "activity_id": 1,
+          "day": 87,
+          "destination_id": 1,
+          "end_time": "11:00",
+          "estimated_cost": 10.0,
+          "itinerary_item_id": 31,
+          "notes": "Temporary Student 5 Release 2 validation",
+          "start_time": "10:00",
+          "trip_reference": "R2-LIVE-20261022-CORRECT"
+        },
+        "updated": {
+          "activity_id": 1,
+          "day": 87,
+          "destination_id": 1,
+          "end_time": "12:00",
+          "estimated_cost": 10.0,
+          "itinerary_item_id": 31,
+          "notes": "Human corrected after checking live itinerary evidence",
+          "start_time": "11:00",
+          "trip_reference": "R2-LIVE-20261022-CORRECT"
+        }
+      },
+      {
+        "original": {
+          "activity_id": 1,
+          "day": 87,
+          "destination_id": 1,
+          "end_time": "11:30",
+          "estimated_cost": 10.0,
+          "itinerary_item_id": 32,
+          "notes": "Temporary Student 5 Release 2 validation",
+          "start_time": "10:30",
+          "trip_reference": "R2-LIVE-20261022-CORRECT"
+        },
+        "updated": {
+          "activity_id": 1,
+          "day": 87,
+          "destination_id": 1,
+          "end_time": "13:00",
+          "estimated_cost": 10.0,
+          "itinerary_item_id": 32,
+          "notes": "Temporary Student 5 Release 2 validation",
+          "start_time": "12:00",
+          "trip_reference": "R2-LIVE-20261022-CORRECT"
+        }
+      }
+    ],
+    "receipt": {
+      "run_id": "run-875d21878fe4",
+      "updated_item_ids": [
+        31,
+        32
+      ],
+      "replayed": false
+    }
+  }
+]

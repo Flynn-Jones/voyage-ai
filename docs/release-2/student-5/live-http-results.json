@@ -1,0 +1,396 @@
+{
+  "real_services": true,
+  "ai_review": {
+    "method": "POST",
+    "url": "http://127.0.0.1:3005/api/itinerary/ai-review",
+    "http_status": 200,
+    "elapsed_seconds": 21.39,
+    "body": {
+      "act": {
+        "records_retrieved": 1,
+        "requested_day": 98,
+        "source": "itinerary database API over HTTP"
+      },
+      "adapt": {
+        "advisory_only": true,
+        "model": "qwen2.5:7b",
+        "recommendation": "On Day 98, the traveller is scheduled for a 1-hour session starting at 09:00 with an estimated cost of $10.00 for \"Temporary Student 5 Release 2 validation.\" The schedule is well-paced with no gaps or overlaps, ensuring a smooth transition between activities."
+      },
+      "observe": {
+        "day_span_minutes": 60,
+        "earliest_start": "09:00",
+        "gaps": [],
+        "invalid_cost_items": [],
+        "invalid_schedule_items": [],
+        "item_count": 1,
+        "latest_end": "10:00",
+        "long_continuous_day": false,
+        "overlaps": [],
+        "short_gaps": [],
+        "total_estimated_cost": 10.0,
+        "total_scheduled_minutes": 60,
+        "valid_schedule_item_count": 1
+      },
+      "plan": {
+        "checks": [
+          "schedule coverage and duration",
+          "overlapping itinerary items",
+          "short gaps and continuous-day intensity",
+          "estimated cost",
+          "missing or invalid schedule values"
+        ],
+        "data_required": "all itinerary records for the requested day",
+        "requested_day": 98
+      }
+    },
+    "configured_model": "qwen2.5:7b"
+  },
+  "crud_create": {
+    "http_status": 201,
+    "body": {
+      "activity_id": 1,
+      "day": 99,
+      "destination_id": 1,
+      "end_time": "10:00",
+      "estimated_cost": 10.0,
+      "itinerary_item_id": 20,
+      "notes": "Temporary Student 5 Release 2 validation",
+      "start_time": "09:00",
+      "trip_reference": "R2-LIVE-20261022-CRUD"
+    }
+  },
+  "crud_read": {
+    "method": "GET",
+    "url": "http://127.0.0.1:3005/api/itinerary/20",
+    "http_status": 200,
+    "elapsed_seconds": 5.22,
+    "body": {
+      "activity": null,
+      "activity_id": 1,
+      "day": 99,
+      "destination": null,
+      "destination_id": 1,
+      "end_time": "10:00",
+      "estimated_cost": 10.0,
+      "itinerary_item_id": 20,
+      "notes": "Temporary Student 5 Release 2 validation",
+      "start_time": "09:00",
+      "trip_reference": "R2-LIVE-20261022-CRUD"
+    }
+  },
+  "crud_update": {
+    "method": "PUT",
+    "url": "http://127.0.0.1:3005/api/itinerary/20",
+    "http_status": 200,
+    "elapsed_seconds": 0.02,
+    "body": {
+      "activity_id": 1,
+      "day": 99,
+      "destination_id": 1,
+      "end_time": "10:30",
+      "estimated_cost": 15.0,
+      "itinerary_item_id": 20,
+      "notes": "Updated live validation item",
+      "start_time": "09:30",
+      "trip_reference": "R2-LIVE-20261022-CRUD"
+    }
+  },
+  "day_filter": {
+    "method": "GET",
+    "url": "http://127.0.0.1:3005/api/itinerary/day/99",
+    "http_status": 200,
+    "elapsed_seconds": 5.14,
+    "body": [
+      {
+        "activity": null,
+        "activity_id": 1,
+        "day": 99,
+        "destination": null,
+        "destination_id": 1,
+        "end_time": "10:30",
+        "estimated_cost": 15.0,
+        "itinerary_item_id": 20,
+        "notes": "Updated live validation item",
+        "start_time": "09:30",
+        "trip_reference": "R2-LIVE-20261022-CRUD"
+      }
+    ]
+  },
+  "crud_delete": {
+    "method": "DELETE",
+    "url": "http://127.0.0.1:3005/api/itinerary/20",
+    "http_status": 204,
+    "elapsed_seconds": 0.02,
+    "body": ""
+  },
+  "crud_deleted_not_found": {
+    "method": "GET",
+    "url": "http://127.0.0.1:3005/api/itinerary/20",
+    "http_status": 404,
+    "elapsed_seconds": 0.02,
+    "body": {
+      "error": "itinerary item not found"
+    }
+  },
+  "mcp_day_None": {
+    "method": "POST",
+    "url": "http://127.0.0.1:3005/api/itinerary/mcp/itinerary",
+    "http_status": 200,
+    "elapsed_seconds": 0.06,
+    "body": {
+      "result": {
+        "count": 6,
+        "day": null,
+        "items": [
+          {
+            "activity_id": 101,
+            "day": 1,
+            "destination_id": 1,
+            "end_time": "10:30",
+            "estimated_cost": 24.0,
+            "itinerary_item_id": 1,
+            "notes": "Guided historic centre walk",
+            "start_time": "09:00",
+            "trip_reference": "TRIP-1001"
+          },
+          {
+            "activity_id": 102,
+            "day": 1,
+            "destination_id": 1,
+            "end_time": "12:30",
+            "estimated_cost": 18.5,
+            "itinerary_item_id": 2,
+            "notes": "Visit the local art museum",
+            "start_time": "11:00",
+            "trip_reference": "TRIP-1001"
+          },
+          {
+            "activity_id": 103,
+            "day": 1,
+            "destination_id": 1,
+            "end_time": "15:30",
+            "estimated_cost": 32.0,
+            "itinerary_item_id": 3,
+            "notes": "Riverside food tour",
+            "start_time": "14:00",
+            "trip_reference": "TRIP-1001"
+          },
+          {
+            "activity_id": 104,
+            "day": 2,
+            "destination_id": 1,
+            "end_time": "10:00",
+            "estimated_cost": 12.0,
+            "itinerary_item_id": 4,
+            "notes": "Breakfast market visit",
+            "start_time": "08:30",
+            "trip_reference": "TRIP-1001"
+          },
+          {
+            "activity_id": 105,
+            "day": 2,
+            "destination_id": 1,
+            "end_time": "13:00",
+            "estimated_cost": 45.0,
+            "itinerary_item_id": 5,
+            "notes": "Architecture and gardens tour",
+            "start_time": "10:30",
+            "trip_reference": "TRIP-1001"
+          },
+          {
+            "activity_id": 106,
+            "day": 2,
+            "destination_id": 1,
+            "end_time": "20:00",
+            "estimated_cost": 68.0,
+            "itinerary_item_id": 6,
+            "notes": "Evening cooking class",
+            "start_time": "18:00",
+            "trip_reference": "TRIP-1001"
+          }
+        ],
+        "read_only": true,
+        "source": "itinerary-db:/itinerary-items",
+        "trip_reference": "TRIP-1001"
+      },
+      "status": "success"
+    }
+  },
+  "mcp_day_2": {
+    "method": "POST",
+    "url": "http://127.0.0.1:3005/api/itinerary/mcp/itinerary",
+    "http_status": 200,
+    "elapsed_seconds": 0.05,
+    "body": {
+      "result": {
+        "count": 3,
+        "day": 2,
+        "items": [
+          {
+            "activity_id": 104,
+            "day": 2,
+            "destination_id": 1,
+            "end_time": "10:00",
+            "estimated_cost": 12.0,
+            "itinerary_item_id": 4,
+            "notes": "Breakfast market visit",
+            "start_time": "08:30",
+            "trip_reference": "TRIP-1001"
+          },
+          {
+            "activity_id": 105,
+            "day": 2,
+            "destination_id": 1,
+            "end_time": "13:00",
+            "estimated_cost": 45.0,
+            "itinerary_item_id": 5,
+            "notes": "Architecture and gardens tour",
+            "start_time": "10:30",
+            "trip_reference": "TRIP-1001"
+          },
+          {
+            "activity_id": 106,
+            "day": 2,
+            "destination_id": 1,
+            "end_time": "20:00",
+            "estimated_cost": 68.0,
+            "itinerary_item_id": 6,
+            "notes": "Evening cooking class",
+            "start_time": "18:00",
+            "trip_reference": "TRIP-1001"
+          }
+        ],
+        "read_only": true,
+        "source": "itinerary-db:/itinerary-items",
+        "trip_reference": "TRIP-1001"
+      },
+      "status": "success"
+    }
+  },
+  "mcp_invalid_day": {
+    "method": "POST",
+    "url": "http://127.0.0.1:3005/api/itinerary/mcp/itinerary",
+    "http_status": 400,
+    "elapsed_seconds": 0.02,
+    "body": {
+      "error": "day must be a positive integer",
+      "status": "error"
+    }
+  },
+  "rag_refresh": {
+    "method": "POST",
+    "url": "http://127.0.0.1:3005/api/itinerary/rag/refresh",
+    "http_status": 200,
+    "elapsed_seconds": 19.44,
+    "body": {
+      "activity_chunk_count": 40,
+      "caller": "itinerary-service",
+      "chunk_count": 68,
+      "collection": "voyageai_shared_context",
+      "embedding_mode": "hash",
+      "itinerary_chunk_count": 12,
+      "itinerary_source_error": null,
+      "missing_docs": [
+        "docs/ARCHITECTURE.md",
+        "budget-service/SUMMARY.md"
+      ],
+      "service_counts": {
+        "accommodation": 15,
+        "activity": 40,
+        "itinerary": 12,
+        "shared": 1
+      },
+      "source_status": {
+        "accommodation_db": "unavailable: HTTPConnectionPool(host='localhost', port=6002): Max retries exceeded with url: /accommodations (Caused by NewConnectionError(\"HTTPConnection(host='localhost', port=6002): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it\"))",
+        "activity_db": "unavailable: HTTPConnectionPool(host='localhost', port=6003): Max retries exceeded with url: /activities (Caused by NewConnectionError(\"HTTPConnection(host='localhost', port=6003): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it\"))",
+        "budget_db": "unavailable: HTTPConnectionPool(host='localhost', port=6004): Max retries exceeded with url: /expenses (Caused by NewConnectionError(\"HTTPConnection(host='localhost', port=6004): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it\"))",
+        "destination_db": "unavailable: HTTPConnectionPool(host='localhost', port=6001): Max retries exceeded with url: /destinations (Caused by NewConnectionError(\"HTTPConnection(host='localhost', port=6001): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it\"))",
+        "itinerary_db": "ok"
+      },
+      "status": "success",
+      "tier_counts": {
+        "tier_1": 12,
+        "tier_2": 54,
+        "tier_3": 2
+      },
+      "vector_store_status": "ready"
+    }
+  },
+  "rag_answer": {
+    "method": "POST",
+    "url": "http://127.0.0.1:3005/api/itinerary/rag/answer",
+    "http_status": 200,
+    "elapsed_seconds": 5.42,
+    "body": {
+      "answer": "The estimated itinerary cost is 199.50.",
+      "answer_source": "llm",
+      "citations": [
+        {
+          "authority_tier": "tier_1",
+          "chunk_id": "itinerary_1",
+          "source_id": "itinerary-db:/itinerary-items"
+        },
+        {
+          "authority_tier": "tier_1",
+          "chunk_id": "itinerary_2",
+          "source_id": "itinerary-db:/itinerary-items"
+        },
+        {
+          "authority_tier": "tier_1",
+          "chunk_id": "itinerary_3",
+          "source_id": "itinerary-db:/itinerary-items"
+        },
+        {
+          "authority_tier": "tier_1",
+          "chunk_id": "itinerary_4",
+          "source_id": "itinerary-db:/itinerary-items"
+        },
+        {
+          "authority_tier": "tier_1",
+          "chunk_id": "itinerary_5",
+          "source_id": "itinerary-db:/itinerary-items"
+        },
+        {
+          "authority_tier": "tier_1",
+          "chunk_id": "itinerary_6",
+          "source_id": "itinerary-db:/itinerary-items"
+        }
+      ],
+      "confidence_category": "High",
+      "day": null,
+      "model": "qwen2.5:7b",
+      "query": "What is the estimated itinerary cost?",
+      "retrieval_summary": {
+        "complete_scope": true,
+        "k": 1,
+        "retrieval_mode": "itinerary_metadata",
+        "retrieved_count": 6
+      },
+      "status": "success",
+      "trip_reference": "TRIP-1001"
+    }
+  },
+  "rag_insufficient": {
+    "method": "POST",
+    "url": "http://127.0.0.1:3005/api/itinerary/rag/answer",
+    "http_status": 200,
+    "elapsed_seconds": 0.03,
+    "body": {
+      "answer": "Insufficient evidence. Ask about the planned activities or estimated itinerary cost for the selected trip/day.",
+      "answer_source": "retrieval_guard",
+      "citations": [],
+      "confidence_category": "Insufficient",
+      "day": null,
+      "query": "What is tomorrow's weather?",
+      "retrieval_summary": {
+        "complete_scope": true,
+        "k": 1,
+        "retrieval_mode": "itinerary_metadata",
+        "retrieved_count": 0
+      },
+      "status": "success",
+      "trip_reference": "TRIP-1001"
+    }
+  },
+  "overall": "PASS"
+}
