@@ -1,0 +1,100 @@
+{# One Multi-Agent run card. run: the backend's result (None on error); status_code: the backend's
+   HTTP status (None if unreachable); error: message or None. The decision form posts to
+   /multi-agent/runs/<id>/decision and is replaced by tabs/_multi_agent_decision.html. #}
+<div class="act-mcp__call{% if error %} act-mcp__call--error{% endif %}">
+  <div class="act-mcp__call-head">
+    {# POST /workflows/<name>/runs does not echo the input; the workflow's totals carry task and date. #}
+    {% set totals = run.work.totals if run else {} %}
+    <code>{% if run %}{{ totals.task }}{% if totals.date %} &middot; {{ totals.date }}{% endif %}{% else %}workflow{% endif %}</code>
+    <span class="act-mcp__status{% if error %} act-mcp__status--error{% endif %}">
+      {% if status_code %}HTTP {{ status_code }}{% else %}no response{% endif %}
+    </span>
+  </div>
+
+  {% if error %}
+    <p class="act-mcp__error">{{ error }}</p>
+  {% endif %}
+
+  {% if run %}
+    <span class="act-mcp__label">Planner &middot; {{ run.plan.objective }}</span>
+    <ol class="act-ma__steps">
+      {% for step in run.plan.steps %}
+      <li><strong>{{ step.agent }}</strong>: {{ step.action }}{% if step.tool %} <code>MCP:{{ step.tool }}</code>{% endif %}</li>
+      {% endfor %}
+    </ol>
+
+    <span class="act-mcp__label">Worker &middot; {{ run.work.summary }}</span>
+    {% if run.work["items"] %}
+    <table class="act-ma__table">
+      <tbody>
+      {% for item in run.work["items"] %}
+        <tr>
+          <td><code>{{ item.id }}</code></td>
+          <td>
+            {% if item.proposal %}{{ item.proposal }}
+            {% elif item.first %}{{ item.first }} &harr; {{ item.second }} ({{ item.overlap_minutes }} min)
+            {% else %}{{ item.name }} &middot; {{ item.type }} &middot; {{ item.cost }} &middot; {{ item.duration }}
+              {% if item.scheduled %}<span class="act-rag__meta">&middot; {{ item.scheduled | join(", ") }}</span>{% endif %}
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+    <pre>{{ run.work.worker_output }}</pre>
+    <span class="act-rag__meta">Worker narration: {{ run.work.worker_output_source }}</span>
+
+    {% set review = run.review %}
+    <div class="act-mcp__call-head" style="margin-top: 8px;">
+      <span class="act-mcp__label" style="margin: 0;">Reviewer &middot; recommends {{ review.recommendation }}</span>
+      <span class="act-mcp__status act-ma__risk--{{ review.risk }}{% if review.risk == 'high' %} act-mcp__status--error{% endif %}">
+        Risk: {{ review.risk }}
+      </span>
+    </div>
+    {% if review.findings %}
+      <ul class="act-ma__list">{% for f in review.findings %}<li>{{ f }}</li>{% endfor %}</ul>
+    {% endif %}
+    {% if review.correction %}<p><strong>Correction:</strong> {{ review.correction }}</p>{% endif %}
+    {% if review.retest %}<p><strong>Retest:</strong> {{ review.retest }}</p>{% endif %}
+    {% if review.recommendations %}
+      <ul class="act-ma__list">{% for r in review.recommendations %}<li>{{ r }}</li>{% endfor %}</ul>
+    {% endif %}
+
+    {% if run.human_decision and run.human_decision.status == "pending" %}
+    <form class="act-ma__form act-ma__decision"
+          hx-post="{{ url_for('multi_agent_decision', run_id=run.run_id) }}"
+          hx-target="this" hx-swap="outerHTML">
+      <span class="act-mcp__label">Your decision (workflow {{ run.run_id }})</span>
+      <label>Decision
+        <select name="decision">
+          {% for value in run.human_decision.allowed_values %}
+          <option value="{{ value }}"{% if value == review.recommendation %} selected{% endif %}>{{ value }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      {% if run.work["items"] %}
+      <label>Items to keep (Partially Accept; none ticked keeps all)
+        <span>{% for item in run.work["items"] %}
+          <label style="display: inline-flex; flex-direction: row; gap: 4px; font-weight: 400; margin-right: 10px;">
+            <input type="checkbox" name="approved_ids" value="{{ item.id }}"> {{ item.id }}
+          </label>{% endfor %}
+        </span>
+      </label>
+      {% endif %}
+      <label>Correction (required for Partially Accept)<input type="text" name="correction" maxlength="500"></label>
+      <label>Reason<input type="text" name="reason" maxlength="500" required></label>
+      <label>Evidence used<input type="text" name="evidence_used" maxlength="500"
+             value="Worker items, reviewer risk {{ review.risk }}"></label>
+      <label>Reviewer<input type="text" name="reviewer" maxlength="500" required></label>
+      <p id="ma-err-{{ run.run_id }}" class="act-mcp__error"></p>
+      <button type="submit" class="act-btn">Record Decision</button>
+    </form>
+    {% endif %}
+
+    <details>
+      <summary>Raw JSON</summary>
+      <pre>{{ run | tojson(indent=2) }}</pre>
+    </details>
+  {% endif %}
+</div>

@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}VoyageAI — Activities Multi-Agent Mode{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('index') }}" class="act-btn act-btn--secondary act-back-link">&larr; Back to Home</a>
+<h1 class="act-section-title">Activities — Multi-Agent Mode</h1>
+
+<div class="act-tabstrip">
+  <a href="{{ url_for('activities_list') }}">Manual Mode</a>
+  <a href="{{ url_for('ai_mode') }}">AI Mode</a>
+  <a href="{{ url_for('mcp_mode') }}">MCP Mode</a>
+  <a href="{{ url_for('rag_mode') }}">RAG Mode</a>
+  <a href="{{ url_for('multi_agent_mode') }}" class="act-tab--active">Multi-Agent Mode</a>
+</div>
+
+<p style="color: var(--act-text-muted); margin-top: -8px; margin-bottom: 20px;">
+  Planner &rarr; Worker &rarr; Reviewer &rarr; you. The agents read activities and scheduled times
+  (read-only), then recommend. Only you can Accept, Partially Accept or Reject, and nothing is
+  written to the activity database.
+</p>
+
+<div class="act-mcp">
+  <section class="act-mcp__panel">
+    <h2>Start a workflow</h2>
+    <form id="ma-run-form" class="act-ma__form"
+          hx-post="{{ url_for('multi_agent_run') }}"
+          hx-target="#ma-log" hx-swap="afterbegin"
+          hx-indicator="#ma-pending"
+          hx-disabled-elt="#ma-run-form input, #ma-run-form select, #ma-run-form button"
+          hx-on::before-request="document.getElementById('ma-empty')?.remove()">
+      <label>Task
+        <select name="task" id="ma-task">
+          {% for key, label in tasks.items() %}<option value="{{ key }}">{{ label }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>Day <span class="act-rag__meta">(needed for overlaps and free slots)</span>
+        <input type="date" name="date">
+      </label>
+      <label>Slot length (hours, free slots only)
+        <input type="text" name="slot_hours" value="2" inputmode="decimal">
+      </label>
+      <label>Request (optional context for the Planner)
+        <input type="text" name="request" list="ma-samples" maxlength="300" autocomplete="off"
+               placeholder="e.g. Check day 2026-10-06 for overlapping activities.">
+      </label>
+      <datalist id="ma-samples">
+        {% for sample in samples %}<option value="{{ sample }}">{% endfor %}
+      </datalist>
+      <button type="submit" class="act-btn">Run Agents</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>Runs</h2>
+    <div id="ma-pending" class="act-chat__bubble act-chat__bubble--pending act-pending htmx-indicator">
+      Planner, Worker and Reviewer are working… this can take a minute.
+    </div>
+    <div id="ma-log" class="act-chat__log act-mcp__log">
+      <p id="ma-empty" class="act-chat__empty">No runs yet. Pick a task and run the agents.</p>
+    </div>
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% include "tabs/_tool_panel_styles.html" %}
+<style>
+  .act-ma__form { display: flex; flex-direction: column; gap: 12px; }
+  .act-ma__form label { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; font-weight: 600; }
+  .act-ma__form input, .act-ma__form select, .act-ma__form textarea {
+    font-family: inherit;
+    font-size: 0.95rem;
+    padding: 8px 10px;
+    border: 1px solid var(--act-border);
+    border-radius: var(--act-radius);
+    background: var(--act-offwhite);
+    color: var(--act-text);
+  }
+  .act-ma__steps, .act-ma__list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+  .act-ma__table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .act-ma__table th, .act-ma__table td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--act-border); }
+  .act-ma__risk--low { background: var(--success-soft, #e6f4ea); color: var(--success-text, #1e6b34); }
+  .act-ma__risk--medium { background: var(--warning-soft); color: var(--warning-text); }
+  .act-ma__decision { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--act-border); }
+  .act-rag__meta { color: var(--act-text-muted); font-size: 0.8rem; font-weight: 400; }
+</style>
+{% endblock %}

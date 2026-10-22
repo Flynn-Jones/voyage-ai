@@ -2,6 +2,7 @@ import os
 
 import requests
 from flask import Flask, redirect, render_template, request, url_for
+from markupsafe import escape
 
 BACKEND_SERVICE_URL = os.environ.get("BACKEND_SERVICE_URL", "http://activity-backend:5003")
 PORT = int(os.environ.get("PORT", "3004"))
@@ -24,6 +25,20 @@ MCP_TOOLS = [
 
 # RAG Mode's actions, each forwarded to /api/activity/rag/<kind> on the backend.
 RAG_ACTIONS = ("refresh", "retrieve", "answer")
+
+# Multi-Agent Mode's tasks (the activity_schedule_check workflow validates them) and the
+# request datalist. The activity schema has no trip id, so a day stands in for a trip.
+MULTI_AGENT_TASKS = {
+    "summary": "Activity summary",
+    "overlaps": "Check a day for overlapping activities",
+    "free_slots": "Propose clash-free slots on a day",
+}
+MULTI_AGENT_SAMPLES = (
+    "Generate an activity summary for my trip.",
+    "Check day 2026-10-06 for overlapping activities.",
+    "Propose a 2-hour walking tour on 2026-10-06 without clashes.",
+)
+MULTI_AGENT_DECISION_FIELDS = ("decision", "correction", "reason", "evidence_used", "reviewer")
 
 
 def create_app():
@@ -208,6 +223,63 @@ def create_app():
         if response.status_code >= 400 or data.get("status") != "success":
             error = data.get("error") or f"Request failed ({response.status_code})"
         return render_template("tabs/_rag_call.html", call=call, status_code=response.status_code, data=data, error=error)
+
+    @app.route("/multi-agent")
+    def multi_agent_mode():
+        return render_template("multi_agent_mode.html", tasks=MULTI_AGENT_TASKS, samples=MULTI_AGENT_SAMPLES)
+
+    @app.route("/multi-agent/run", methods=["POST"])
+    def multi_agent_run():
+        # Always 200 so htmx swaps the card in; the backend's status is shown on the card.
+        payload = {"task": request.form.get("task", "")}
+        if request.form.get("date", "").strip():
+            payload["date"] = request.form["date"].strip()
+        if request.form.get("request", "").strip():
+            payload["request"] = request.form["request"].strip()
+        if payload["task"] == "free_slots":
+            try:
+                payload["slot_hours"] = float(request.form.get("slot_hours", "2") or "2")
+            except ValueError:
+                return render_template("tabs/_multi_agent_run.html", run=None, status_code=None,
+                                       error="Slot length must be a number of hours.")
+        try:
+            response = backend_request("POST", "/api/activity/multi-agent/workflow", json_body=payload)
+        except RuntimeError as exc:
+            return render_template("tabs/_multi_agent_run.html", run=None, status_code=None, error=str(exc))
+
+        is_json = response.headers.get("Content-Type", "").startswith("application/json")
+        data = response.json() if is_json else {}
+        if response.status_code >= 400 or data.get("status") != "success":
+            error = data.get("error") or f"Request failed ({response.status_code})"
+            return render_template("tabs/_multi_agent_run.html", run=None, status_code=response.status_code,
+                                   error=error)
+        return render_template("tabs/_multi_agent_run.html", run=data["result"],
+                               status_code=response.status_code, error=None)
+
+    @app.route("/multi-agent/runs/<run_id>/decision", methods=["POST"])
+    def multi_agent_decision(run_id):
+        payload = {key: request.form.get(key, "").strip() for key in MULTI_AGENT_DECISION_FIELDS}
+        payload["approved_ids"] = request.form.getlist("approved_ids")
+        try:
+            response = backend_request("POST", f"/api/activity/multi-agent/runs/{run_id}/decision",
+                                       json_body=payload)
+        except RuntimeError as exc:
+            response, error = None, str(exc)
+
+        if response is not None:
+            is_json = response.headers.get("Content-Type", "").startswith("application/json")
+            data = response.json() if is_json else {}
+            if response.status_code == 409 or (response.status_code < 400 and data.get("status") == "success"):
+                # Recorded (or already decided elsewhere): the form is replaced by the outcome.
+                result = data.get("result") if response.status_code < 400 else None
+                error = None if result else data.get("error") or "This run already has a decision."
+                return render_template("tabs/_multi_agent_decision.html", result=result, error=error)
+            error = data.get("error") or f"Request failed ({response.status_code})"
+        # Fixable (a missing reason, backend briefly down): keep the form, show the error inside it.
+        reply = app.make_response((str(escape(error)), 200))
+        reply.headers["HX-Retarget"] = f"#ma-err-{run_id}"
+        reply.headers["HX-Reswap"] = "innerHTML"
+        return reply
 
     def parse_activity_form():
         return {

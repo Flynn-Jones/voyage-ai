@@ -1,0 +1,18 @@
+{# Replaces the decision form once a decision is recorded. result: the backend's result; error:
+   set instead when the run was already decided (409). Fixable errors never reach this template:
+   app.py retargets them into the form's #ma-err-<run_id> slot. #}
+<div class="act-ma__decision">
+  {% if error %}
+    <p class="act-mcp__error">Decision not recorded: {{ error }}</p>
+  {% else %}
+    {% set record = result.human_decision %}
+    <span class="act-mcp__label">Human decision recorded &middot; run {{ result.state }}</span>
+    <pre>Workflow ID: {{ record.workflow_id }}
+Decision: {{ record.decision }}
+Correction: {{ record.correction or "-" }}
+Reason: {{ record.reason }}
+Evidence Used: {{ record.evidence_used or "-" }}
+Reviewer: {{ record.reviewer }}
+Timestamp: {{ record.timestamp }}</pre>
+  {% endif %}
+</div>
