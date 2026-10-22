@@ -506,11 +506,11 @@ class ActivityScheduleCheckWorkflow(Workflow):
             if check["code"] == "unknown_duration":
                 recs.append(check["text"].split(" has a duration")[0] + ": set a duration like '2 hours'.")
         if "clash" in codes:
-            recs.append("Move one activity of each clashing pair to another time in Manual Mode.")
+            recs.append("Move one activity of each clashing pair to another time (Edit on the Activities page).")
         if "no_free_slot" in codes:
             recs.append("Try a shorter slot or another day.")
         if "no_records" in codes:
-            recs.append("Add or schedule activities in Manual Mode, then re-run.")
+            recs.append("Add or schedule activities (Register activity, or Edit on the Activities page), then re-run.")
         if "no_data" in codes:
             recs.append("Start the MCP server (7001) and the activity database (6003), then re-run.")
         if "proposal_conflict" in codes:
