@@ -126,7 +126,10 @@ curl -fsSL https://ollama.com/install.sh | sh
 systemctl enable --now ollama
 # Ollama needs a moment after first start before it will accept pull requests.
 for i in \$(seq 1 30); do curl -sf http://localhost:11434/ >/dev/null && break; sleep 2; done
-ollama pull ${OLLAMA_MODEL}
+# The "ollama" CLI panics with "\$HOME is not defined" when run from cloud-init's user-data
+# context (no login shell, no HOME set) - pull via the REST API instead, which has no such
+# dependency and blocks until the pull finishes with stream:false.
+curl -s http://localhost:11434/api/pull -d "{\"name\": \"${OLLAMA_MODEL}\", \"stream\": false}"
 mkdir -p /opt/voyageai
 EOF
 )
