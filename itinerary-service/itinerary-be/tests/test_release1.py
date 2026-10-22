@@ -12,6 +12,7 @@ from services import release1_api, database_api, enrichment
 
 @pytest.fixture
 def client(monkeypatch):
+    monkeypatch.setenv("AI_ENABLED", "true")
     monkeypatch.setenv("MCP_ENABLED", "true")
     monkeypatch.setenv("RAG_ENABLED", "true")
     return create_app().test_client()

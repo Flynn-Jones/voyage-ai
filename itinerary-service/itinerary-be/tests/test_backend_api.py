@@ -11,8 +11,8 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
-from app import create_app
-from services import database_api, enrichment
+from app import create_app  # noqa: E402 - import this service after setting its isolated module path
+from services import database_api, enrichment  # noqa: E402 - import this service after setting its isolated module path
 
 
 VALID_ITEM = {

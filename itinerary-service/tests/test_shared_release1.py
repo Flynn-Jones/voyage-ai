@@ -9,8 +9,8 @@ import requests
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "ai-services/rag-server"))
-import itinerary_context as context
-import rag_pipeline as rag
+import itinerary_context as context  # noqa: E402 - import the shared service after setting its module path
+import rag_pipeline as rag  # noqa: E402 - import the shared service after setting its module path
 
 spec = importlib.util.spec_from_file_location("shared_itinerary_tools", ROOT / "ai-services/mcp-server/tools.py")
 tools = importlib.util.module_from_spec(spec)

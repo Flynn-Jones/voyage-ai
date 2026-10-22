@@ -13,6 +13,7 @@ files: |
     accommodation-service/|
     ai-services/|
     budget-service/|
+    itinerary-service/|
     shared/
   )
 exclude: (^|/)(venv|\.venv|chroma|node_modules)/

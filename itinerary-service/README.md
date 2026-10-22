@@ -255,7 +255,44 @@ ordinary unit tests mock it. It does not validate browser rendering or Docker ne
 CI sets `MCP_ENABLED=false` and `RAG_ENABLED=false` for container smoke tests;
 isolated unit tests explicitly enable mocked paths where needed.
 
-## Limits
+## Release 2 foundation
+
+The existing AI review, MCP and RAG modes remain enabled by default locally.
+`AI_ENABLED=false` makes `/api/itinerary/ai-review` return HTTP 403 with
+`{"error": "AI Mode is disabled"}` before validating input or contacting the
+database/Ollama. AI configuration is loaded when the backend app is created;
+restart/recreate it after changing the environment. MCP/RAG keep their existing
+per-request flag handling and 403 responses.
+
+Multi-Agent settings are reserved configuration only. This foundation adds no
+Multi-Agent routes, workflow, frontend controls or outbound calls.
+
+| Setting | Host backend default | Standalone Compose default |
+| --- | --- | --- |
+| `AI_ENABLED` | true | true |
+| `MCP_ENABLED` / `RAG_ENABLED` | true / true | true / true |
+| `MULTI_AGENT_ENABLED` | false | false |
+| `MULTI_AGENT_SERVICE_URL` | http://localhost:7004 | http://host.docker.internal:7004 |
+| `MULTI_AGENT_TIMEOUT_SECONDS` | 240 | 240 |
+
+The timeout follows the shared feature-client convention (seconds); invalid or
+non-positive values fall back to 240. It is not used until a Multi-Agent client
+exists. Existing MCP/RAG URL and timeout settings above are unchanged.
+
+Root Compose uses `ITINERARY_` prefixes for every setting in this table and the
+MCP/RAG URLs/timeouts. Set all four enabled flags to `false` for the cloud baseline.
+Do not deploy the shared host AI services to the cloud. For example, standalone:
+
+```bash
+AI_ENABLED=false MCP_ENABLED=false RAG_ENABLED=false MULTI_AGENT_ENABLED=false \
+  docker compose -f itinerary-service/docker-compose.yml up -d --build
+```
+
+Security scans now include `itinerary-service/` in the shared pre-commit scope.
+See `docs/release-2/student-5/pre-commit-security-report.md` for results and
+justified validation-only findings.
+
+## Release 1 limits
 
 - RAG is a snapshot: refresh after changes. High confidence describes relevant
   exact-scope evidence, not freshness or a guarantee that the model follows every instruction.

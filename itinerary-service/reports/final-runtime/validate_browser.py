@@ -1,4 +1,5 @@
 """Validation-only CDP harness for the isolated headless Edge session."""
+# ruff: noqa: S101 - assertions are validation checks, not production security controls
 import base64
 import json
 import time
@@ -9,7 +10,7 @@ import requests
 import websocket
 
 OUT = Path(__file__).parent
-target = next(t for t in requests.get('http://localhost:9222/json').json() if t['url'].startswith('http://localhost:3005'))
+target = next(t for t in requests.get('http://localhost:9222/json', timeout=10).json() if t['url'].startswith('http://localhost:3005'))
 ws = websocket.create_connection(target['webSocketDebuggerUrl'], timeout=130)
 sequence = 0
 events = []

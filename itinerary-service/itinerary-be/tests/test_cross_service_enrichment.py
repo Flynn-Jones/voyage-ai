@@ -10,8 +10,8 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
-from app import create_app
-from services import activity_api, database_api, destination_api
+from app import create_app  # noqa: E402 - import this service after setting its isolated module path
+from services import activity_api, database_api, destination_api  # noqa: E402 - import this service after setting its isolated module path
 
 
 ITEM = {

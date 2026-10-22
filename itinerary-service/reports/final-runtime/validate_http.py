@@ -1,6 +1,6 @@
 """Final validation evidence harness; exercises the real frontend/Nginx API."""
+# ruff: noqa: S101 - assertions are validation checks, not production security controls
 import json
-import time
 import uuid
 from pathlib import Path
 
@@ -11,7 +11,6 @@ report = {}
 
 
 def call(method, path, body=None, expected=200):
-    started = time.monotonic()
     response = requests.request(method, BASE + path, json=body, timeout=130)
     assert response.status_code == expected, (path, response.status_code, response.text)
     return response.json() if response.content else None

@@ -149,4 +149,4 @@ app = create_app()
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "6005"))
-    app.run(host="0.0.0.0", port=port, debug=False)
+    app.run(host="0.0.0.0", port=port, debug=False)  # noqa: S104 - container must accept requests from other tiers
