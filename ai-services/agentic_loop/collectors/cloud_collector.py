@@ -1,18 +1,26 @@
-"""cloud-deployment-review: evidence that the AWS deployment works with AI disabled.
+"""cloud-deployment-review: evidence that the AWS deployment works.
 
 OBSERVE  docs/release-2/cloud/
            cloud-deployment-report.md
            smoke-test-output*.txt   (scripts/deploy/aws/smoke-test.sh; newest file wins)
            stack-outputs*.json      (scripts/deploy/aws/smoke-test.sh: ALB/cluster/service ARNs
                                      via plain `aws elbv2`/`aws ecs` calls - no CloudFormation stack)
-         scripts/deploy/aws/services.yml (static: AI flags set to false)
-CHECK    every frontend answers, CRUD round-trips pass on every backend, AI routes
-         report disabled, the ALB URL is recorded, and no AI flag is enabled.
+         scripts/deploy/aws/services.yml (AI flags - see note below)
+CHECK    every frontend answers, CRUD round-trips pass on every backend, each backend's
+         AI path behaves as its own services.yml entry intends, and the ALB URL is
+         recorded.
+
+Phase 2 (docs/release-2/cloud/phase-2-ai-mode-plan.md) wired AI Mode live for the 5
+feature backends against a dedicated EC2 "AI host" - MCP/RAG/AI_ENABLED are "true" for
+destination/accommodation/activity/budget, and MULTI_AGENT_ENABLED additionally for all
+but itinerary (no Multi-Agent integration in its code). The `ai_flags` check below is
+informational only (what's actually configured), not a pass/fail assertion of "must be
+false" - a mixed enabled/disabled fleet is now the intentional state, not a regression.
 
 Smoke output contract (one result per line; other lines are ignored):
     PASS frontend:<name> <detail>
     FAIL crud:<service> <detail>
-    PASS ai-disabled:<service> <detail>
+    PASS ai-mode:<service> <detail>
 The human release decision is added by the orchestrator, not here.
 """
 import json
@@ -22,10 +30,10 @@ from pathlib import Path
 from core.review import ReviewResult
 
 MODE = "cloud-deployment-review"
-KINDS = ("frontend", "crud", "ai-disabled")
-EXPECTED_MIN = {"frontend": 6, "crud": 5, "ai-disabled": 5}  # home + 5 frontends; 5 backends
+KINDS = ("frontend", "crud", "ai-mode")
+EXPECTED_MIN = {"frontend": 6, "crud": 5, "ai-mode": 5}  # home + 5 frontends; 5 backends
 AI_FLAGS = ("MCP_ENABLED", "RAG_ENABLED", "MULTI_AGENT_ENABLED", "AI_ENABLED")
-SMOKE_LINE = re.compile(r"^(PASS|FAIL)\s+(frontend|crud|ai-disabled):(\S+)\s*(.*)$")
+SMOKE_LINE = re.compile(r"^(PASS|FAIL)\s+(frontend|crud|ai-mode):(\S+)\s*(.*)$")
 
 
 def parse_smoke(text: str) -> dict:
@@ -104,7 +112,9 @@ def review(repo_root: Path) -> ReviewResult:
     else:
         result.gap("alb_url", "cloud", "no stack-outputs*.json with an ALB URL output")
 
-    # ---- static: AI disabled in the deployed task definitions -------------
+    # ---- static: AI flags actually configured in services.yml (informational) --------
+    # Not a pass/fail assertion - see the module docstring. A missing flag is only a gap
+    # if NO service sets it at all, since itinerary legitimately has no MULTI_AGENT_ENABLED.
     services = repo_root / "scripts" / "deploy" / "aws" / "services.yml"
     if services.exists():
         result.sources.append(str(services.relative_to(repo_root)))
@@ -112,11 +122,10 @@ def review(repo_root: Path) -> ReviewResult:
         for flag in AI_FLAGS:
             values = _flag_values(template, flag)
             if not values:
-                result.add("ai_flags", flag, "fail", f"{flag} not set in services.yml (backends would use their default)")
-            elif any(v != "false" for v in values):
-                result.add("ai_flags", flag, "fail", f"{flag} has non-false value(s): {sorted(set(values))}")
+                result.gap("ai_flags", flag, f"{flag} not set anywhere in services.yml")
             else:
-                result.add("ai_flags", flag, "pass", f"false in {len(values)} container definition(s)")
+                counts = {v: values.count(v) for v in sorted(set(values))}
+                result.add("ai_flags", flag, "pass", f"configured: {counts}")
     else:
         result.gap("ai_flags", "services.yml", "scripts/deploy/aws/services.yml not found; cannot confirm AI flags")
 
@@ -134,9 +143,9 @@ def _recommendations(result: ReviewResult) -> list[str]:
                     "(Service Connect name:port) and CloudWatch logs before release.")
     if "frontend" in failing:
         recs.append("Implementation: a frontend is unreachable via the ALB; check its target group health check and listener.")
-    if "ai-disabled" in failing or "ai_flags" in failing:
-        recs.append("Review: AI must be off in the cloud; set MCP/RAG/MULTI_AGENT/AI_ENABLED=false for every backend "
-                    "and confirm the AI routes answer 'disabled'.")
+    if "ai-mode" in failing:
+        recs.append("Implementation: a backend's AI path didn't return a real result; check the AI host "
+                    "(scripts/deploy/aws/ai-ec2-setup.sh / ai-ec2-deploy.sh) is running and reachable.")
     if gaps:
         recs.append("Evidence: run scripts/deploy/aws/smoke-test.sh against the live ECS Fargate deployment; it "
                     "writes the smoke output, stack outputs, and deployment report under docs/release-2/cloud/ "

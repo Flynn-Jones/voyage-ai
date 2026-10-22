@@ -95,51 +95,60 @@ else
   check "FAIL crud:itinerary-service no itinerary rows found on /api/itinerary"
 fi
 
-# ---- ai-disabled: every backend's AI/MCP path reports disabled -----------
-# Destination: POST /mcp-lookup, disabled message rendered in the page body
-body=$(curl -s -m 10 -X POST "http://$ALB_DNS:3001/mcp-lookup" -d "city=Tokyo")
-if echo "$body" | grep -q "MCP lookup is disabled"; then
-  check "PASS ai-disabled:destination-service MCP lookup reports disabled"
+# ---- ai-mode: every backend's AI path, now wired to the AI host (Phase 2) ------------
+# Phase 2 (docs/release-2/cloud/phase-2-ai-mode-plan.md) wired AI Mode live for all 5
+# feature backends - these checks confirm a REAL generated response, not a disabled
+# message. Timeouts are generous (measured live: destination ~21s, accommodation ~91s,
+# activity ~7s, budget ~48s, itinerary ~56s on the CPU-only AI host) - a plain `curl -m N`
+# timeout is NOT caught by an `if` condition when assigned via `var=$(curl ...)`, so a too-
+# short timeout here will abort the whole script under `set -e`, not just fail one check.
+
+# Destination: POST /compare, real city comparison rendered in the page body
+body=$(curl -s -m 60 -X POST "http://$ALB_DNS:3001/compare" -d "city_a=Tokyo&city_b=Kyoto&preferences=nightlife+and+food")
+if echo "$body" | grep -q "detail-grid"; then
+  check "PASS ai-mode:destination-service compare returned a real result"
 else
-  check "FAIL ai-disabled:destination-service disabled message not found"
+  check "FAIL ai-mode:destination-service compare did not return a result"
 fi
 
-# Accommodation: POST /mcp, propagates the backend's 403
-code=$(curl -s -o /tmp/voyage-smoke-acc.html -m 10 -w '%{http_code}' -X POST "http://$ALB_DNS:3002/mcp" -d "text=hello")
-if [ "$code" = "403" ] && grep -q "MCP mode is disabled" /tmp/voyage-smoke-acc.html; then
-  check "PASS ai-disabled:accommodation-service http_403 MCP mode is disabled"
+# Accommodation: POST /recommend, real ranked recommendations (its own code uses a
+# 120-180s internal timeout, so give curl similar headroom)
+code=$(curl -s -o /tmp/voyage-smoke-acc.html -m 150 -w '%{http_code}' -X POST "http://$ALB_DNS:3002/recommend" -d "destination_city=Tokyo&max_price=200&interests=nightlife,food")
+if [ "$code" = "200" ] && grep -qi "top recommendations\|recommendation" /tmp/voyage-smoke-acc.html; then
+  check "PASS ai-mode:accommodation-service recommend returned a real result"
 else
-  check "FAIL ai-disabled:accommodation-service http_$code, disabled message not confirmed"
+  check "FAIL ai-mode:accommodation-service http_$code, no recommendation found"
 fi
 rm -f /tmp/voyage-smoke-acc.html
 
-# Activity: POST /mcp-mode/call, outer 200 but card reports the real backend status
-body=$(curl -s -m 10 -X POST "http://$ALB_DNS:3003/mcp-mode/call" -d "kind=tool&tool=list_activities")
-if echo "$body" | grep -q "MCP mode is disabled"; then
-  check "PASS ai-disabled:activity-service MCP mode is disabled (surfaced via card)"
+# Activity: POST /ai-mode/chat, real chat response (may legitimately say "nothing matched")
+code=$(curl -s -o /tmp/voyage-smoke-activity.html -m 60 -w '%{http_code}' -X POST "http://$ALB_DNS:3003/ai-mode/chat" -d "message=What activities are available?")
+if [ "$code" = "200" ] && grep -q "chat-log\|act-chat" /tmp/voyage-smoke-activity.html; then
+  check "PASS ai-mode:activity-service ai-mode/chat returned a real result"
 else
-  check "FAIL ai-disabled:activity-service disabled message not found"
+  check "FAIL ai-mode:activity-service http_$code, no chat response found"
 fi
+rm -f /tmp/voyage-smoke-activity.html
 
-# Budget: POST /api/budget/ai-analyse, direct JSON 403
-code=$(curl -s -o /tmp/voyage-smoke-budget.json -m 10 -w '%{http_code}' -X POST "http://$ALB_DNS:3004/api/budget/ai-analyse" -H 'Content-Type: application/json' -d '{}')
-if [ "$code" = "403" ] && grep -q "AI-Mode disabled" /tmp/voyage-smoke-budget.json; then
-  check "PASS ai-disabled:budget-service http_403 AI-Mode disabled"
+# Budget: POST /api/budget/ai-analyse, direct JSON 200 with a real analysis
+code=$(curl -s -o /tmp/voyage-smoke-budget.json -m 90 -w '%{http_code}' -X POST "http://$ALB_DNS:3004/api/budget/ai-analyse" -H 'Content-Type: application/json' -d '{"trip_reference":"TRIP-1001"}')
+if [ "$code" = "200" ] && grep -q '"analysis"' /tmp/voyage-smoke-budget.json; then
+  check "PASS ai-mode:budget-service ai-analyse returned a real result"
 else
-  check "FAIL ai-disabled:budget-service http_$code, disabled message not confirmed"
+  check "FAIL ai-mode:budget-service http_$code, no analysis found"
 fi
 rm -f /tmp/voyage-smoke-budget.json
 
-# Itinerary: POST /api/itinerary/ai-review with a valid prompt - no AI_ENABLED gate exists in
-# this route (see docs/release-2/cloud/cloud-deployment-report.md note below); it fails closed
-# with a 502 because the cloud task cannot reach the host-only Ollama, which is the required
-# net effect even though the mechanism differs from the other four services' explicit 403 checks.
-code=$(curl -s -o /tmp/voyage-smoke-itin.json -m 20 -w '%{http_code}' -X POST "http://$ALB_DNS:3005/api/itinerary/ai-review" -H 'Content-Type: application/json' -d '{"prompt":"Review day 1","day":1}')
-if [ "$code" = "502" ] && grep -q "AI review service is unavailable" /tmp/voyage-smoke-itin.json; then
-  check "PASS ai-disabled:itinerary-service http_502 AI review service is unavailable (no AI_ENABLED gate; fails closed on unreachable Ollama)"
+# Itinerary: POST /api/itinerary/ai-review, real schedule review (no AI_ENABLED gate on
+# this route - it always attempts a live Ollama call, so a real result confirms the AI
+# host is actually reachable, not just that the flag is set)
+code=$(curl -s -o /tmp/voyage-smoke-itin.json -m 90 -w '%{http_code}' -X POST "http://$ALB_DNS:3005/api/itinerary/ai-review" -H 'Content-Type: application/json' -d '{"prompt":"Review day 1","day":1}')
+if [ "$code" = "200" ] && grep -q '"adapt"' /tmp/voyage-smoke-itin.json; then
+  check "PASS ai-mode:itinerary-service ai-review returned a real result"
 else
-  check "FAIL ai-disabled:itinerary-service http_$code, expected unavailable response not confirmed"
+  check "FAIL ai-mode:itinerary-service http_$code, no review found"
 fi
+rm -f /tmp/voyage-smoke-itin.json
 rm -f /tmp/voyage-smoke-itin.json
 
 echo "=== Smoke test complete: $SMOKE_FILE ==="
@@ -182,14 +191,13 @@ Timestamp: $TS
 
 ## AI services
 
-MCP/RAG/Multi-Agent/Ollama are not deployed to AWS — they remain host-only per
-\`ai-services/CLAUDE.md\`. Every feature backend's \`AI_ENABLED\`/\`MCP_ENABLED\`/\`RAG_ENABLED\`/
-\`MULTI_AGENT_ENABLED\` flags are forced \`false\` in \`scripts/deploy/aws/services.yml\`.
-
-One asymmetry found during this smoke test: \`itinerary-be\`'s \`/api/itinerary/ai-review\` route
-has no explicit \`AI_ENABLED\` gate (unlike the other four services' deliberate 403 checks) — it
-fails closed with a 502 because the cloud task cannot reach the host-only Ollama. Net effect is
-the same (AI does not run in the cloud) but the mechanism is incidental, not a deliberate check.
+As of Phase 2 (\`docs/release-2/cloud/phase-2-ai-mode-plan.md\`), MCP/RAG/Multi-Agent/Ollama run on
+a dedicated EC2 "AI host" (not containerised, matching \`ai-services/CLAUDE.md\`'s existing shared-host
+pattern) that all 5 feature backends are wired to — \`MCP_ENABLED\`/\`RAG_ENABLED\`/\`AI_ENABLED\` are
+\`"true"\` for destination/accommodation/activity/budget, and \`MULTI_AGENT_ENABLED\` additionally for
+destination/accommodation/activity/budget (itinerary has no Multi-Agent integration in its own code,
+so no such flag exists for it). The \`ai-mode:*\` checks above confirm each backend returns a real,
+AI-host-generated response, not just that a flag is set.
 
 ## Known gaps at this run
 

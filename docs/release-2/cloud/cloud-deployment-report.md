@@ -2,29 +2,28 @@
 
 ## AWS ECS Fargate (voyageai-cluster)
 
-Deployment Status: Partial (1 check(s) failing)
+Deployment Status: Success
 
 ALB URL: http://voyageai-alb-615478022.ap-southeast-2.elb.amazonaws.com
 
-Smoke test: `smoke-test-output-20261022T035641Z.txt`
-Stack outputs: `stack-outputs-20261022T035641Z.json`
+Smoke test: `smoke-test-output-20261022T122515Z.txt`
+Stack outputs: `stack-outputs-20261022T122515Z.json`
 
-Timestamp: 20261022T035641Z
+Timestamp: 20261022T122515Z
 
 ## AI services
 
-MCP/RAG/Multi-Agent/Ollama are not deployed to AWS — they remain host-only per
-`ai-services/CLAUDE.md`. Every feature backend's `AI_ENABLED`/`MCP_ENABLED`/`RAG_ENABLED`/
-`MULTI_AGENT_ENABLED` flags are forced `false` in `scripts/deploy/aws/services.yml`.
-
-One asymmetry found during this smoke test: `itinerary-be`'s `/api/itinerary/ai-review` route
-has no explicit `AI_ENABLED` gate (unlike the other four services' deliberate 403 checks) — it
-fails closed with a 502 because the cloud task cannot reach the host-only Ollama. Net effect is
-the same (AI does not run in the cloud) but the mechanism is incidental, not a deliberate check.
+As of Phase 2 (`docs/release-2/cloud/phase-2-ai-mode-plan.md`), MCP/RAG/Multi-Agent/Ollama run on
+a dedicated EC2 "AI host" (not containerised, matching `ai-services/CLAUDE.md`'s existing shared-host
+pattern) that all 5 feature backends are wired to — `MCP_ENABLED`/`RAG_ENABLED`/`AI_ENABLED` are
+`"true"` for destination/accommodation/activity/budget, and `MULTI_AGENT_ENABLED` additionally for
+destination/accommodation/activity/budget (itinerary has no Multi-Agent integration in its own code,
+so no such flag exists for it). The `ai-mode:*` checks above confirm each backend returns a real,
+AI-host-generated response, not just that a flag is set.
 
 ## Known gaps at this run
 
-- FAIL crud:activity-service activity-database returned no rows (empty seed data in this task)
+- None: every check passed.
 
 ## Release Decision
 

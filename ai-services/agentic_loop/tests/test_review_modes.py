@@ -186,7 +186,7 @@ def test_testing_review_empty_repo_is_incomplete(tmp_path):
 SMOKE_OK = "\n".join(
     [f"PASS frontend:{n} 200" for n in ("home", "destination", "accommodation", "activity", "budget", "itinerary")]
     + [f"PASS crud:{n} create/read/update/delete" for n in ("destination", "accommodation", "activity", "budget", "itinerary")]
-    + [f"PASS ai-disabled:{n} disabled" for n in ("destination", "accommodation", "activity", "budget", "itinerary")]
+    + [f"PASS ai-mode:{n} real result" for n in ("destination", "accommodation", "activity", "budget", "itinerary")]
 )
 SERVICES_OK = "\n".join(
     f'  {flag}: "false"'  # plain YAML mapping, matching the real services.yml - not CFN Name/Value
@@ -206,16 +206,25 @@ def test_cloud_review_passes_with_full_evidence(tmp_path):
     result = cloud_collector.review(cloud_repo(tmp_path))
     assert result.verdict == "PASS", result.evidence_text()
     assert result.metrics["alb_url"] == "http://alb.example"
-    assert result.metrics["smoke"] == {"frontend": 6, "crud": 5, "ai-disabled": 5}
+    assert result.metrics["smoke"] == {"frontend": 6, "crud": 5, "ai-mode": 5}
 
 
-def test_cloud_review_fails_on_crud_and_enabled_ai(tmp_path):
+def test_cloud_review_fails_on_crud_failure(tmp_path):
     smoke = SMOKE_OK.replace("PASS crud:budget", "FAIL crud:budget")
-    services = SERVICES_OK.replace('RAG_ENABLED: "false"', 'RAG_ENABLED: "true"')
-    result = cloud_collector.review(cloud_repo(tmp_path, smoke, services))
+    result = cloud_collector.review(cloud_repo(tmp_path, smoke))
     failing = {(c.id, c.subject) for c in result.checks if c.status == "fail"}
-    assert ("crud", "smoke") in failing and ("ai_flags", "RAG_ENABLED") in failing
+    assert ("crud", "smoke") in failing
     assert result.verdict == "FAIL"
+
+
+def test_cloud_review_ai_flags_are_informational_not_pass_fail(tmp_path):
+    # Phase 2 (docs/release-2/cloud/phase-2-ai-mode-plan.md) wired AI live for 4-5
+    # backends - an enabled flag is the intentional state, not a finding to flag.
+    services = SERVICES_OK.replace('RAG_ENABLED: "false"', 'RAG_ENABLED: "true"')
+    result = cloud_collector.review(cloud_repo(tmp_path, services=services))
+    ai_flag_checks = {(c.id, c.subject): c.status for c in result.checks if c.subject == "RAG_ENABLED"}
+    assert ai_flag_checks[("ai_flags", "RAG_ENABLED")] == "pass"
+    assert result.verdict == "PASS"
 
 
 def test_cloud_review_missing_evidence_is_gaps(tmp_path):
