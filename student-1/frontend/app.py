@@ -7,6 +7,7 @@ the required data path frontend -> backend -> database API -> SQLite.
 """
 import math
 import os
+from urllib.parse import quote
 
 import requests
 from flask import Flask, jsonify, redirect, render_template, request, url_for
@@ -34,6 +35,27 @@ def _read_timeout(name, default):
 MCP_REQUEST_TIMEOUT = (3, _read_timeout("MCP_REQUEST_TIMEOUT_SECONDS", 15.0))
 RAG_REQUEST_TIMEOUT = (3, _read_timeout("RAG_REQUEST_TIMEOUT_SECONDS", 130.0))
 
+# A Multi-Agent run is synchronous and waits on up to four Ollama calls inside the
+# shared server; keep this above the backend's own 240s so its envelope arrives first.
+MULTI_AGENT_REQUEST_TIMEOUT = (3, _read_timeout("MULTI_AGENT_REQUEST_TIMEOUT_SECONDS", 250.0))
+MULTI_AGENT_BASE = "/api/destinations/multi-agent/runs"
+MULTI_AGENT_DECISIONS = (
+    ("approve", "Approve all"),
+    ("partial", "Partially accept (ticked items)"),
+    ("correct", "Correct (ticked items, with notes)"),
+    ("reject", "Reject"),
+)
+
+# Top navigation targets. Local defaults; deployments override them per service.
+NAV_URL_DEFAULTS = (
+    ("home", "PUBLIC_HOME_URL", "http://localhost:3000"),
+    ("destinations", "PUBLIC_DESTINATION_URL", "http://localhost:3001"),
+    ("accommodation", "PUBLIC_ACCOMMODATION_URL", "http://localhost:3002"),
+    ("activities", "PUBLIC_ACTIVITY_URL", "http://localhost:3003"),
+    ("budget", "PUBLIC_BUDGET_URL", "http://localhost:3004"),
+    ("itinerary", "PUBLIC_ITINERARY_URL", "http://localhost:3005"),
+)
+
 DEFAULT_COMPARE_PREFERENCES = "nightlife and food"
 
 TEXT_FIELDS = ("city", "country", "description", "travel_style")
@@ -55,6 +77,14 @@ class BackendNotFound(BackendError):
     """Raised when the backend returns 404 for the requested resource."""
 
 
+class BackendDisabled(BackendError):
+    """Raised when the backend answers 503 with status "disabled" (feature switched off)."""
+
+    def __init__(self, message):
+        super().__init__(message)
+        self.message = message
+
+
 class BackendValidationError(BackendError):
     """Raised when the backend rejects a request as invalid (400)."""
 
@@ -71,6 +101,14 @@ def _read_error_message(response):
     if isinstance(payload, dict) and "error" in payload:
         return payload["error"]
     return response.text or "invalid request"
+
+
+def _is_disabled(response):
+    try:
+        payload = response.json()
+    except ValueError:
+        return False
+    return isinstance(payload, dict) and payload.get("status") == "disabled"
 
 
 def backend_request(method, path, *, json_body=None, params=None, timeout=None):
@@ -90,6 +128,8 @@ def backend_request(method, path, *, json_body=None, params=None, timeout=None):
         raise BackendNotFound(_read_error_message(response))
     if response.status_code == 400:
         raise BackendValidationError(_read_error_message(response))
+    if response.status_code == 503 and _is_disabled(response):
+        raise BackendDisabled(_read_error_message(response))
     if response.status_code >= 400:
         raise BackendError(f"backend returned {response.status_code} for {path}")
 
@@ -115,6 +155,92 @@ def backend_ai_request(path, json_body, timeout):
     if not isinstance(payload, dict) or not isinstance(payload.get("status"), str):
         return {"status": "unavailable", "error": UNAVAILABLE_MESSAGE}
     return payload
+
+
+def backend_multi_agent_request(method, path, json_body=None):
+    """Call a backend multi-agent route and return its JSON envelope.
+
+    Like backend_ai_request, a 4xx/5xx is not an exception: the backend's
+    {status, ...} body is what the UI renders. Supports GET (run lists,
+    history) as well as POST."""
+    try:
+        response = requests.request(
+            method, f"{BACKEND_SERVICE_URL}{path}", json=json_body, timeout=MULTI_AGENT_REQUEST_TIMEOUT
+        )
+    except requests.exceptions.Timeout:
+        return {"status": "timeout", "error": "The request timed out. Please try again."}
+    except requests.exceptions.RequestException:
+        return {"status": "unavailable", "error": UNAVAILABLE_MESSAGE}
+    try:
+        payload = response.json()
+    except ValueError:
+        payload = None
+    if not isinstance(payload, dict) or not isinstance(payload.get("status"), str):
+        return {"status": "unavailable", "error": UNAVAILABLE_MESSAGE}
+    return payload
+
+
+def multi_agent_message(payload):
+    """A single displayable string from a non-success multi-agent envelope."""
+    error = payload.get("error")
+    if isinstance(error, dict):
+        error = error.get("message")
+    if payload.get("status") == "disabled":
+        return "Multi-Agent mode is disabled for Destination Manager."
+    return error if isinstance(error, str) and error else UNAVAILABLE_MESSAGE
+
+
+def parse_multi_agent_input(form):
+    """Form fields -> the workflow's input object (blank fields omitted)."""
+    payload = {}
+    interests = [i.strip() for i in (form.get("interests") or "").split(",") if i.strip()]
+    if interests:
+        payload["interests"] = interests
+    for field, caster in (("max_daily_cost", float), ("trip_days", int)):
+        value = coerce(form.get(field), caster)
+        if value is not _OMIT:
+            payload[field] = value
+    country = (form.get("country") or "").strip()
+    if country:
+        payload["country"] = country
+    return payload
+
+
+def build_review_payload(form):
+    """Human Review form -> the backend review body.
+
+    Ticked items are the approved set for partial/correct; a correction note
+    on a ticked item becomes an edit. For correct, unticked items are rejected."""
+    decision = form.get("decision") or ""
+    payload = {
+        "decision": decision,
+        "note": (form.get("note") or "").strip() or None,
+        "reviewer": (form.get("reviewer") or "").strip() or None,
+    }
+    if decision in ("partial", "correct"):
+        ticked = form.getlist("approved_ids")
+        payload["approved_ids"] = ticked
+        edits = {}
+        for item_id in ticked:
+            text = (form.get(f"correction_{item_id}") or "").strip()
+            if text:
+                edits[item_id] = {"reviewer_correction": text}
+        if edits:
+            payload["edits"] = edits
+        if decision == "correct":
+            payload["rejected_ids"] = [i for i in form.getlist("item_id") if i not in ticked]
+    return payload
+
+
+def load_multi_agent_run(run_id):
+    """(run, history, error_message) for one destination_recommend run."""
+    safe_id = quote(run_id, safe="")
+    run_payload = backend_multi_agent_request("GET", f"{MULTI_AGENT_BASE}/{safe_id}")
+    if run_payload.get("status") != "success":
+        return None, [], multi_agent_message(run_payload)
+    history_payload = backend_multi_agent_request("GET", f"{MULTI_AGENT_BASE}/{safe_id}/history")
+    history = history_payload.get("result") if history_payload.get("status") == "success" else []
+    return run_payload["result"], history if isinstance(history, list) else [], None
 
 
 def fetch_all():
@@ -189,6 +315,16 @@ def create_app():
         template_folder=os.path.join(BASE_DIR, "templates"),
         static_folder=os.path.join(BASE_DIR, "static"),
     )
+
+    @app.context_processor
+    def inject_nav_urls():
+        urls = {}
+        for key, env_name, default in NAV_URL_DEFAULTS:
+            value = (os.environ.get(env_name) or "").strip()
+            # Only absolute http(s) URLs or site-relative paths; anything else keeps the default.
+            ok = value.startswith(("http://", "https://")) or (value.startswith("/") and not value.startswith("//"))
+            urls[key] = value if ok else default
+        return {"nav_urls": urls}
 
     @app.route("/")
     def index():
@@ -349,6 +485,8 @@ def create_app():
             error = exc.message
         except BackendNotFound as exc:
             error = str(exc)
+        except BackendDisabled as exc:
+            error = exc.message
         except BackendError:
             error = UNAVAILABLE_MESSAGE
 
@@ -389,6 +527,68 @@ def create_app():
             return render_template("_rag_answer.html", **context)
         return render_template("ask.html", **context)
 
+    def render_multi_agent(status=200, **overrides):
+        """Full Multi-Agent page: start form, recent runs and (optionally) one run's detail."""
+        runs_payload = backend_multi_agent_request("GET", f"{MULTI_AGENT_BASE}?limit=10")
+        disabled = runs_payload.get("status") == "disabled"
+        runs = runs_payload.get("result") if runs_payload.get("status") == "success" else []
+        context = dict(
+            disabled=disabled,
+            runs=runs if isinstance(runs, list) else [],
+            runs_error=None if disabled or runs_payload.get("status") == "success"
+            else multi_agent_message(runs_payload),
+            form={}, run=None, history=[], error=None, notice=None, decisions=MULTI_AGENT_DECISIONS,
+        )
+        context.update(overrides)
+        return render_template("multi_agent.html", **context), status
+
+    def render_multi_agent_detail(**overrides):
+        context = dict(run=None, history=[], error=None, notice=None, decisions=MULTI_AGENT_DECISIONS)
+        context.update(overrides)
+        return render_template("_multi_agent_detail.html", **context)
+
+    @app.route("/multi-agent")
+    def multi_agent():
+        return render_multi_agent()
+
+    @app.route("/multi-agent/run", methods=["POST"])
+    def multi_agent_run():
+        payload = parse_multi_agent_input(request.form)
+        result = backend_multi_agent_request("POST", MULTI_AGENT_BASE, json_body=payload)
+        htmx = request.headers.get("HX-Request") == "true"
+        if result.get("status") != "success":
+            error = multi_agent_message(result)
+            if htmx:
+                return render_multi_agent_detail(error=error)
+            return render_multi_agent(form=request.form, error=error)
+        run_id = result["result"]["run_id"]
+        if htmx:
+            run, history, error = load_multi_agent_run(run_id)
+            return render_multi_agent_detail(run=run, history=history, error=error)
+        return redirect(url_for("multi_agent_detail", run_id=run_id))
+
+    @app.route("/multi-agent/runs/<run_id>")
+    def multi_agent_detail(run_id):
+        run, history, error = load_multi_agent_run(run_id)
+        return render_multi_agent(run=run, history=history, error=error)
+
+    @app.route("/multi-agent/runs/<run_id>/review", methods=["POST"])
+    def multi_agent_review(run_id):
+        result = backend_multi_agent_request(
+            "POST", f"{MULTI_AGENT_BASE}/{quote(run_id, safe='')}/review",
+            json_body=build_review_payload(request.form),
+        )
+        notice = error = None
+        if result.get("status") == "success":
+            notice = f"Decision recorded: run is now {result['result'].get('state')}."
+        else:
+            error = multi_agent_message(result)
+        run, history, load_error = load_multi_agent_run(run_id)
+        error = error or load_error
+        if request.headers.get("HX-Request") == "true":
+            return render_multi_agent_detail(run=run, history=history, error=error, notice=notice)
+        return render_multi_agent(run=run, history=history, error=error, notice=notice)
+
     @app.route("/health")
     def health():
         return jsonify({"service": "destination-frontend", "status": "ok"})
@@ -400,4 +600,4 @@ app = create_app()
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=PORT, debug=False)
+    app.run(host="0.0.0.0", port=PORT, debug=False)  # noqa: S104 - container bind

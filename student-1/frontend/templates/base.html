@@ -12,12 +12,12 @@
     <div class="voyage-nav__container">
       <span class="voyage-nav__brand">VoyageAI &mdash; Destinations</span>
       <div class="voyage-nav__switcher">
-        <a href="http://localhost:3000">Home</a>
-        <a href="http://localhost:3001" class="is-active">Destinations</a>
-        <a href="http://localhost:3002">Accommodation</a>
-        <a href="http://localhost:3003">Activities</a>
-        <a href="http://localhost:3004">Budget</a>
-        <a href="http://localhost:3005">Itinerary</a>
+        <a href="{{ nav_urls.home }}">Home</a>
+        <a href="{{ nav_urls.destinations }}" class="is-active">Destinations</a>
+        <a href="{{ nav_urls.accommodation }}">Accommodation</a>
+        <a href="{{ nav_urls.activities }}">Activities</a>
+        <a href="{{ nav_urls.budget }}">Budget</a>
+        <a href="{{ nav_urls.itinerary }}">Itinerary</a>
       </div>
     </div>
   </nav>
@@ -29,7 +29,9 @@
        ('Add destination', url_for('new_destination'), ['new_destination']),
        ('Compare', url_for('compare'), ['compare']),
        ('Data lookup (MCP)', url_for('mcp_lookup'), ['mcp_lookup']),
-       ('Ask (RAG)', url_for('ask'), ['ask'])
+       ('Ask (RAG)', url_for('ask'), ['ask']),
+       ('Multi-Agent', url_for('multi_agent'),
+        ['multi_agent', 'multi_agent_run', 'multi_agent_detail', 'multi_agent_review'])
      ] %}
   <nav class="mode-bar" aria-label="Destination Manager">
     <div class="mode-bar__container">

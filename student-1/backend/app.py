@@ -8,6 +8,7 @@ one grounded Ollama call. This service must never open SQLite directly.
 """
 import logging
 import os
+import re
 import sys
 import time
 
@@ -16,6 +17,7 @@ from flask import Flask, jsonify, request
 
 import llm_client
 import mcp_client
+import multi_agent_client
 import rag_client
 
 PORT = int(os.environ.get("PORT", "5001"))
@@ -72,6 +74,12 @@ def _request(method, path, **kwargs):
 MCP_FILTER_KEYS = ("city", "country", "travel_style")
 FILTER_MAX_LENGTH = 100
 QUESTION_MIN_LENGTH = 3
+MULTI_AGENT_INPUT_KEYS = ("interests", "max_daily_cost", "trip_days", "country")
+MULTI_AGENT_DECISIONS = ("approve", "partial", "correct", "reject")
+MULTI_AGENT_NOTE_MAX_LENGTH = 1000
+MULTI_AGENT_REVIEWER_MAX_LENGTH = 100
+MULTI_AGENT_LIST_MAX = 50
+RUN_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 QUESTION_MAX_LENGTH = 500
 ERROR_HTTP_STATUS = {
     "unavailable": 503,
@@ -105,6 +113,23 @@ def _invalid(message):
     return jsonify({"status": "invalid_request", "error": message}), 400
 
 
+def _ma_disabled():
+    return jsonify({"status": "disabled", "error": "Multi-Agent mode is disabled."}), 503
+
+
+def _ma_own_run(run_id):
+    """(run, None) for a destination_recommend run, else (None, flask_response)."""
+    if not RUN_ID_RE.match(run_id):
+        return None, _invalid("run_id is invalid")
+    status, envelope = multi_agent_client.get_run(run_id)
+    if status != 200:
+        return None, (jsonify(envelope), status)
+    run = envelope["result"]
+    if run.get("workflow") != multi_agent_client.WORKFLOW:
+        return None, (jsonify({"status": "error", "error": f"run {run_id} is not a Destination recommendation"}), 404)
+    return run, None
+
+
 def create_app():
     app = Flask(__name__)
 
@@ -130,6 +155,12 @@ def create_app():
                 "service": "destination-backend",
                 "status": "ok",
                 "database": db_response.json(),
+                "features": {
+                    "ai": llm_client.AI_ENABLED,
+                    "mcp": mcp_client.MCP_ENABLED,
+                    "rag": rag_client.RAG_ENABLED,
+                    "multi_agent": multi_agent_client.MULTI_AGENT_ENABLED,
+                },
             }
         )
 
@@ -142,7 +173,7 @@ def create_app():
         }
         try:
             response = _request("GET", "/destinations", params=params)
-        except DatabaseServiceError as exc:
+        except DatabaseServiceError:
             return jsonify({"error": "destination database unavailable"}), 503
         return jsonify(response.json())
 
@@ -192,6 +223,9 @@ def create_app():
 
     @app.route("/api/destinations/ai-compare", methods=["POST"])
     def ai_compare_destinations():
+        if not llm_client.AI_ENABLED:
+            return jsonify({"status": "disabled", "error": "AI comparison is disabled."}), 503
+
         body = request.get_json(silent=True) or {}
         city_a = (body.get("city_a") or "").strip()
         city_b = (body.get("city_b") or "").strip()
@@ -324,6 +358,125 @@ def create_app():
             return _client_error_response(exc)
         return jsonify({"question": question, **result})
 
+    @app.route("/api/destinations/multi-agent/runs", methods=["POST"])
+    def multi_agent_start():
+        if not multi_agent_client.MULTI_AGENT_ENABLED:
+            return _ma_disabled()
+        body = request.get_json(silent=True)
+        if not isinstance(body, dict):
+            return _invalid("request body must be a JSON object")
+        unknown = sorted(set(body) - set(MULTI_AGENT_INPUT_KEYS))
+        if unknown:
+            return _invalid(f"unknown field: {unknown[0]}")
+        logger.info("[MAS] start destination_recommend fields=%s", sorted(body))
+        try:
+            status, envelope = multi_agent_client.start_run(body)
+        except multi_agent_client.MultiAgentClientError as exc:
+            return _client_error_response(exc)
+        return jsonify(envelope), status  # 201, 400 (invalid input, no run created), 500 (run failed)
+
+    @app.route("/api/destinations/multi-agent/runs")
+    def multi_agent_list():
+        if not multi_agent_client.MULTI_AGENT_ENABLED:
+            return _ma_disabled()
+        try:
+            limit = int(request.args.get("limit", "20"))
+        except ValueError:
+            return _invalid("limit must be an integer")
+        limit = max(1, min(limit, MULTI_AGENT_LIST_MAX))
+        try:
+            status, envelope = multi_agent_client.list_runs(limit)
+        except multi_agent_client.MultiAgentClientError as exc:
+            return _client_error_response(exc)
+        return jsonify(envelope), status
+
+    @app.route("/api/destinations/multi-agent/runs/<run_id>")
+    def multi_agent_get(run_id):
+        if not multi_agent_client.MULTI_AGENT_ENABLED:
+            return _ma_disabled()
+        try:
+            run, problem = _ma_own_run(run_id)
+        except multi_agent_client.MultiAgentClientError as exc:
+            return _client_error_response(exc)
+        return problem or (jsonify({"status": "success", "result": run}), 200)
+
+    @app.route("/api/destinations/multi-agent/runs/<run_id>/history")
+    def multi_agent_history(run_id):
+        if not multi_agent_client.MULTI_AGENT_ENABLED:
+            return _ma_disabled()
+        try:
+            _, problem = _ma_own_run(run_id)
+            if problem:
+                return problem
+            status, envelope = multi_agent_client.get_history(run_id)
+        except multi_agent_client.MultiAgentClientError as exc:
+            return _client_error_response(exc)
+        return jsonify(envelope), status
+
+    @app.route("/api/destinations/multi-agent/runs/<run_id>/review", methods=["POST"])
+    def multi_agent_review(run_id):
+        if not multi_agent_client.MULTI_AGENT_ENABLED:
+            return _ma_disabled()
+        body = request.get_json(silent=True)
+        if not isinstance(body, dict):
+            return _invalid("request body must be a JSON object")
+        decision = body.get("decision")
+        if decision not in MULTI_AGENT_DECISIONS:
+            return _invalid(f"decision must be one of {', '.join(MULTI_AGENT_DECISIONS)}")
+        for key in ("approved_ids", "rejected_ids"):
+            if not isinstance(body.get(key) or [], list):
+                return _invalid(f"{key} must be a list")
+        edits = body.get("edits") or {}
+        if not isinstance(edits, dict):
+            return _invalid("edits must be an object")
+        note, reviewer = body.get("note"), body.get("reviewer")
+        if note is not None and (not isinstance(note, str) or len(note) > MULTI_AGENT_NOTE_MAX_LENGTH):
+            return _invalid(f"note must be a string of at most {MULTI_AGENT_NOTE_MAX_LENGTH} characters")
+        if reviewer is not None and (not isinstance(reviewer, str) or len(reviewer) > MULTI_AGENT_REVIEWER_MAX_LENGTH):
+            return _invalid(f"reviewer must be a string of at most {MULTI_AGENT_REVIEWER_MAX_LENGTH} characters")
+
+        review = {
+            "decision": decision,
+            "approved_ids": body.get("approved_ids") or [],
+            "rejected_ids": body.get("rejected_ids") or [],
+            "edits": edits,
+            "note": note,
+            "reviewer": (reviewer or "").strip() or "destination-ui",
+        }
+        logger.info("[MAS] review run=%s decision=%s", run_id, decision)
+        try:
+            _, problem = _ma_own_run(run_id)
+            if problem:
+                return problem
+            status, envelope = multi_agent_client.submit_review(run_id, review)
+        except multi_agent_client.MultiAgentClientError as exc:
+            return _client_error_response(exc)
+        if status != 200:
+            return jsonify(envelope), status  # 400 bad ids, 409 already decided: nothing recorded
+
+        result = envelope["result"]
+        applied_recorded = None
+        if result["state"] != "rejected":
+            try:
+                applied_status, _ = multi_agent_client.report_applied(run_id)
+                applied_recorded = applied_status == 200
+            except multi_agent_client.MultiAgentClientError as exc:
+                logger.warning("[MAS] could not report applied state for run %s: %s", run_id, exc.detail)
+                applied_recorded = False
+        return jsonify(
+            {
+                "status": "success",
+                "result": {
+                    "run_id": run_id,
+                    "decision": decision,
+                    "state": "applied" if applied_recorded else result["state"],
+                    "approved_items": result["approved_items"],
+                    "rejected_ids": result["rejected_ids"],
+                    "applied_recorded": applied_recorded,
+                },
+            }
+        )
+
     return app
 
 
@@ -331,4 +484,4 @@ app = create_app()
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=PORT, debug=False)
+    app.run(host="0.0.0.0", port=PORT, debug=False)  # noqa: S104 - container bind
