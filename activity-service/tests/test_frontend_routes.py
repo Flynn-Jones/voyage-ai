@@ -32,10 +32,10 @@ def test_hub_200(client):
     assert b"Kayaking" in resp.data
 
 
-def test_activities_list_200(client):
-    resp = client.get("/activities")
-    assert resp.status_code == 200
-    assert b"Kayaking" in resp.data
+def test_old_activities_list_url_redirects_home_keeping_filters(client):
+    resp = client.get("/activities?type=Adventure&max_cost=50")
+    assert resp.status_code == 301
+    assert resp.headers["Location"] == "/?type=Adventure&max_cost=50"
 
 
 def test_activity_detail_200(client):
@@ -130,10 +130,10 @@ def _filter_client(app_module, monkeypatch, calls, filtered_status=200):
     return app_module.create_app().test_client()
 
 
-def test_list_forwards_filters_and_lists_all_types(app_module, monkeypatch):
+def test_home_forwards_filters_and_lists_all_types(app_module, monkeypatch):
     calls = []
     client = _filter_client(app_module, monkeypatch, calls)
-    resp = client.get("/activities?type=Adventure&max_cost=50&date_from=2026-10-01&q=")
+    resp = client.get("/?type=Adventure&max_cost=50&date_from=2026-10-01&q=")
     assert resp.status_code == 200
     assert calls[0] == {"type": "Adventure", "max_cost": "50", "date_from": "2026-10-01", "include_dates": "1"}
     assert calls[1] == {}  # unfiltered call for the Type dropdown
@@ -152,14 +152,15 @@ def test_filter_htmx_request_returns_results_fragment_only(app_module, monkeypat
     assert len(calls) == 1
 
 
-def test_home_has_no_edit_or_delete_buttons(client):
+def test_home_rows_have_edit_and_delete(client):
     resp = client.get("/")
-    assert b"hx-delete" not in resp.data
-    assert b"Kayaking" in resp.data
+    assert b'href="/activities/1/edit"' in resp.data
+    assert b'hx-delete="/activities/1"' in resp.data
+    assert b'id="list-banner"' in resp.data  # where a failed delete is reported
 
 
 def test_filter_validation_error_is_shown(app_module, monkeypatch):
     client = _filter_client(app_module, monkeypatch, [], filtered_status=400)
-    resp = client.get("/activities?min_cost=cheap", headers={"HX-Request": "true"})
+    resp = client.get("/?min_cost=cheap", headers={"HX-Request": "true"})
     assert resp.status_code == 200
     assert b"Could not load activities: min_cost must be a number" in resp.data

@@ -1,6 +1,5 @@
 {% extends "base.html" %}
 {% from "_activity_filters.html" import activity_filters %}
-{% from "_mode_links.html" import mode_links %}
 
 {% block title %}VoyageAI — Activities{% endblock %}
 
@@ -9,14 +8,14 @@
   <div class="page-header">
     <div>
       <h1>Find Activities for Your Trip</h1>
-      <p>Browse activities, check costs and durations, and see AI-generated summaries.</p>
+      <p>Browse, edit and delete activities, check costs and durations, and see AI-generated summaries.</p>
     </div>
     <a class="button button--primary" href="{{ url_for('register_activity_form') }}">+ Register activity</a>
   </div>
 
-  {{ mode_links() }}
-
   {{ activity_filters(filters, activity_types) }}
+
+  <div id="list-banner" class="act-banner"></div>
 
   <div id="results">
     {% include "_activity_results.html" %}

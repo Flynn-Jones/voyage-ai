@@ -1,15 +1,3 @@
-{# Beige mode buttons shared by the home page and the AI pages. `active` is the
-   endpoint name of the current page, highlighted like Budget's active tab. #}
-{% macro mode_links(active=None) %}
-<nav class="act-mode-links" aria-label="Activity modes">
-  {% for endpoint, label in [("activities_list", "Manual Mode"), ("ai_mode", "AI Mode"), ("mcp_mode", "MCP Mode"),
-                             ("rag_mode", "RAG Mode"), ("multi_agent_mode", "Multi-Agent Mode")] %}
-  <a class="button button--secondary{% if endpoint == active %} is-active{% endif %}"
-     {% if endpoint == active %}aria-current="page" {% endif %}href="{{ url_for(endpoint) }}">{{ label }}</a>
-  {% endfor %}
-</nav>
-{% endmacro %}
-
 {# Panel header for the AI pages: title, the {% call %} body as the
    description, and Back to Home. #}
 {% macro mode_header(title) %}

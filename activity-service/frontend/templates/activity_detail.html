@@ -5,14 +5,13 @@
 {% block content %}
 <a href="{{ url_for('index') }}" class="act-btn act-btn--secondary act-back-link">&larr; Back to Home</a>
 <div id="detail-actions" style="display: flex; gap: 8px; margin-bottom: 20px;">
-  <a href="{{ url_for('activities_list') }}" class="act-btn act-btn--secondary">&larr; Back to all activities</a>
   {% if activity %}
   <a href="{{ url_for('edit_activity_form', activity_id=activity.activity_id) }}" class="act-btn act-btn--secondary">Edit</a>
   <button type="button" class="act-btn" style="background: var(--danger); color: #fff;"
           hx-delete="{{ url_for('delete_activity', activity_id=activity.activity_id) }}"
           hx-confirm="Delete &quot;{{ activity.activity_name }}&quot;? This cannot be undone."
           hx-swap="none"
-          hx-on::after-request="if (event.detail.successful) { window.location.href = '{{ url_for('activities_list') }}'; } else { const b = document.getElementById('detail-banner'); b.textContent = 'Could not delete activity: ' + event.detail.xhr.responseText; b.className = 'act-banner act-banner--visible act-banner--error'; }">
+          hx-on::after-request="if (event.detail.successful) { window.location.href = '{{ url_for('index') }}'; } else { const b = document.getElementById('detail-banner'); b.textContent = 'Could not delete activity: ' + event.detail.xhr.responseText; b.className = 'act-banner act-banner--visible act-banner--error'; }">
     Delete
   </button>
   {% endif %}

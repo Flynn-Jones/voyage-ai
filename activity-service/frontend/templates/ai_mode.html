@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_mode_links.html" import mode_header, mode_links %}
+{% from "_mode_header.html" import mode_header %}
 {% from "_chat_form.html" import chat_form %}
 
 {% block title %}VoyageAI — Activities AI Mode{% endblock %}
@@ -9,7 +9,6 @@
   {% call mode_header("AI Mode") %}
     Ask about activities — e.g. "What's a good half-day activity under $50?"
   {% endcall %}
-  {{ mode_links("ai_mode") }}
 
   <div class="act-chat">
     <div id="chat-log" class="act-chat__log">

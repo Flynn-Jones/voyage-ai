@@ -88,32 +88,53 @@ a:hover {
 }
 
 
-/* Home page tool links, a row of buttons inside the panel under the header */
+/* Activity second-row navigation under the shared navbar. Copied from
+   Destination's mode bar (student-1/frontend/static/theme.css) so the two
+   services' buttons match; keep them in sync. */
+.mode-bar {
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+}
 
-.act-mode-links {
+.mode-bar__container {
+  max-width: 1200px;
+  margin: 0 auto;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 24px;
+  gap: 0.5rem;
+  padding: 0.6rem 0;
 }
 
-/* Beige mode buttons, matching Budget's .tab-btn (budget-fe/templates/css/styles.css) */
-.act-mode-links .button {
+.mode-btn {
+  display: inline-block;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
   background: var(--surface-alt);
   color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  font-size: 0.92rem;
+  text-decoration: none;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
-.act-mode-links .button:hover {
+.mode-btn:hover {
   background: var(--accent-soft);
   border-color: var(--accent);
   color: var(--text);
+  text-decoration: none;
 }
 
-.act-mode-links .button.is-active {
+.mode-btn.is-active {
   background: var(--accent);
   border-color: transparent;
+  font-weight: 600;
+}
+
+@media (max-width: 720px) {
+  .mode-bar {
+    padding: 0 16px;
+  }
 }
 
 /* AI pages: boxes inside the white panel keep their border but drop the

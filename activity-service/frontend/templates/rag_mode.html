@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_mode_links.html" import mode_header, mode_links %}
+{% from "_mode_header.html" import mode_header %}
 
 {% block title %}VoyageAI — Activities RAG Mode{% endblock %}
 
@@ -8,7 +8,6 @@
   {% call mode_header("RAG Mode") %}
     Answers questions from activity-service's own knowledge: the activities database, the docs and reports, and a repository index. Every answer lists the chunks it cites and how confident it is.
   {% endcall %}
-  {{ mode_links("rag_mode") }}
 
   {% include "tabs/rag.html" %}
 </section>
