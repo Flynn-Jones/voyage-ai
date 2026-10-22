@@ -12,9 +12,9 @@ def run(*args):
 r = run("ecs", "describe-task-definition", "--task-definition", "shared-frontend",
         "--query", "taskDefinition.containerDefinitions[0].environment[].name", "--output", "json")
 if "ACCESS_SERVICE_URL" not in r.stdout:
-    sys.exit("Task definitions are still the old revision. Run: python3 ~/voyage-taskdefs.py")
+    sys.exit("Task definitions are still the old revision. Run: python3 ~/taskdefs.py")
 
-alb = json.load(open(os.path.expanduser("~/voyage-alb.json")))
+alb = json.load(open(os.path.expanduser("~/alb.json")))
 manifest = yaml.safe_load(open("scripts/deploy/aws/services.yml"))
 short_alias = {"budget-backend", "itinerary-be"}   # nginx hardcodes these names
 

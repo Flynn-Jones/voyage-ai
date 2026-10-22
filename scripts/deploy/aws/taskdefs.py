@@ -1,4 +1,4 @@
-import json, os, subprocess, yaml
+import json, os, subprocess, sys, yaml
 
 region = os.environ["AWS_REGION"]
 account = os.environ["AWS_ACCOUNT_ID"]
@@ -18,6 +18,7 @@ frontend_var = {
     "activity-frontend": "BACKEND_SERVICE_URL",
 }
 
+failed = []
 for s in manifest["services"]:
     env = dict(s.get("env") or {})
     if s["tier"] != "database":
@@ -59,3 +60,8 @@ for s in manifest["services"]:
          "--region", region, "--query", "taskDefinition.taskDefinitionArn", "--output", "text"],
         capture_output=True, text=True, stdin=subprocess.DEVNULL)
     print(("OK   " if r.returncode == 0 else "FAIL ") + s["name"], (r.stdout or r.stderr).strip())
+    if r.returncode != 0:
+        failed.append(s["name"])
+
+if failed:
+    sys.exit("Task definition registration failed for: " + ", ".join(failed))

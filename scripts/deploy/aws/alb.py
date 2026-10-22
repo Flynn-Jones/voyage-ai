@@ -39,5 +39,5 @@ for s in manifest["services"]:
     tgs[s["name"]] = tg
     print(f"OK   {s['name']}: ALB :{port} -> container :{s['container_port']} (health {path})")
 
-with open(os.path.expanduser("~/voyage-alb.json"), "w") as f:
+with open(os.path.expanduser("~/alb.json"), "w") as f:
     json.dump({"alb_arn": alb["LoadBalancerArn"], "dns": alb["DNSName"], "target_groups": tgs}, f, indent=2)
