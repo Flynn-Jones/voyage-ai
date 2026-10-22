@@ -3,7 +3,8 @@
 OBSERVE  docs/release-2/cloud/
            cloud-deployment-report.md
            smoke-test-output*.txt   (scripts/deploy/aws/smoke-test.sh; newest file wins)
-           stack-outputs*.json      (aws cloudformation describe-stacks Outputs)
+           stack-outputs*.json      (scripts/deploy/aws/smoke-test.sh: ALB/cluster/service ARNs
+                                     via plain `aws elbv2`/`aws ecs` calls - no CloudFormation stack)
          scripts/deploy/aws/services.yml (static: AI flags set to false)
 CHECK    every frontend answers, CRUD round-trips pass on every backend, AI routes
          report disabled, the ALB URL is recorded, and no AI flag is enabled.
@@ -47,7 +48,9 @@ def _alb_url(outputs) -> str | None:
 
 
 def _flag_values(template: str, flag: str) -> list[str]:
-    pattern = re.compile(rf"Name:\s*['\"]?{flag}['\"]?\s*\n\s*Value:\s*['\"]?([A-Za-z0-9]+)", re.MULTILINE)
+    # services.yml is a plain YAML mapping (`MCP_ENABLED: "false"` under each service's `env:`),
+    # not a CloudFormation-style Name/Value list - match the mapping form directly.
+    pattern = re.compile(rf"\b{flag}:\s*['\"]?([A-Za-z0-9]+)['\"]?")
     return [v.lower() for v in pattern.findall(template)]
 
 
@@ -135,6 +138,7 @@ def _recommendations(result: ReviewResult) -> list[str]:
         recs.append("Review: AI must be off in the cloud; set MCP/RAG/MULTI_AGENT/AI_ENABLED=false for every backend "
                     "and confirm the AI routes answer 'disabled'.")
     if gaps:
-        recs.append("Evidence: run scripts/deploy/aws/deploy.sh and smoke-test.sh, then save the smoke output and "
-                    "stack outputs under docs/release-2/cloud/ (missing: " + ", ".join(sorted(gaps)) + ").")
+        recs.append("Evidence: run scripts/deploy/aws/smoke-test.sh against the live ECS Fargate deployment; it "
+                    "writes the smoke output, stack outputs, and deployment report under docs/release-2/cloud/ "
+                    "(missing: " + ", ".join(sorted(gaps)) + ").")
     return recs

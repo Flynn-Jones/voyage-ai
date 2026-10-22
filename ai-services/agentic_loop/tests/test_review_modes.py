@@ -189,7 +189,7 @@ SMOKE_OK = "\n".join(
     + [f"PASS ai-disabled:{n} disabled" for n in ("destination", "accommodation", "activity", "budget", "itinerary")]
 )
 SERVICES_OK = "\n".join(
-    f"            - Name: {flag}\n              Value: 'false'"
+    f'  {flag}: "false"'  # plain YAML mapping, matching the real services.yml - not CFN Name/Value
     for flag in ("MCP_ENABLED", "RAG_ENABLED", "MULTI_AGENT_ENABLED", "AI_ENABLED"))
 
 
@@ -211,8 +211,7 @@ def test_cloud_review_passes_with_full_evidence(tmp_path):
 
 def test_cloud_review_fails_on_crud_and_enabled_ai(tmp_path):
     smoke = SMOKE_OK.replace("PASS crud:budget", "FAIL crud:budget")
-    services = SERVICES_OK.replace("Name: RAG_ENABLED\n              Value: 'false'",
-                                   "Name: RAG_ENABLED\n              Value: 'true'")
+    services = SERVICES_OK.replace('RAG_ENABLED: "false"', 'RAG_ENABLED: "true"')
     result = cloud_collector.review(cloud_repo(tmp_path, smoke, services))
     failing = {(c.id, c.subject) for c in result.checks if c.status == "fail"}
     assert ("crud", "smoke") in failing and ("ai_flags", "RAG_ENABLED") in failing
