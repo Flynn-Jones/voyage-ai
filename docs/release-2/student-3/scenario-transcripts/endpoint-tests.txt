@@ -1,0 +1,38 @@
+# student-3.yml build + endpoint-tests + verify-ai-disabled jobs, reproduced locally
+# date: 2026-10-22T12:10:51Z   HEAD: 7939482 + working-tree changes
+# env: ACTIVITY_MCP_ENABLED=false ACTIVITY_RAG_ENABLED=false ACTIVITY_MULTI_AGENT_ENABLED=false (as in CI)
+
+$ docker compose build
+#29 naming to docker.io/library/activity-service-frontend:latest done
+#34 naming to docker.io/library/activity-service-backend:latest done
+ Image activity-service-frontend Built 
+ Image activity-service-backend Built 
+ Image activity-service-database Built 
+exit: 0
+
+$ docker compose up -d --build
+ Container backend Starting 
+ Container backend Started 
+ Container frontend Starting 
+ Container frontend Started 
+
+## Wait for health (smoke checks)
+PASS http://localhost:6003/health
+curl: (56) Recv failure: Connection reset by peer
+PASS http://localhost:5003/health
+PASS http://localhost:3003/
+
+## endpoint-tests
+$ python -m pytest -m live --junitxml=junit-endpoint-tests.xml -v
+tests/test_backend_endpoints.py::test_add_activity_is_201_and_persists_in_the_database PASSED [ 16%]
+tests/test_backend_endpoints.py::test_add_activity_rejects_invalid_input_with_400[payload0-missing required field(s): activity_name] PASSED [ 33%]
+tests/test_backend_endpoints.py::test_add_activity_rejects_invalid_input_with_400[payload1-activity_cost must be a number] PASSED [ 50%]
+tests/test_backend_endpoints.py::test_view_activities_lists_a_created_record PASSED [ 66%]
+tests/test_backend_endpoints.py::test_view_activities_filters_and_sorts PASSED [ 83%]
+tests/test_backend_endpoints.py::test_view_activities_rejects_a_bad_filter_with_400 PASSED [100%]
+====================== 6 passed, 178 deselected in 0.56s =======================
+
+## verify-ai-disabled: every shared-AI route answers 403
+PASS /api/activity/mcp/list-activities -> 403 {  "error": "MCP mode is disabled.",  "status": "error"}
+PASS /api/activity/rag/answer -> 403 {  "error": "RAG mode is disabled.",  "status": "error"}
+PASS /api/activity/multi-agent/workflow -> 403 {  "error": "Multi-Agent mode is disabled.",  "status": "error"}

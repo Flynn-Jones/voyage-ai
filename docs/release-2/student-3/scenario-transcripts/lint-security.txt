@@ -1,0 +1,23 @@
+# student-3.yml lint-security job, reproduced locally (same commands and tool versions as CI)
+# date: 2026-10-22T12:10:12Z   HEAD: 7939482 + working-tree changes
+# ruff 0.17.1, detect-secrets 1.5.0, pip-audit 2.10.1
+
+$ ruff check --config ruff.toml activity-service
+All checks passed!
+exit: 0
+
+$ detect-secrets scan activity-service > activity-secrets.json
+no secrets found
+exit: 0
+
+$ pip-audit -r activity-service/backend/requirements.txt --progress-spinner off
+No known vulnerabilities found
+exit: 0
+
+$ pip-audit -r activity-service/frontend/requirements.txt --progress-spinner off
+No known vulnerabilities found
+exit: 0
+
+$ pip-audit -r activity-service/database/requirements.txt --progress-spinner off
+No known vulnerabilities found
+exit: 0

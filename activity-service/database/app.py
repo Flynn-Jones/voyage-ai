@@ -14,4 +14,4 @@ def create_app():
 
 if __name__ == "__main__":
     app = create_app()
-    app.run(host="0.0.0.0", port=6003, debug=True)
+    app.run(host="0.0.0.0", port=6003, debug=True)  # noqa: S104 - binds inside its container; only the published port is reachable

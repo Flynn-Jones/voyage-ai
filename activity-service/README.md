@@ -77,10 +77,22 @@ pip install -r tests/requirements.txt
 python -m pytest
 ```
 
-All tests are offline: the database tier runs against a temp SQLite file,
-and the backend, Ollama and the feature databases are faked. The
+By default every test is offline: the database tier runs against a temp
+SQLite file, and the backend, Ollama and the feature databases are faked. The
 `test_shared_*_bridge.py` tests drive the real shared MCP and RAG servers
 in-process, and skip themselves if `mcp` or `chromadb` isn't installed.
+
+`tests/test_backend_endpoints.py` is marked `live` and skipped by default. It
+tests two backend endpoint functions, `add_activity` and `view_activities`,
+against the running containers:
+
+```bash
+docker compose -f activity-service/docker-compose.yml up -d --build
+cd activity-service && python -m pytest -m live -v
+```
+
+Pre-commit security scans (Ruff, detect-secrets, pip-audit) cover this
+folder: `pre-commit run --files $(git ls-files activity-service)`.
 
 To append a dated pass/fail table to `docs/test-results.md`:
 
@@ -90,5 +102,10 @@ python tests/report.py --label "Before <change>"
 
 ## CI
 
-`.github/workflows/student-3.yml` builds the images, starts this compose file
-and smoke-checks the three `/health` URLs.
+`.github/workflows/student-3.yml` uses the same job graph as student-1.yml:
+`security-scans` (the pre-commit hooks: Ruff, detect-secrets, pip-audit),
+`offline-tests` and `compose-validate` run in parallel. Then `build-and-smoke`
+starts the containers, runs the live tests above, fails unless both endpoint
+functions pass, and checks that MCP, RAG and Multi-Agent return 403. Finally
+`evidence-pack` uploads the reports. Evidence and reports:
+`docs/release-2/student-3/`.

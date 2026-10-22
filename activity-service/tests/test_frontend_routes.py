@@ -7,7 +7,7 @@ Run with the rest of the suite, from activity-service/: python -m pytest
 """
 import pytest
 
-from conftest import SAMPLE_ACTIVITY, DummyResponse, make_fake_backend
+from conftest import SAMPLE_ACTIVITY, DummyResponse
 
 
 # This file's tests use `app_module` / `client` for the frontend tier.

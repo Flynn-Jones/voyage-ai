@@ -1,0 +1,1388 @@
+# Activity (student-3): activity_schedule_check live run transcripts
+# date: 2026-10-22T12:23:35+00:00
+# Stack: real activity-frontend/backend/database containers (root docker-compose.yml, Multi-Agent
+# enabled), real shared Multi-Agent Server (:7004) and MCP server (:7001) on the host, real Ollama
+# (qwen2.5:0.5b). Every request goes through activity-backend's own routes
+# (backend/routes/multi_agent_mode.py), not straight to the Multi-Agent Server.
+
+================================================================================================
+Scenario 1 - summary of every activity, human Accepts
+================================================================================================
+
+$ curl -s -X POST http://localhost:5003/api/activity/multi-agent/workflow \
+    -H 'Content-Type: application/json' \
+    -d '{"task": "summary", "request": "Summarise every activity and when it is scheduled."}'
+HTTP 201
+{
+  "result": {
+    "human_approval_required": true,
+    "human_decision": {
+      "allowed_values": [
+        "Accept",
+        "Partially Accept",
+        "Reject"
+      ],
+      "record": null,
+      "status": "pending"
+    },
+    "plan": {
+      "evidence_required": [
+        "MCP:list_activities",
+        "MCP:list_assignments"
+      ],
+      "human_approval": "A human decides; no change is written to the activity database.",
+      "objective": "Summarise the activities and their scheduled times.",
+      "steps": [
+        {
+          "action": "Read every activity",
+          "agent": "Worker",
+          "tool": "list_activities"
+        },
+        {
+          "action": "Read every scheduled time",
+          "agent": "Worker",
+          "tool": "list_assignments"
+        },
+        {
+          "action": "Check the output against the evidence",
+          "agent": "Reviewer"
+        },
+        {
+          "action": "Accept, Partially Accept or Reject",
+          "agent": "Human"
+        }
+      ]
+    },
+    "review": {
+      "correction": "Remove the ids that are not in the evidence from the worker output. Rewrite the worker output as Output / Evidence Used / Limitations, at most 100 words.",
+      "findings": [
+        "Worker output says no activities were found, but the evidence has 10.",
+        "Worker output is missing the Output / Evidence Used / Limitations sections."
+      ],
+      "recommendation": "Partially Accept",
+      "recommendations": [
+        "Remove the ids that are not in the evidence from the worker output.",
+        "Rewrite the worker output as Output / Evidence Used / Limitations, at most 100 words."
+      ],
+      "retest": "Re-run the workflow after the correction.",
+      "risk": "medium"
+    },
+    "run_id": "run-45966fb7d69e",
+    "state": "awaiting_human_review",
+    "work": {
+      "activity_evidence": [
+        "- #1 | Harbour Kayaking Tour | Adventure | cost 45.0 | duration 2 hours [MCP:list_activities]",
+        "- #2 | Aquarium Behind-the-Scenes | Sightseeing | cost 38.0 | duration 3 hours [MCP:list_activities]",
+        "- #3 | Street Food Night Walk | Food | cost 60.0 | duration 3 hours [MCP:list_activities]",
+        "- #4 | Modern Art Gallery Pass | Culture | cost 25.0 | duration 2 hours [MCP:list_activities]",
+        "- #5 | Cooking Class: Local Dishes | Food | cost 85.0 | duration 4 hours [MCP:list_activities]",
+        "- #6 | Sunset Harbour Cruise | Sightseeing | cost 70.0 | duration 2 hours [MCP:list_activities]",
+        "- #7 | Old Town Cycling Tour | Adventure | cost 40.0 | duration half day [MCP:list_activities]",
+        "- #8 | Day Spa & Hot Springs | Wellness | cost 120.0 | duration full day [MCP:list_activities]",
+        "- #9 | Live Jazz Club Evening | Nightlife | cost 30.0 | duration 3 hours [MCP:list_activities]",
+        "- #10 | Guided Sunrise Mountain Hike | Adventure | cost 15.0 | duration 5 hours [MCP:list_activities]",
+        "- assignment #1 | activity #1 | 2026-10-02 09:00 [MCP:list_assignments]",
+        "- assignment #2 | activity #2 | 2026-10-02 14:00 [MCP:list_assignments]",
+        "- assignment #3 | activity #3 | 2026-10-03 18:30 [MCP:list_assignments]",
+        "- assignment #4 | activity #4 | 2026-10-04 11:00 [MCP:list_assignments]",
+        "- assignment #5 | activity #5 | 2026-10-05 10:00 [MCP:list_assignments]",
+        "- assignment #6 | activity #6 | 2026-10-05 17:30 [MCP:list_assignments]",
+        "- assignment #7 | activity #7 | 2026-10-06 09:00 [MCP:list_assignments]",
+        "- assignment #8 | activity #8 | 2026-10-07 10:00 [MCP:list_assignments]",
+        "- assignment #9 | activity #9 | 2026-10-07 20:00 [MCP:list_assignments]",
+        "- assignment #10 | activity #10 | 2026-10-04 05:30 [MCP:list_assignments]"
+      ],
+      "busy": [],
+      "checks": [
+        {
+          "code": "unsupported_claim",
+          "text": "Worker output says no activities were found, but the evidence has 10."
+        },
+        {
+          "code": "format",
+          "text": "Worker output is missing the Output / Evidence Used / Limitations sections."
+        }
+      ],
+      "evidence": [
+        {
+          "count": 10,
+          "detail": "10 record(s) from list_activities",
+          "source": "list_activities",
+          "status": "ok"
+        },
+        {
+          "count": 10,
+          "detail": "10 record(s) from list_assignments",
+          "source": "list_assignments",
+          "status": "ok"
+        }
+      ],
+      "items": [
+        {
+          "cost": 45.0,
+          "duration": "2 hours",
+          "id": 1,
+          "name": "Harbour Kayaking Tour",
+          "scheduled": [
+            "2026-10-02 09:00"
+          ],
+          "type": "Adventure"
+        },
+        {
+          "cost": 38.0,
+          "duration": "3 hours",
+          "id": 2,
+          "name": "Aquarium Behind-the-Scenes",
+          "scheduled": [
+            "2026-10-02 14:00"
+          ],
+          "type": "Sightseeing"
+        },
+        {
+          "cost": 60.0,
+          "duration": "3 hours",
+          "id": 3,
+          "name": "Street Food Night Walk",
+          "scheduled": [
+            "2026-10-03 18:30"
+          ],
+          "type": "Food"
+        },
+        {
+          "cost": 25.0,
+          "duration": "2 hours",
+          "id": 4,
+          "name": "Modern Art Gallery Pass",
+          "scheduled": [
+            "2026-10-04 11:00"
+          ],
+          "type": "Culture"
+        },
+        {
+          "cost": 85.0,
+          "duration": "4 hours",
+          "id": 5,
+          "name": "Cooking Class: Local Dishes",
+          "scheduled": [
+            "2026-10-05 10:00"
+          ],
+          "type": "Food"
+        },
+        {
+          "cost": 70.0,
+          "duration": "2 hours",
+          "id": 6,
+          "name": "Sunset Harbour Cruise",
+          "scheduled": [
+            "2026-10-05 17:30"
+          ],
+          "type": "Sightseeing"
+        },
+        {
+          "cost": 40.0,
+          "duration": "half day",
+          "id": 7,
+          "name": "Old Town Cycling Tour",
+          "scheduled": [
+            "2026-10-06 09:00"
+          ],
+          "type": "Adventure"
+        },
+        {
+          "cost": 120.0,
+          "duration": "full day",
+          "id": 8,
+          "name": "Day Spa & Hot Springs",
+          "scheduled": [
+            "2026-10-07 10:00"
+          ],
+          "type": "Wellness"
+        },
+        {
+          "cost": 30.0,
+          "duration": "3 hours",
+          "id": 9,
+          "name": "Live Jazz Club Evening",
+          "scheduled": [
+            "2026-10-07 20:00"
+          ],
+          "type": "Nightlife"
+        },
+        {
+          "cost": 15.0,
+          "duration": "5 hours",
+          "id": 10,
+          "name": "Guided Sunrise Mountain Hike",
+          "scheduled": [
+            "2026-10-04 05:30"
+          ],
+          "type": "Adventure"
+        }
+      ],
+      "known_ids": [
+        "1",
+        "10",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9"
+      ],
+      "problems": [],
+      "summary": "10 activities, 10 with a scheduled time; combined cost 528.00.",
+      "totals": {
+        "activities": 10,
+        "assignments": 10,
+        "date": null,
+        "evidence_truncated": false,
+        "items": 10,
+        "scheduled_on_day": null,
+        "task": "summary"
+      },
+      "worker_output": "Evidence Used:\n- Activity Evidence: [MCP:list_activities]\n- Computed Results: [MCP:list_assignments]\n- Limitations: No activities found.",
+      "worker_output_source": "llm"
+    },
+    "workflow": "activity_schedule_check"
+  },
+  "status": "success"
+}
+
+$ curl -s -X GET http://localhost:5003/api/activity/multi-agent/runs/run-45966fb7d69e/history
+HTTP 200
+{
+  "result": [
+    {
+      "agent": null,
+      "detail": {
+        "requested_by": "activity-backend"
+      },
+      "seq": 53,
+      "state": "running",
+      "step": "created",
+      "ts": "2026-10-22T12:23:35.393+00:00"
+    },
+    {
+      "agent": "planner",
+      "detail": {
+        "attempts": [
+          {
+            "attempt": 1,
+            "error": "ValueError: plan needs 3 to 5 steps",
+            "ok": false
+          },
+          {
+            "attempt": 2,
+            "error": "ValueError: plan needs 3 to 5 steps",
+            "ok": false
+          }
+        ],
+        "duration_ms": 1227,
+        "source": "fallback",
+        "tools_called": []
+      },
+      "seq": 54,
+      "state": "running",
+      "step": "plan",
+      "ts": "2026-10-22T12:23:36.624+00:00"
+    },
+    {
+      "agent": "worker",
+      "detail": {
+        "attempts": [],
+        "duration_ms": 413,
+        "source": "workflow",
+        "tools_called": [
+          "list_activities",
+          "list_assignments",
+          "llm"
+        ]
+      },
+      "seq": 55,
+      "state": "running",
+      "step": "work",
+      "ts": "2026-10-22T12:23:37.042+00:00"
+    },
+    {
+      "agent": "reviewer",
+      "detail": {
+        "attempts": [
+          {
+            "attempt": 1,
+            "ok": true
+          }
+        ],
+        "duration_ms": 230,
+        "source": "llm",
+        "tools_called": []
+      },
+      "seq": 56,
+      "state": "running",
+      "step": "review",
+      "ts": "2026-10-22T12:23:37.276+00:00"
+    },
+    {
+      "agent": "human",
+      "detail": {},
+      "seq": 57,
+      "state": "awaiting_human_review",
+      "step": "human_review",
+      "ts": "2026-10-22T12:23:37.283+00:00"
+    }
+  ],
+  "status": "success"
+}
+
+$ curl -s -X POST http://localhost:5003/api/activity/multi-agent/runs/run-45966fb7d69e/decision \
+    -H 'Content-Type: application/json' \
+    -d '{"decision": "Accept", "reason": "Summary matches the activity list and schedule.", "evidence_used": "MCP:list_activities, MCP:list_assignments", "reviewer": "student-3"}'
+HTTP 200
+{
+  "result": {
+    "applied_recorded": true,
+    "approved_items": [
+      {
+        "cost": 45.0,
+        "duration": "2 hours",
+        "id": 1,
+        "name": "Harbour Kayaking Tour",
+        "scheduled": [
+          "2026-10-02 09:00"
+        ],
+        "type": "Adventure"
+      },
+      {
+        "cost": 38.0,
+        "duration": "3 hours",
+        "id": 2,
+        "name": "Aquarium Behind-the-Scenes",
+        "scheduled": [
+          "2026-10-02 14:00"
+        ],
+        "type": "Sightseeing"
+      },
+      {
+        "cost": 60.0,
+        "duration": "3 hours",
+        "id": 3,
+        "name": "Street Food Night Walk",
+        "scheduled": [
+          "2026-10-03 18:30"
+        ],
+        "type": "Food"
+      },
+      {
+        "cost": 25.0,
+        "duration": "2 hours",
+        "id": 4,
+        "name": "Modern Art Gallery Pass",
+        "scheduled": [
+          "2026-10-04 11:00"
+        ],
+        "type": "Culture"
+      },
+      {
+        "cost": 85.0,
+        "duration": "4 hours",
+        "id": 5,
+        "name": "Cooking Class: Local Dishes",
+        "scheduled": [
+          "2026-10-05 10:00"
+        ],
+        "type": "Food"
+      },
+      {
+        "cost": 70.0,
+        "duration": "2 hours",
+        "id": 6,
+        "name": "Sunset Harbour Cruise",
+        "scheduled": [
+          "2026-10-05 17:30"
+        ],
+        "type": "Sightseeing"
+      },
+      {
+        "cost": 40.0,
+        "duration": "half day",
+        "id": 7,
+        "name": "Old Town Cycling Tour",
+        "scheduled": [
+          "2026-10-06 09:00"
+        ],
+        "type": "Adventure"
+      },
+      {
+        "cost": 120.0,
+        "duration": "full day",
+        "id": 8,
+        "name": "Day Spa & Hot Springs",
+        "scheduled": [
+          "2026-10-07 10:00"
+        ],
+        "type": "Wellness"
+      },
+      {
+        "cost": 30.0,
+        "duration": "3 hours",
+        "id": 9,
+        "name": "Live Jazz Club Evening",
+        "scheduled": [
+          "2026-10-07 20:00"
+        ],
+        "type": "Nightlife"
+      },
+      {
+        "cost": 15.0,
+        "duration": "5 hours",
+        "id": 10,
+        "name": "Guided Sunrise Mountain Hike",
+        "scheduled": [
+          "2026-10-04 05:30"
+        ],
+        "type": "Adventure"
+      }
+    ],
+    "human_decision": {
+      "correction": "",
+      "decision": "Accept",
+      "evidence_used": "MCP:list_activities, MCP:list_assignments",
+      "reason": "Summary matches the activity list and schedule.",
+      "reviewer": "student-3",
+      "timestamp": "2026-10-22T12:23:37+00:00",
+      "workflow_id": "run-45966fb7d69e"
+    },
+    "rejected_ids": [],
+    "run_id": "run-45966fb7d69e",
+    "state": "applied"
+  },
+  "status": "success"
+}
+
+$ curl -s -X GET http://localhost:5003/api/activity/multi-agent/runs/run-45966fb7d69e/history
+HTTP 200
+{
+  "result": [
+    {
+      "agent": null,
+      "detail": {
+        "requested_by": "activity-backend"
+      },
+      "seq": 53,
+      "state": "running",
+      "step": "created",
+      "ts": "2026-10-22T12:23:35.393+00:00"
+    },
+    {
+      "agent": "planner",
+      "detail": {
+        "attempts": [
+          {
+            "attempt": 1,
+            "error": "ValueError: plan needs 3 to 5 steps",
+            "ok": false
+          },
+          {
+            "attempt": 2,
+            "error": "ValueError: plan needs 3 to 5 steps",
+            "ok": false
+          }
+        ],
+        "duration_ms": 1227,
+        "source": "fallback",
+        "tools_called": []
+      },
+      "seq": 54,
+      "state": "running",
+      "step": "plan",
+      "ts": "2026-10-22T12:23:36.624+00:00"
+    },
+    {
+      "agent": "worker",
+      "detail": {
+        "attempts": [],
+        "duration_ms": 413,
+        "source": "workflow",
+        "tools_called": [
+          "list_activities",
+          "list_assignments",
+          "llm"
+        ]
+      },
+      "seq": 55,
+      "state": "running",
+      "step": "work",
+      "ts": "2026-10-22T12:23:37.042+00:00"
+    },
+    {
+      "agent": "reviewer",
+      "detail": {
+        "attempts": [
+          {
+            "attempt": 1,
+            "ok": true
+          }
+        ],
+        "duration_ms": 230,
+        "source": "llm",
+        "tools_called": []
+      },
+      "seq": 56,
+      "state": "running",
+      "step": "review",
+      "ts": "2026-10-22T12:23:37.276+00:00"
+    },
+    {
+      "agent": "human",
+      "detail": {},
+      "seq": 57,
+      "state": "awaiting_human_review",
+      "step": "human_review",
+      "ts": "2026-10-22T12:23:37.283+00:00"
+    },
+    {
+      "agent": "human",
+      "detail": {
+        "approved_ids": [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6",
+          "7",
+          "8",
+          "9",
+          "10"
+        ],
+        "decision": "approve",
+        "edits": {},
+        "note": "Workflow ID: run-45966fb7d69e\nDecision: Accept\nCorrection: -\nReason: Summary matches the activity list and schedule.\nEvidence Used: MCP:list_activities, MCP:list_assignments\nReviewer: student-3\nTimestamp: 2026-10-22T12:23:37+00:00",
+        "rejected_ids": [],
+        "reviewer": "student-3"
+      },
+      "seq": 58,
+      "state": "approved",
+      "step": "human_review",
+      "ts": "2026-10-22T12:23:37.298+00:00"
+    },
+    {
+      "agent": "backend",
+      "detail": {
+        "created_ids": [],
+        "target": "none (read-only workflow; activity-db unchanged)"
+      },
+      "seq": 59,
+      "state": "applied",
+      "step": "applied",
+      "ts": "2026-10-22T12:23:37.305+00:00"
+    }
+  ],
+  "status": "success"
+}
+
+================================================================================================
+Scenario 2 setup - add a temporary activity that clashes on 2026-10-06 (deleted afterwards)
+================================================================================================
+
+$ curl -s -X POST http://localhost:5003/api/add_activity \
+    -H 'Content-Type: application/json' \
+    -d '{"activity_name": "Evidence: Bike Repair Workshop", "activity_type": "Adventure", "activity_cost": 25, "duration": "2 hours", "assignment_time": "2026-10-06 11:00"}'
+HTTP 201
+{
+  "activity_cost": 25.0,
+  "activity_id": 11,
+  "activity_name": "Evidence: Bike Repair Workshop",
+  "activity_type": "Adventure",
+  "assignment_id": 11,
+  "assignment_time": "2026-10-06 11:00",
+  "duration": "2 hours"
+}
+
+================================================================================================
+Scenario 2 - overlaps on 2026-10-06, human Partially Accepts with a correction
+================================================================================================
+
+$ curl -s -X POST http://localhost:5003/api/activity/multi-agent/workflow \
+    -H 'Content-Type: application/json' \
+    -d '{"task": "overlaps", "date": "2026-10-06", "request": "Check 2026-10-06 for overlapping activities."}'
+HTTP 201
+{
+  "result": {
+    "human_approval_required": true,
+    "human_decision": {
+      "allowed_values": [
+        "Accept",
+        "Partially Accept",
+        "Reject"
+      ],
+      "record": null,
+      "status": "pending"
+    },
+    "plan": {
+      "evidence_required": [
+        "MCP:list_activities",
+        "MCP:list_assignments"
+      ],
+      "human_approval": "A human decides; no change is written to the activity database.",
+      "objective": "Check one day for overlapping scheduled activities on 2026-10-06.",
+      "steps": [
+        {
+          "action": "Read every activity",
+          "agent": "Worker",
+          "tool": "list_activities"
+        },
+        {
+          "action": "Read every scheduled time",
+          "agent": "Worker",
+          "tool": "list_assignments"
+        },
+        {
+          "action": "Check the output against the evidence",
+          "agent": "Reviewer"
+        },
+        {
+          "action": "Accept, Partially Accept or Reject",
+          "agent": "Human"
+        }
+      ]
+    },
+    "review": {
+      "correction": "Rewrite the worker output as Output / Evidence Used / Limitations, at most 100 words.",
+      "findings": [
+        "#7 Old Town Cycling Tour 09:00-13:00 overlaps #11 Evidence: Bike Repair Workshop 11:00-13:00 by 120 min.",
+        "Worker output is missing the Output / Evidence Used / Limitations sections."
+      ],
+      "recommendation": "Partially Accept",
+      "recommendations": [
+        "Move one activity of each clashing pair to another time (Edit on the Activities page).",
+        "Rewrite the worker output as Output / Evidence Used / Limitations, at most 100 words."
+      ],
+      "retest": "Re-run the workflow after the correction.",
+      "risk": "medium"
+    },
+    "run_id": "run-596224f719a7",
+    "state": "awaiting_human_review",
+    "work": {
+      "activity_evidence": [
+        "- #7 | Old Town Cycling Tour | Adventure | cost 40.0 | duration half day [MCP:list_activities]",
+        "- #11 | Evidence: Bike Repair Workshop | Adventure | cost 25.0 | duration 2 hours [MCP:list_activities]",
+        "- assignment #7 | activity #7 | 2026-10-06 09:00 [MCP:list_assignments]",
+        "- assignment #11 | activity #11 | 2026-10-06 11:00 [MCP:list_assignments]"
+      ],
+      "busy": [],
+      "checks": [
+        {
+          "code": "clash",
+          "text": "#7 Old Town Cycling Tour 09:00-13:00 overlaps #11 Evidence: Bike Repair Workshop 11:00-13:00 by 120 min."
+        },
+        {
+          "code": "format",
+          "text": "Worker output is missing the Output / Evidence Used / Limitations sections."
+        }
+      ],
+      "evidence": [
+        {
+          "count": 11,
+          "detail": "11 record(s) from list_activities",
+          "source": "list_activities",
+          "status": "ok"
+        },
+        {
+          "count": 11,
+          "detail": "11 record(s) from list_assignments",
+          "source": "list_assignments",
+          "status": "ok"
+        }
+      ],
+      "items": [
+        {
+          "activity_ids": [
+            7,
+            11
+          ],
+          "first": "#7 Old Town Cycling Tour 09:00-13:00",
+          "id": "7-11",
+          "overlap_minutes": 120,
+          "second": "#11 Evidence: Bike Repair Workshop 11:00-13:00"
+        }
+      ],
+      "known_ids": [
+        "1",
+        "10",
+        "11",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9"
+      ],
+      "problems": [],
+      "summary": "1 overlapping pair(s) among 2 activities on 2026-10-06.",
+      "totals": {
+        "activities": 11,
+        "assignments": 11,
+        "date": "2026-10-06",
+        "evidence_truncated": false,
+        "items": 1,
+        "scheduled_on_day": 2,
+        "task": "overlaps"
+      },
+      "worker_output": "To check for overlapping scheduled activities on 2026-10-06, I need to identify the activities that overlap with each other. I'll use the Activity Evidence to find the activities that overlap with the first activity (Old Town Cycling Tour) and then check the second activity (Evidence: Bike Repair Workshop).",
+      "worker_output_source": "llm"
+    },
+    "workflow": "activity_schedule_check"
+  },
+  "status": "success"
+}
+
+$ curl -s -X GET http://localhost:5003/api/activity/multi-agent/runs/run-596224f719a7/history
+HTTP 200
+{
+  "result": [
+    {
+      "agent": null,
+      "detail": {
+        "requested_by": "activity-backend"
+      },
+      "seq": 60,
+      "state": "running",
+      "step": "created",
+      "ts": "2026-10-22T12:23:37.324+00:00"
+    },
+    {
+      "agent": "planner",
+      "detail": {
+        "attempts": [
+          {
+            "attempt": 1,
+            "error": "ValueError: plan needs 3 to 5 steps",
+            "ok": false
+          },
+          {
+            "attempt": 2,
+            "error": "ValueError: plan needs 3 to 5 steps",
+            "ok": false
+          }
+        ],
+        "duration_ms": 495,
+        "source": "fallback",
+        "tools_called": []
+      },
+      "seq": 61,
+      "state": "running",
+      "step": "plan",
+      "ts": "2026-10-22T12:23:37.823+00:00"
+    },
+    {
+      "agent": "worker",
+      "detail": {
+        "attempts": [],
+        "duration_ms": 251,
+        "source": "workflow",
+        "tools_called": [
+          "list_activities",
+          "list_assignments",
+          "llm"
+        ]
+      },
+      "seq": 62,
+      "state": "running",
+      "step": "work",
+      "ts": "2026-10-22T12:23:38.078+00:00"
+    },
+    {
+      "agent": "reviewer",
+      "detail": {
+        "attempts": [
+          {
+            "attempt": 1,
+            "error": "ValueError: recommendation must be one of ('Accept', 'Partially Accept', 'Reject')",
+            "ok": false
+          },
+          {
+            "attempt": 2,
+            "ok": true
+          }
+        ],
+        "duration_ms": 574,
+        "source": "llm",
+        "tools_called": []
+      },
+      "seq": 63,
+      "state": "running",
+      "step": "review",
+      "ts": "2026-10-22T12:23:38.657+00:00"
+    },
+    {
+      "agent": "human",
+      "detail": {},
+      "seq": 64,
+      "state": "awaiting_human_review",
+      "step": "human_review",
+      "ts": "2026-10-22T12:23:38.663+00:00"
+    }
+  ],
+  "status": "success"
+}
+
+$ curl -s -X POST http://localhost:5003/api/activity/multi-agent/runs/run-596224f719a7/decision \
+    -H 'Content-Type: application/json' \
+    -d '{"decision": "Partially Accept", "correction": "Move the Bike Repair Workshop to 14:00 so it no longer overlaps the Old Town Cycling Tour.", "reason": "The clash is real, but the fix is to move the shorter activity, not the tour.", "evidence_used": "MCP:list_activities, MCP:list_assignments", "reviewer": "student-3"}'
+HTTP 200
+{
+  "result": {
+    "applied_recorded": true,
+    "approved_items": [
+      {
+        "activity_ids": [
+          7,
+          11
+        ],
+        "first": "#7 Old Town Cycling Tour 09:00-13:00",
+        "id": "7-11",
+        "overlap_minutes": 120,
+        "second": "#11 Evidence: Bike Repair Workshop 11:00-13:00"
+      }
+    ],
+    "human_decision": {
+      "correction": "Move the Bike Repair Workshop to 14:00 so it no longer overlaps the Old Town Cycling Tour.",
+      "decision": "Partially Accept",
+      "evidence_used": "MCP:list_activities, MCP:list_assignments",
+      "reason": "The clash is real, but the fix is to move the shorter activity, not the tour.",
+      "reviewer": "student-3",
+      "timestamp": "2026-10-22T12:23:38+00:00",
+      "workflow_id": "run-596224f719a7"
+    },
+    "rejected_ids": [],
+    "run_id": "run-596224f719a7",
+    "state": "applied"
+  },
+  "status": "success"
+}
+
+$ curl -s -X GET http://localhost:5003/api/activity/multi-agent/runs/run-596224f719a7/history
+HTTP 200
+{
+  "result": [
+    {
+      "agent": null,
+      "detail": {
+        "requested_by": "activity-backend"
+      },
+      "seq": 60,
+      "state": "running",
+      "step": "created",
+      "ts": "2026-10-22T12:23:37.324+00:00"
+    },
+    {
+      "agent": "planner",
+      "detail": {
+        "attempts": [
+          {
+            "attempt": 1,
+            "error": "ValueError: plan needs 3 to 5 steps",
+            "ok": false
+          },
+          {
+            "attempt": 2,
+            "error": "ValueError: plan needs 3 to 5 steps",
+            "ok": false
+          }
+        ],
+        "duration_ms": 495,
+        "source": "fallback",
+        "tools_called": []
+      },
+      "seq": 61,
+      "state": "running",
+      "step": "plan",
+      "ts": "2026-10-22T12:23:37.823+00:00"
+    },
+    {
+      "agent": "worker",
+      "detail": {
+        "attempts": [],
+        "duration_ms": 251,
+        "source": "workflow",
+        "tools_called": [
+          "list_activities",
+          "list_assignments",
+          "llm"
+        ]
+      },
+      "seq": 62,
+      "state": "running",
+      "step": "work",
+      "ts": "2026-10-22T12:23:38.078+00:00"
+    },
+    {
+      "agent": "reviewer",
+      "detail": {
+        "attempts": [
+          {
+            "attempt": 1,
+            "error": "ValueError: recommendation must be one of ('Accept', 'Partially Accept', 'Reject')",
+            "ok": false
+          },
+          {
+            "attempt": 2,
+            "ok": true
+          }
+        ],
+        "duration_ms": 574,
+        "source": "llm",
+        "tools_called": []
+      },
+      "seq": 63,
+      "state": "running",
+      "step": "review",
+      "ts": "2026-10-22T12:23:38.657+00:00"
+    },
+    {
+      "agent": "human",
+      "detail": {},
+      "seq": 64,
+      "state": "awaiting_human_review",
+      "step": "human_review",
+      "ts": "2026-10-22T12:23:38.663+00:00"
+    },
+    {
+      "agent": "human",
+      "detail": {
+        "approved_ids": [
+          "7-11"
+        ],
+        "decision": "partial",
+        "edits": {},
+        "note": "Workflow ID: run-596224f719a7\nDecision: Partially Accept\nCorrection: Move the Bike Repair Workshop to 14:00 so it no longer overlaps the Old Town Cycling Tour.\nReason: The clash is real, but the fix is to move the shorter activity, not the tour.\nEvidence Used: MCP:list_activities, MCP:list_assignments\nReviewer: student-3\nTimestamp: 2026-10-22T12:23:38+00:00",
+        "rejected_ids": [],
+        "reviewer": "student-3"
+      },
+      "seq": 65,
+      "state": "partially_accepted",
+      "step": "human_review",
+      "ts": "2026-10-22T12:23:38.677+00:00"
+    },
+    {
+      "agent": "backend",
+      "detail": {
+        "created_ids": [],
+        "target": "none (read-only workflow; activity-db unchanged)"
+      },
+      "seq": 66,
+      "state": "applied",
+      "step": "applied",
+      "ts": "2026-10-22T12:23:38.683+00:00"
+    }
+  ],
+  "status": "success"
+}
+
+================================================================================================
+Scenario 2 cleanup - delete the temporary activity
+================================================================================================
+
+$ curl -s -X DELETE http://localhost:5003/api/delete_activity/11
+HTTP 200
+{
+  "message": "deleted"
+}
+
+================================================================================================
+Scenario 3 - free 2-hour slots on 2026-10-07, human Rejects
+================================================================================================
+
+$ curl -s -X POST http://localhost:5003/api/activity/multi-agent/workflow \
+    -H 'Content-Type: application/json' \
+    -d '{"task": "free_slots", "date": "2026-10-07", "slot_hours": 2}'
+HTTP 201
+{
+  "result": {
+    "human_approval_required": true,
+    "human_decision": {
+      "allowed_values": [
+        "Accept",
+        "Partially Accept",
+        "Reject"
+      ],
+      "record": null,
+      "status": "pending"
+    },
+    "plan": {
+      "evidence_required": [
+        "MCP:list_activities",
+        "MCP:list_assignments"
+      ],
+      "human_approval": "A human decides; no change is written to the activity database.",
+      "objective": "Propose free slots on one day that clash with no scheduled activity on 2026-10-07, each 2 hour(s) long, between 08:00 and 20:00.",
+      "steps": [
+        {
+          "action": "Read every activity",
+          "agent": "Worker",
+          "tool": "list_activities"
+        },
+        {
+          "action": "Read every scheduled time",
+          "agent": "Worker",
+          "tool": "list_assignments"
+        },
+        {
+          "action": "Check the output against the evidence",
+          "agent": "Reviewer"
+        },
+        {
+          "action": "Accept, Partially Accept or Reject",
+          "agent": "Human"
+        }
+      ]
+    },
+    "review": {
+      "correction": "Remove the ids that are not in the evidence from the worker output. Rewrite the worker output as Output / Evidence Used / Limitations, at most 100 words.",
+      "findings": [
+        "Worker output says no activities were found, but the evidence has 10.",
+        "Worker output is missing the Output / Evidence Used / Limitations sections."
+      ],
+      "recommendation": "Partially Accept",
+      "recommendations": [
+        "Remove the ids that are not in the evidence from the worker output.",
+        "Rewrite the worker output as Output / Evidence Used / Limitations, at most 100 words."
+      ],
+      "retest": "Re-run the workflow after the correction.",
+      "risk": "medium"
+    },
+    "run_id": "run-bb30addd9e9e",
+    "state": "awaiting_human_review",
+    "work": {
+      "activity_evidence": [
+        "- #8 | Day Spa & Hot Springs | Wellness | cost 120.0 | duration full day [MCP:list_activities]",
+        "- #9 | Live Jazz Club Evening | Nightlife | cost 30.0 | duration 3 hours [MCP:list_activities]",
+        "- assignment #8 | activity #8 | 2026-10-07 10:00 [MCP:list_assignments]",
+        "- assignment #9 | activity #9 | 2026-10-07 20:00 [MCP:list_assignments]"
+      ],
+      "busy": [
+        [
+          "10:00",
+          480
+        ],
+        [
+          "20:00",
+          180
+        ]
+      ],
+      "checks": [
+        {
+          "code": "unsupported_claim",
+          "text": "Worker output says no activities were found, but the evidence has 10."
+        },
+        {
+          "code": "format",
+          "text": "Worker output is missing the Output / Evidence Used / Limitations sections."
+        }
+      ],
+      "evidence": [
+        {
+          "count": 10,
+          "detail": "10 record(s) from list_activities",
+          "source": "list_activities",
+          "status": "ok"
+        },
+        {
+          "count": 10,
+          "detail": "10 record(s) from list_assignments",
+          "source": "list_assignments",
+          "status": "ok"
+        }
+      ],
+      "items": [
+        {
+          "date": "2026-10-07",
+          "end": "10:00",
+          "id": "slot-1",
+          "proposal": "Proposed: free 2h slot on 2026-10-07, 08:00-10:00 (not saved)",
+          "start": "08:00"
+        },
+        {
+          "date": "2026-10-07",
+          "end": "20:00",
+          "id": "slot-2",
+          "proposal": "Proposed: free 2h slot on 2026-10-07, 18:00-20:00 (not saved)",
+          "start": "18:00"
+        }
+      ],
+      "known_ids": [
+        "1",
+        "10",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9"
+      ],
+      "problems": [],
+      "summary": "2 proposed 2h slot(s) on 2026-10-07 that clash with none of the 2 scheduled activities.",
+      "totals": {
+        "activities": 10,
+        "assignments": 10,
+        "date": "2026-10-07",
+        "evidence_truncated": false,
+        "items": 2,
+        "scheduled_on_day": 2,
+        "task": "free_slots"
+      },
+      "worker_output": "Evidence Used:\n- Activity Evidence: [MCP:list_activities, MCP:list_assignments]\n- Computed Results: [slot-1, slot-2]\n\nLimitations: No activities found.",
+      "worker_output_source": "llm"
+    },
+    "workflow": "activity_schedule_check"
+  },
+  "status": "success"
+}
+
+$ curl -s -X GET http://localhost:5003/api/activity/multi-agent/runs/run-bb30addd9e9e/history
+HTTP 200
+{
+  "result": [
+    {
+      "agent": null,
+      "detail": {
+        "requested_by": "activity-backend"
+      },
+      "seq": 67,
+      "state": "running",
+      "step": "created",
+      "ts": "2026-10-22T12:23:38.703+00:00"
+    },
+    {
+      "agent": "planner",
+      "detail": {
+        "attempts": [
+          {
+            "attempt": 1,
+            "error": "ValueError: plan must have Worker steps reading ['list_activities']",
+            "ok": false
+          },
+          {
+            "attempt": 2,
+            "error": "ValueError: plan needs 3 to 5 steps",
+            "ok": false
+          }
+        ],
+        "duration_ms": 730,
+        "source": "fallback",
+        "tools_called": []
+      },
+      "seq": 68,
+      "state": "running",
+      "step": "plan",
+      "ts": "2026-10-22T12:23:39.436+00:00"
+    },
+    {
+      "agent": "worker",
+      "detail": {
+        "attempts": [],
+        "duration_ms": 177,
+        "source": "workflow",
+        "tools_called": [
+          "list_activities",
+          "list_assignments",
+          "llm"
+        ]
+      },
+      "seq": 69,
+      "state": "running",
+      "step": "work",
+      "ts": "2026-10-22T12:23:39.618+00:00"
+    },
+    {
+      "agent": "reviewer",
+      "detail": {
+        "attempts": [
+          {
+            "attempt": 1,
+            "ok": true
+          }
+        ],
+        "duration_ms": 211,
+        "source": "llm",
+        "tools_called": []
+      },
+      "seq": 70,
+      "state": "running",
+      "step": "review",
+      "ts": "2026-10-22T12:23:39.834+00:00"
+    },
+    {
+      "agent": "human",
+      "detail": {},
+      "seq": 71,
+      "state": "awaiting_human_review",
+      "step": "human_review",
+      "ts": "2026-10-22T12:23:39.842+00:00"
+    }
+  ],
+  "status": "success"
+}
+
+$ curl -s -X POST http://localhost:5003/api/activity/multi-agent/runs/run-bb30addd9e9e/decision \
+    -H 'Content-Type: application/json' \
+    -d '{"decision": "Reject", "reason": "The free slots are too early or too late in the day for this trip.", "evidence_used": "MCP:list_assignments", "reviewer": "student-3"}'
+HTTP 200
+{
+  "result": {
+    "applied_recorded": null,
+    "approved_items": [],
+    "human_decision": {
+      "correction": "",
+      "decision": "Reject",
+      "evidence_used": "MCP:list_assignments",
+      "reason": "The free slots are too early or too late in the day for this trip.",
+      "reviewer": "student-3",
+      "timestamp": "2026-10-22T12:23:39+00:00",
+      "workflow_id": "run-bb30addd9e9e"
+    },
+    "rejected_ids": [
+      "slot-1",
+      "slot-2"
+    ],
+    "run_id": "run-bb30addd9e9e",
+    "state": "rejected"
+  },
+  "status": "success"
+}
+
+$ curl -s -X GET http://localhost:5003/api/activity/multi-agent/runs/run-bb30addd9e9e/history
+HTTP 200
+{
+  "result": [
+    {
+      "agent": null,
+      "detail": {
+        "requested_by": "activity-backend"
+      },
+      "seq": 67,
+      "state": "running",
+      "step": "created",
+      "ts": "2026-10-22T12:23:38.703+00:00"
+    },
+    {
+      "agent": "planner",
+      "detail": {
+        "attempts": [
+          {
+            "attempt": 1,
+            "error": "ValueError: plan must have Worker steps reading ['list_activities']",
+            "ok": false
+          },
+          {
+            "attempt": 2,
+            "error": "ValueError: plan needs 3 to 5 steps",
+            "ok": false
+          }
+        ],
+        "duration_ms": 730,
+        "source": "fallback",
+        "tools_called": []
+      },
+      "seq": 68,
+      "state": "running",
+      "step": "plan",
+      "ts": "2026-10-22T12:23:39.436+00:00"
+    },
+    {
+      "agent": "worker",
+      "detail": {
+        "attempts": [],
+        "duration_ms": 177,
+        "source": "workflow",
+        "tools_called": [
+          "list_activities",
+          "list_assignments",
+          "llm"
+        ]
+      },
+      "seq": 69,
+      "state": "running",
+      "step": "work",
+      "ts": "2026-10-22T12:23:39.618+00:00"
+    },
+    {
+      "agent": "reviewer",
+      "detail": {
+        "attempts": [
+          {
+            "attempt": 1,
+            "ok": true
+          }
+        ],
+        "duration_ms": 211,
+        "source": "llm",
+        "tools_called": []
+      },
+      "seq": 70,
+      "state": "running",
+      "step": "review",
+      "ts": "2026-10-22T12:23:39.834+00:00"
+    },
+    {
+      "agent": "human",
+      "detail": {},
+      "seq": 71,
+      "state": "awaiting_human_review",
+      "step": "human_review",
+      "ts": "2026-10-22T12:23:39.842+00:00"
+    },
+    {
+      "agent": "human",
+      "detail": {
+        "approved_ids": [],
+        "decision": "reject",
+        "edits": {},
+        "note": "Workflow ID: run-bb30addd9e9e\nDecision: Reject\nCorrection: -\nReason: The free slots are too early or too late in the day for this trip.\nEvidence Used: MCP:list_assignments\nReviewer: student-3\nTimestamp: 2026-10-22T12:23:39+00:00",
+        "rejected_ids": [
+          "slot-1",
+          "slot-2"
+        ],
+        "reviewer": "student-3"
+      },
+      "seq": 72,
+      "state": "rejected",
+      "step": "human_review",
+      "ts": "2026-10-22T12:23:39.856+00:00"
+    }
+  ],
+  "status": "success"
+}
+
+================================================================================================
+Scenario 4 - invalid input: overlaps without a date (no run is created)
+================================================================================================
+
+$ curl -s -X POST http://localhost:5003/api/activity/multi-agent/workflow \
+    -H 'Content-Type: application/json' \
+    -d '{"task": "overlaps"}'
+HTTP 400
+{
+  "error": "invalid input: date (YYYY-MM-DD) is required for overlaps",
+  "status": "error"
+}
+
+================================================================================================
+Scenario 5 - a second decision on an already-decided run is refused
+================================================================================================
+
+$ curl -s -X POST http://localhost:5003/api/activity/multi-agent/runs/run-45966fb7d69e/decision \
+    -H 'Content-Type: application/json' \
+    -d '{"decision": "Reject", "reason": "changed my mind", "reviewer": "student-3"}'
+HTTP 409
+{
+  "error": "run run-45966fb7d69e is 'applied', not awaiting_human_review; only one human decision is allowed per run",
+  "status": "error"
+}
+

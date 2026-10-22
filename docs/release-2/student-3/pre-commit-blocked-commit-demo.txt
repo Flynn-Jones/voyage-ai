@@ -1,0 +1,48 @@
+# pre-commit hooks blocking insecure code: Activity (student-3)
+# date: 2026-10-22T12:13:27Z   HEAD: 7939482   pre-commit 4.7.0
+# A throwaway file activity-service/backend/_canary_precommit.py was planted with a fake AWS access key (AWS's documented
+# example AKIAIOSFODNN7EXAMPLE) and subprocess.run(..., shell=True), then the configured hooks
+# were run on it. It was never staged or committed and was deleted straight after this run.
+# The same hooks run on every `git commit` once `pre-commit install` has been run.
+
+## 1. Insecure file: blocked
+$ pre-commit run --files activity-service/backend/_canary_precommit.py
+ruff (lint + S security rules, see ruff.toml)............................Failed
+- hook id: ruff
+- exit code: 1
+
+S602 `subprocess` call with `shell=True` identified, security issue
+ --> activity-service/backend/_canary_precommit.py:8:5
+  |
+7 | def backup(path):
+8 |     subprocess.run(f"tar -czf backup.tar.gz {path}", shell=True)
+  |     ^^^^^^^^^^^^^^
+
+Found 1 error.
+
+Detect secrets...........................................................Failed
+- hook id: detect-secrets
+- exit code: 1
+
+ERROR: Potential secrets about to be committed to git repo!
+
+Secret Type: AWS Access Key
+Location:    activity-service/backend/_canary_precommit.py:4
+
+Possible mitigations:
+  - For information about putting your secrets in a safer place, please ask in
+    #security
+  - Mark false positives with an inline `pragma: allowlist secret` comment
+
+If a secret has already been committed, visit
+https://help.github.com/articles/removing-sensitive-data-from-a-repository
+
+pip-audit (requirements*.txt)........................(no files to check)Skipped
+exit status: 1 (non-zero = the commit would be refused)
+
+## 2. The real activity-service files: allowed
+$ pre-commit run --files $(git ls-files activity-service)
+ruff (lint + S security rules, see ruff.toml)............................Passed
+Detect secrets...........................................................Passed
+pip-audit (requirements*.txt)............................................Passed
+exit status: 0

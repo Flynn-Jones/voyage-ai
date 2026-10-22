@@ -28,7 +28,7 @@ LAYERS = ("database", "backend", "frontend", "shared")
 
 
 def run_tests(junit_path):
-    return subprocess.run(
+    return subprocess.run(  # noqa: S603 - fixed argv (this interpreter running pytest on tests/), no user input
         [sys.executable, "-m", "pytest", str(TESTS_DIR), f"--junit-xml={junit_path}", "-q"],
         capture_output=True, text=True, cwd=ACTIVITY_SERVICE_ROOT,
     )
@@ -47,7 +47,7 @@ def parse_junit(junit_path):
     if not junit_path.exists():
         return []
     rows = []
-    for testcase in ET.parse(junit_path).getroot().iter("testcase"):
+    for testcase in ET.parse(junit_path).getroot().iter("testcase"):  # noqa: S314 - JUnit XML pytest just wrote to our private temp dir
         failure = testcase.find("failure")
         error = testcase.find("error")
         skipped = testcase.find("skipped")
