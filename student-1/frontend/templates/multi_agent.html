@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Multi-Agent{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="page-header">
+    <div>
+      <h1>Multi-Agent recommendation</h1>
+      <p>A Planner, Worker and Reviewer agent recommend destinations from the shared MCP data, then you decide. Read-only: nothing here changes a destination.</p>
+    </div>
+  </div>
+
+  {% if disabled %}
+  <div class="alert alert--error">Multi-Agent mode is disabled for Destination Manager.</div>
+  {% else %}
+  <form class="stacked-form"
+        method="post" action="{{ url_for('multi_agent_run') }}"
+        hx-post="{{ url_for('multi_agent_run') }}"
+        hx-target="#ma-detail" hx-swap="innerHTML"
+        hx-indicator="#ma-spinner">
+    <div class="field-grid">
+      <label>
+        <span>Interests (comma separated)</span>
+        <input type="text" name="interests" value="{{ form.interests or '' }}" maxlength="400" placeholder="e.g. food, nightlife">
+      </label>
+      <label>
+        <span>Max daily cost ($)</span>
+        <input type="text" name="max_daily_cost" value="{{ form.max_daily_cost or '' }}" placeholder="e.g. 130">
+      </label>
+      <label>
+        <span>Trip length (days)</span>
+        <input type="text" name="trip_days" value="{{ form.trip_days or '' }}" placeholder="e.g. 4">
+      </label>
+      <label>
+        <span>Country</span>
+        <input type="text" name="country" value="{{ form.country or '' }}" maxlength="100" placeholder="e.g. Japan">
+      </label>
+    </div>
+    <div class="form-actions">
+      <button class="button button--primary" type="submit">Start workflow</button>
+      <span id="ma-spinner" class="htmx-indicator spinner" aria-live="polite">Planner, Worker and Reviewer are working&hellip;</span>
+    </div>
+  </form>
+
+  {% if runs_error %}
+  <div class="alert alert--error">{{ runs_error }}</div>
+  {% endif %}
+  <h2>Recent runs</h2>
+  {% if runs %}
+  <table class="data-table">
+    <thead>
+      <tr><th>Run</th><th>State</th><th>Started</th><th>Requested by</th></tr>
+    </thead>
+    <tbody>
+      {% for r in runs %}
+      <tr>
+        <td><a href="{{ url_for('multi_agent_detail', run_id=r.run_id) }}">{{ r.run_id }}</a></td>
+        <td>{{ r.state }}</td>
+        <td>{{ r.created_at }}</td>
+        <td>{{ r.requested_by }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% elif not runs_error %}
+  <p class="empty-state">No runs yet. Start one above.</p>
+  {% endif %}
+  {% endif %}
+
+  <div id="ma-detail">
+    {% include "_multi_agent_detail.html" %}
+  </div>
+</section>
+{% endblock %}

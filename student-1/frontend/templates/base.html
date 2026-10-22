@@ -29,7 +29,9 @@
        ('Add destination', url_for('new_destination'), ['new_destination']),
        ('Compare', url_for('compare'), ['compare']),
        ('Data lookup (MCP)', url_for('mcp_lookup'), ['mcp_lookup']),
-       ('Ask (RAG)', url_for('ask'), ['ask'])
+       ('Ask (RAG)', url_for('ask'), ['ask']),
+       ('Multi-Agent', url_for('multi_agent'),
+        ['multi_agent', 'multi_agent_run', 'multi_agent_detail', 'multi_agent_review'])
      ] %}
   <nav class="mode-bar" aria-label="Destination Manager">
     <div class="mode-bar__container">

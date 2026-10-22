@@ -30,7 +30,7 @@ already uses for `/api/view_activities` and related routes. MCP does not add a p
 
 | Not exposed | Why |
 |---|---|
-| **Add / edit / delete activity** | Decided in the Plan phase. The group reference (`ai-services/mcp-server`) is read-only throughout, and an LLM-driven MCP client should not be able to change or delete data without supervision. Activity writes also go through `backend/services/activity_store.py`, which writes directly to SQLite inside a Docker volume that a host-side MCP server can't reach. |
+| **Add / edit / delete activity** | Decided in the Plan phase. The group reference (`ai-services/mcp-server`) is read-only throughout, and an LLM-driven MCP client should not be able to change or delete data without supervision. (As recorded on 2026-09-26, activity writes also went through `backend/services/activity_store.py`, a direct-SQLite write inside a Docker volume a host-side MCP server couldn't reach; that module is removed — writes now go through database-service's HTTP API like every other feature, per `fix/activity-architecture`. The MCP decision itself is unaffected: writes still aren't exposed as tools.) |
 | **Raw SQL or arbitrary queries** | The tools only call fixed database-service GET paths. An ID is formatted into the path only after it has been parsed as a positive integer. |
 | **Filesystem, CI reports, other features' data** | The shared server's `project_files`, `ci_report` and budget/accommodation tools are left out on purpose. This server's scope is activity data only. |
 | **The LLM itself** | MCP clients get data, not model access. The `/ask` route uses the LLM only to choose a tool from the fixed registry. |

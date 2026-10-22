@@ -1,0 +1,60 @@
+{# Search/filter form, laid out like the Destination and Accommodation list
+   filters. Submits to the current page; htmx swaps just #results. #}
+{% macro activity_filters(filters, activity_types) %}
+<form class="filter-form" action="{{ request.path }}" method="get"
+      hx-get="{{ request.path }}" hx-target="#results" hx-swap="innerHTML"
+      hx-trigger="submit, change, keyup changed delay:300ms from:input[name='q']">
+  <div class="field-grid">
+    <label>
+      <span>Search</span>
+      <input type="search" name="q" value="{{ filters.q }}" placeholder="Name or type">
+    </label>
+    <label>
+      <span>Type</span>
+      <select name="type">
+        <option value="">Any type</option>
+        {% for activity_type in activity_types %}
+        <option value="{{ activity_type }}" {% if filters.type|lower == activity_type|lower %}selected{% endif %}>{{ activity_type }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      <span>From date</span>
+      <input type="date" name="date_from" value="{{ filters.date_from }}">
+    </label>
+    <label>
+      <span>To date</span>
+      <input type="date" name="date_to" value="{{ filters.date_to }}">
+    </label>
+    <label>
+      <span>Min cost ($)</span>
+      <input type="number" step="0.01" min="0" name="min_cost" value="{{ filters.min_cost }}">
+    </label>
+    <label>
+      <span>Max cost ($)</span>
+      <input type="number" step="0.01" min="0" name="max_cost" value="{{ filters.max_cost }}">
+    </label>
+    <label>
+      <span>Min duration (hours)</span>
+      <input type="number" step="0.5" min="0" name="min_duration" value="{{ filters.min_duration }}">
+    </label>
+    <label>
+      <span>Max duration (hours)</span>
+      <input type="number" step="0.5" min="0" name="max_duration" value="{{ filters.max_duration }}">
+    </label>
+    <label>
+      <span>Sort by</span>
+      <select name="sort">
+        {% for value, text in [("", "Default"), ("date_asc", "Date: soonest first"), ("cost_asc", "Cost: low to high"),
+                               ("cost_desc", "Cost: high to low"), ("duration_asc", "Duration: shortest first"), ("name", "Name")] %}
+        <option value="{{ value }}" {% if filters.sort == value %}selected{% endif %}>{{ text }}</option>
+        {% endfor %}
+      </select>
+    </label>
+  </div>
+  <div class="form-actions">
+    <button class="button button--primary" type="submit">Apply filters</button>
+    <a class="button button--secondary" href="{{ request.path }}">Clear</a>
+  </div>
+</form>
+{% endmacro %}

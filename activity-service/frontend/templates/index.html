@@ -1,32 +1,25 @@
 {% extends "base.html" %}
-{% from "_activity_cards.html" import activity_cards %}
+{% from "_activity_filters.html" import activity_filters %}
+{% from "_mode_links.html" import mode_links %}
 
 {% block title %}VoyageAI — Activities{% endblock %}
 
 {% block content %}
-<section class="act-hero">
-  <h1>Find Activities for Your Trip</h1>
-  <p>Browse activities, check costs and durations, and see AI-generated summaries.</p>
-  <div class="act-hero__actions">
-    <a class="act-btn" href="{{ url_for('activities_list') }}">Browse Activities</a>
-    <a class="act-btn" href="{{ url_for('register_activity_form') }}">Register Activity</a>
-    <a class="act-btn" href="{{ url_for('ai_mode') }}">AI Mode</a>
-    <a class="act-btn" href="{{ url_for('mcp_mode') }}">MCP Mode</a>
-    <a class="act-btn" href="{{ url_for('rag_mode') }}">RAG Mode</a>
-  </div>
-</section>
-
-<section>
-  <h2 class="act-section-title">Featured Activities</h2>
-
-  {% if error %}
-    <p class="act-empty">Could not load activities: {{ error }}</p>
-  {% elif not activities %}
-    <p class="act-empty">No activities found yet.</p>
-  {% else %}
-    <div class="act-grid">
-      {{ activity_cards(activities, show_actions=False) }}
+<section class="panel">
+  <div class="page-header">
+    <div>
+      <h1>Find Activities for Your Trip</h1>
+      <p>Browse activities, check costs and durations, and see AI-generated summaries.</p>
     </div>
-  {% endif %}
+    <a class="button button--primary" href="{{ url_for('register_activity_form') }}">+ Register activity</a>
+  </div>
+
+  {{ mode_links() }}
+
+  {{ activity_filters(filters, activity_types) }}
+
+  <div id="results">
+    {% include "_activity_results.html" %}
+  </div>
 </section>
 {% endblock %}

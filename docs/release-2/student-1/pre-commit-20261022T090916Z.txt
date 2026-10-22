@@ -1,0 +1,13 @@
+# pre-commit security scan
+date:       2026-10-22T09:09:16Z
+who:        student-1
+branch:     student-1/release-2-destination
+commit:     63a7c83
+pre-commit: pre-commit 4.7.0
+scope:      files: | (?x)^( accommodation-service/| ai-services/| budget-service/| student-1/| shared/ )
+
+ruff (lint + S security rules, see ruff.toml)............................Passed
+Detect secrets...........................................................Passed
+pip-audit (requirements*.txt)............................................Passed
+
+exit status: 0 (PASS)

@@ -25,10 +25,6 @@ services:
     environment:
       - DATABASE_SERVICE_URL=http://database:6003
       - ACCOMMODATION_SERVICE_URL=http://accomodation-db:6002
-      # Required for activity_store.py's direct-SQLite writes to land in the
-      # same file database-service reads — must match the env var below and
-      # the shared volume mount (neither existed on this service before).
-      - ACTIVITY_DB_PATH=/data/database-service.sqlite
       # Overridable via activity-service/.env — see .env.example for the
       # documented variable names and defaults.
       - OLLAMA_URL=${OLLAMA_URL:-http://host.docker.internal:11434}
@@ -44,8 +40,12 @@ services:
       - MCP_ENABLED=${ACTIVITY_MCP_ENABLED:-true}
       - RAG_SERVICE_URL=${ACTIVITY_RAG_SERVICE_URL:-http://host.docker.internal:7002}
       - RAG_ENABLED=${ACTIVITY_RAG_ENABLED:-true}
+      # Release 2: the shared Multi-Agent Server (ai-services/multi-agent-server,
+      # :7004, host-run). ACTIVITY_MULTI_AGENT_ENABLED=false (the cloud default)
+      # turns every /api/activity/multi-agent/* route into a 403.
+      - MULTI_AGENT_SERVICE_URL=${ACTIVITY_MULTI_AGENT_SERVICE_URL:-http://host.docker.internal:7004}
+      - MULTI_AGENT_ENABLED=${ACTIVITY_MULTI_AGENT_ENABLED:-true}
     volumes:
-      - database-service-data:/data
       # prompts/mcp/ for /api/activity/mcp/ask — the build context is
       # ./backend, so the prompts can't be COPY'd into the image. ",z" lets
       # SELinux hosts (e.g. Fedora) read the mount; a no-op elsewhere.

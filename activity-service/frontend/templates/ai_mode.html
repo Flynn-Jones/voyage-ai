@@ -1,66 +1,34 @@
 {% extends "base.html" %}
+{% from "_mode_links.html" import mode_header, mode_links %}
 {% from "_chat_form.html" import chat_form %}
 
 {% block title %}VoyageAI — Activities AI Mode{% endblock %}
 
 {% block content %}
-<a href="{{ url_for('index') }}" class="act-btn act-btn--secondary act-back-link">&larr; Back to Home</a>
-<h1 class="act-section-title">Activities — AI Mode</h1>
+<section class="panel">
+  {% call mode_header("AI Mode") %}
+    Ask about activities — e.g. "What's a good half-day activity under $50?"
+  {% endcall %}
+  {{ mode_links("ai_mode") }}
 
-<div class="act-tabstrip">
-  <a href="{{ url_for('activities_list') }}">Manual Mode</a>
-  <a href="{{ url_for('ai_mode') }}" class="act-tab--active">AI Mode</a>
-  <a href="{{ url_for('mcp_mode') }}">MCP Mode</a>
-  <a href="{{ url_for('rag_mode') }}">RAG Mode</a>
-</div>
+  <div class="act-chat">
+    <div id="chat-log" class="act-chat__log">
+      <p id="chat-empty" class="act-chat__empty">No messages yet — ask something below.</p>
+    </div>
 
-<p style="color: var(--act-text-muted); margin-top: -8px; margin-bottom: 20px;">
-  Ask about activities — e.g. "What's a good half-day activity under $50?"
-</p>
+    <div id="chat-pending" class="act-chat__bubble act-chat__bubble--pending htmx-indicator">Thinking…</div>
 
-<div class="act-chat">
-  <div id="chat-log" class="act-chat__log">
-    <p id="chat-empty" class="act-chat__empty">No messages yet — ask something below.</p>
+    {{ chat_form() }}
   </div>
-
-  <div id="chat-pending" class="act-chat__bubble act-chat__bubble--pending htmx-indicator">Thinking…</div>
-
-  {{ chat_form() }}
-</div>
+</section>
 {% endblock %}
 
 {% block scripts %}
 <style>
-  .act-tabstrip {
-    display: flex;
-    gap: 4px;
-    border-bottom: 1px solid var(--act-border);
-    margin-bottom: 24px;
-  }
-
-  .act-tabstrip a {
-    padding: 10px 18px;
-    font-weight: 600;
-    font-size: 0.9rem;
-    color: var(--act-text-muted);
-    border-bottom: 2px solid transparent;
-  }
-
-  .act-tabstrip a:hover {
-    color: var(--act-red);
-    text-decoration: none;
-  }
-
-  .act-tabstrip a.act-tab--active {
-    color: var(--act-maroon);
-    border-bottom-color: var(--act-red);
-  }
-
   .act-chat {
     display: flex;
     flex-direction: column;
     gap: 16px;
-    max-width: 720px;
   }
 
   .act-chat__log {

@@ -4,6 +4,8 @@ individual steps in services/ai_client.py.
 
 Run from anywhere with: python -m pytest activity-service/backend/tests
 """
+import pytest
+
 from services import ai_client
 
 from conftest import DummyResponse
@@ -13,7 +15,15 @@ from conftest import DummyResponse
 # CRUD: add / view / edit / delete
 # ---------------------------------------------------------------------------
 
-def test_add_activity_success_201(client):
+def test_add_activity_success_201(client, monkeypatch):
+    from services import db_client
+    monkeypatch.setattr(
+        db_client.requests, "request",
+        lambda method, url, json=None, timeout=5: DummyResponse(201, {
+            "activity_id": 1, "activity_name": json["activity_name"], "activity_type": json["activity_type"],
+            "activity_cost": float(json["activity_cost"]), "duration": json["duration"],
+        }),
+    )
     resp = client.post("/api/add_activity", json={
         "activity_name": "Kayaking",
         "activity_type": "Adventure",
@@ -43,6 +53,19 @@ def test_add_activity_invalid_cost_400(client):
     assert resp.status_code == 400
 
 
+def test_add_activity_database_unavailable_502(client, monkeypatch):
+    from services import db_client
+
+    def boom(method, url, json=None, timeout=5):
+        raise db_client.requests.exceptions.RequestException("connection refused")
+
+    monkeypatch.setattr(db_client.requests, "request", boom)
+    resp = client.post("/api/add_activity", json={
+        "activity_name": "Kayaking", "activity_type": "Adventure", "activity_cost": 35, "duration": "1.5 hours",
+    })
+    assert resp.status_code == 502
+
+
 def test_view_activities_success(client, monkeypatch):
     from services import db_client
     monkeypatch.setattr(
@@ -63,6 +86,83 @@ def test_view_activities_database_unavailable_502(client, monkeypatch):
     monkeypatch.setattr(db_client.requests, "get", boom)
     resp = client.get("/api/view_activities")
     assert resp.status_code == 502
+
+
+FILTER_ACTIVITIES = [
+    {"activity_id": 1, "activity_name": "Kayaking", "activity_type": "Adventure",
+     "activity_cost": 45.0, "duration": "2 hours"},
+    {"activity_id": 2, "activity_name": "Food Walk", "activity_type": "Food",
+     "activity_cost": 60.0, "duration": "3 hours"},
+    {"activity_id": 3, "activity_name": "Day Spa", "activity_type": "Wellness",
+     "activity_cost": 120.0, "duration": "full day"},
+    {"activity_id": 4, "activity_name": "Mystery Tour", "activity_type": "Adventure",
+     "activity_cost": 30.0, "duration": "it depends"},
+]
+FILTER_ASSIGNMENTS = [
+    {"assignment_id": 1, "activity_id": 1, "assignment_time": "2026-10-02 09:00"},
+    {"assignment_id": 2, "activity_id": 2, "assignment_time": "2026-10-05 18:00"},
+    {"assignment_id": 3, "activity_id": 3, "assignment_time": "2026-10-09 10:00"},
+]
+
+
+@pytest.fixture
+def filter_db(monkeypatch):
+    from services import db_client
+
+    def fake_get(url, timeout=5):
+        if url.endswith("/assignments"):
+            return DummyResponse(200, FILTER_ASSIGNMENTS)
+        return DummyResponse(200, FILTER_ACTIVITIES)
+
+    monkeypatch.setattr(db_client.requests, "get", fake_get)
+
+
+def _names(resp):
+    assert resp.status_code == 200, resp.get_json()
+    return [a["activity_name"] for a in resp.get_json()]
+
+
+def test_view_activities_include_dates_adds_assignment_time(client, filter_db):
+    resp = client.get("/api/view_activities?include_dates=1")
+    by_name = {a["activity_name"]: a["assignment_time"] for a in resp.get_json()}
+    assert by_name == {"Kayaking": "2026-10-02 09:00", "Food Walk": "2026-10-05 18:00",
+                       "Day Spa": "2026-10-09 10:00", "Mystery Tour": None}
+
+
+def test_view_activities_filters_by_search_and_type(client, filter_db):
+    assert _names(client.get("/api/view_activities?q=walk")) == ["Food Walk"]
+    assert _names(client.get("/api/view_activities?type=adventure")) == ["Kayaking", "Mystery Tour"]
+
+
+def test_view_activities_filters_by_cost_range(client, filter_db):
+    assert _names(client.get("/api/view_activities?min_cost=40&max_cost=60")) == ["Kayaking", "Food Walk"]
+
+
+def test_view_activities_filters_by_duration_keeps_unparseable(client, filter_db):
+    # "full day" parses to 8h and is dropped; "it depends" can't be parsed and fails open.
+    assert _names(client.get("/api/view_activities?min_duration=2&max_duration=4")) == [
+        "Kayaking", "Food Walk", "Mystery Tour",
+    ]
+
+
+def test_view_activities_filters_by_date_range_drops_undated(client, filter_db):
+    assert _names(client.get("/api/view_activities?date_from=2026-10-03&date_to=2026-10-09")) == [
+        "Food Walk", "Day Spa",
+    ]
+
+
+def test_view_activities_sorts(client, filter_db):
+    assert _names(client.get("/api/view_activities?sort=cost_desc")) == [
+        "Day Spa", "Food Walk", "Kayaking", "Mystery Tour",
+    ]
+    assert _names(client.get("/api/view_activities?sort=date_asc"))[-1] == "Mystery Tour"
+
+
+@pytest.mark.parametrize("query", ["min_cost=cheap", "max_duration=-1", "date_from=02/10/2026", "sort=random"])
+def test_view_activities_bad_filter_400(client, filter_db, query):
+    resp = client.get(f"/api/view_activities?{query}")
+    assert resp.status_code == 400
+    assert "error" in resp.get_json()
 
 
 def test_view_activity_known_id_200(client, monkeypatch):
@@ -86,46 +186,76 @@ def test_view_activity_unknown_id_404(client, monkeypatch):
     assert resp.status_code == 404
 
 
-def test_edit_activity_success_200(client):
-    created = client.post("/api/add_activity", json={
-        "activity_name": "Kayaking", "activity_type": "Adventure",
-        "activity_cost": 35, "duration": "1.5 hours",
-    }).get_json()
-
-    resp = client.patch(f"/api/edit_activity/{created['activity_id']}", json={"activity_cost": 40})
+def test_edit_activity_success_200(client, monkeypatch):
+    from services import db_client
+    monkeypatch.setattr(
+        db_client.requests, "request",
+        lambda method, url, json=None, timeout=5: DummyResponse(200, {
+            "activity_id": 1, "activity_name": "Kayaking", "activity_type": "Adventure",
+            "activity_cost": 40.0, "duration": "1.5 hours",
+        }),
+    )
+    resp = client.patch("/api/edit_activity/1", json={"activity_cost": 40})
     assert resp.status_code == 200
     assert resp.get_json()["activity_cost"] == 40.0
 
 
-def test_edit_activity_not_found_404(client):
+def test_edit_activity_not_found_404(client, monkeypatch):
+    from services import db_client
+    monkeypatch.setattr(
+        db_client.requests, "request",
+        lambda method, url, json=None, timeout=5: DummyResponse(404, {"error": "activity not found"}),
+    )
     resp = client.patch("/api/edit_activity/999", json={"activity_cost": 40})
     assert resp.status_code == 404
 
 
 def test_edit_activity_invalid_cost_400(client):
-    created = client.post("/api/add_activity", json={
-        "activity_name": "Kayaking", "activity_type": "Adventure",
-        "activity_cost": 35, "duration": "1.5 hours",
-    }).get_json()
-
-    resp = client.patch(f"/api/edit_activity/{created['activity_id']}", json={"activity_cost": "free"})
+    resp = client.patch("/api/edit_activity/1", json={"activity_cost": "free"})
     assert resp.status_code == 400
 
 
-def test_delete_activity_success_200(client):
-    created = client.post("/api/add_activity", json={
-        "activity_name": "Kayaking", "activity_type": "Adventure",
-        "activity_cost": 35, "duration": "1.5 hours",
-    }).get_json()
+def test_edit_activity_database_unavailable_502(client, monkeypatch):
+    from services import db_client
 
-    resp = client.delete(f"/api/delete_activity/{created['activity_id']}")
+    def boom(method, url, json=None, timeout=5):
+        raise db_client.requests.exceptions.RequestException("connection refused")
+
+    monkeypatch.setattr(db_client.requests, "request", boom)
+    resp = client.patch("/api/edit_activity/1", json={"activity_cost": 40})
+    assert resp.status_code == 502
+
+
+def test_delete_activity_success_200(client, monkeypatch):
+    from services import db_client
+    monkeypatch.setattr(
+        db_client.requests, "request",
+        lambda method, url, json=None, timeout=5: DummyResponse(200, {"message": "deleted"}),
+    )
+    resp = client.delete("/api/delete_activity/1")
     assert resp.status_code == 200
     assert resp.get_json()["message"] == "deleted"
 
 
-def test_delete_activity_not_found_404(client):
+def test_delete_activity_not_found_404(client, monkeypatch):
+    from services import db_client
+    monkeypatch.setattr(
+        db_client.requests, "request",
+        lambda method, url, json=None, timeout=5: DummyResponse(404, {"error": "activity not found"}),
+    )
     resp = client.delete("/api/delete_activity/999")
     assert resp.status_code == 404
+
+
+def test_delete_activity_database_unavailable_502(client, monkeypatch):
+    from services import db_client
+
+    def boom(method, url, json=None, timeout=5):
+        raise db_client.requests.exceptions.RequestException("connection refused")
+
+    monkeypatch.setattr(db_client.requests, "request", boom)
+    resp = client.delete("/api/delete_activity/1")
+    assert resp.status_code == 502
 
 
 # ---------------------------------------------------------------------------

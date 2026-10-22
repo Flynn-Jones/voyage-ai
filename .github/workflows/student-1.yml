@@ -3,7 +3,7 @@ name: student-1
 on:
   workflow_dispatch:
   push:
-    branches: [main, feat/destination-service]
+    branches: [main, feat/destination-service, 'student-1/**']
     paths:
       - 'student-1/**'
       - '.github/workflows/student-1.yml'
@@ -12,13 +12,16 @@ concurrency:
   group: student-1-${{ github.ref }}
   cancel-in-progress: true
 
-# Release 1: the shared MCP/RAG servers and Ollama run host-local and are not
-# available on GitHub runners, so CI deliberately runs Student 1 with both
-# integrations disabled. The code stays in source and is covered by offline
-# tests; compose interpolates these into destination-backend.
+# The shared MCP/RAG/Multi-Agent servers and Ollama run host-local and are not
+# available on GitHub runners, so CI deliberately runs Student 1 with every AI
+# integration disabled (the required cloud profile). The code stays in source
+# and is covered by offline tests; compose interpolates these into
+# destination-backend.
 env:
+  DESTINATION_AI_ENABLED: "false"
   DESTINATION_MCP_ENABLED: "false"
   DESTINATION_RAG_ENABLED: "false"
+  DESTINATION_MULTI_AGENT_ENABLED: "false"
 
 jobs:
 
@@ -63,7 +66,7 @@ jobs:
             exit 1
           fi
 
-      - name: Assert Release 1 shared-service config in rendered Compose
+      - name: Assert Release 1/2 shared-service config in rendered Compose
         run: |
           docker compose -f student-1/docker-compose.yml config --format json > rendered.json
           jq -e '
@@ -73,10 +76,15 @@ jobs:
               and $b.RAG_SERVICE_URL == "http://host.docker.internal:7002"
               and $b.MCP_ENABLED == "false"
               and $b.RAG_ENABLED == "false"
+              and $b.AI_ENABLED == "false"
+              and $b.MULTI_AGENT_ENABLED == "false"
+              and $b.MULTI_AGENT_SERVICE_URL == "http://host.docker.internal:7004"
               and $f.MCP_REQUEST_TIMEOUT_SECONDS == "15"
               and $f.RAG_REQUEST_TIMEOUT_SECONDS == "130"
+              and $f.MULTI_AGENT_REQUEST_TIMEOUT_SECONDS == "250"
+              and $f.PUBLIC_HOME_URL == "http://localhost:3000"
           ' rendered.json
-          jq '{backend: (.services["destination-backend"].environment | {MCP_SERVICE_URL, MCP_ENABLED, RAG_SERVICE_URL, RAG_ENABLED}), frontend: (.services["destination-frontend"].environment | {MCP_REQUEST_TIMEOUT_SECONDS, RAG_REQUEST_TIMEOUT_SECONDS})}' rendered.json
+          jq '{backend: (.services["destination-backend"].environment | {MCP_SERVICE_URL, MCP_ENABLED, RAG_SERVICE_URL, RAG_ENABLED, AI_ENABLED, MULTI_AGENT_SERVICE_URL, MULTI_AGENT_ENABLED}), frontend: (.services["destination-frontend"].environment | {MCP_REQUEST_TIMEOUT_SECONDS, RAG_REQUEST_TIMEOUT_SECONDS, MULTI_AGENT_REQUEST_TIMEOUT_SECONDS, PUBLIC_HOME_URL})}' rendered.json
 
   build-and-smoke:
     runs-on: ubuntu-latest
@@ -128,7 +136,7 @@ jobs:
           wait_for "http://localhost:5001/health"
           wait_for "http://localhost:3001/health"
 
-      - name: Inspect Release 1 config inside the running containers
+      - name: Inspect Release 1/2 config inside the running containers
         working-directory: student-1
         run: |
           docker compose --project-name student-1 exec -T destination-backend python -c "
@@ -137,11 +145,16 @@ jobs:
           print('backend RAG', r.RAG_ENABLED, r.RAG_SERVICE_URL, r.RAG_TIMEOUT_SECONDS)
           assert m.MCP_ENABLED is False and r.RAG_ENABLED is False
           assert m.MCP_SERVICE_URL.endswith(':7001') and r.RAG_SERVICE_URL.endswith(':7002')
+          import llm_client as l, multi_agent_client as ma
+          print('backend AI', l.AI_ENABLED, 'MULTI_AGENT', ma.MULTI_AGENT_ENABLED, ma.MULTI_AGENT_SERVICE_URL, ma.MULTI_AGENT_TIMEOUT_SECONDS)
+          assert l.AI_ENABLED is False and ma.MULTI_AGENT_ENABLED is False
+          assert ma.MULTI_AGENT_SERVICE_URL.endswith(':7004')
           "
           docker compose --project-name student-1 exec -T destination-frontend python -c "
           import app
           print('frontend MCP', app.MCP_REQUEST_TIMEOUT, 'RAG', app.RAG_REQUEST_TIMEOUT)
           assert app.MCP_REQUEST_TIMEOUT == (3, 15.0) and app.RAG_REQUEST_TIMEOUT == (3, 130.0)
+          assert app.MULTI_AGENT_REQUEST_TIMEOUT == (3, 250.0)
           "
 
       # No Ollama in CI: test_ai_compare_live.py's own
@@ -156,6 +169,37 @@ jobs:
         run: |
           mkdir -p student-1/reports
           pytest student-1/tests -m live -v --junitxml=student-1/reports/live-tests.xml
+
+      # Post-commit endpoint evidence: no second test run. This reads the JUnit
+      # written by the live-stack step above and records the two required
+      # endpoint-function tests (and fails if either did not pass).
+      - name: Record the two endpoint-function tests from the live JUnit
+        if: always()
+        run: |
+          python - <<'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+
+          REQUIRED = {
+              "test_seed_count": "GET /api/destinations -> list_destinations",
+              "test_crud_lifecycle": "POST /api/destinations -> create_destination (then GET/PUT/DELETE/404)",
+          }
+          status = {}
+          try:
+              for case in ET.parse("student-1/reports/live-tests.xml").getroot().iter("testcase"):
+                  if case.get("classname", "").endswith("test_destinations_api") and case.get("name") in REQUIRED:
+                      bad = any(case.find(tag) is not None for tag in ("failure", "error", "skipped"))
+                      status[case.get("name")] = "FAIL" if bad else "PASS"
+          except (OSError, ET.ParseError) as exc:
+              print(f"live JUnit unreadable: {exc}")
+          lines = ["## Post-commit endpoint tests (student-1 backend, live stack)", "",
+                   "| Test | Endpoint function | Result |", "|---|---|---|"]
+          lines += [f"| `test_destinations_api.py::{name}` | {what} | {status.get(name, 'MISSING')} |"
+                    for name, what in REQUIRED.items()]
+          open("student-1/reports/endpoint-tests.md", "w").write("\n".join(lines) + "\n")
+          print("\n".join(lines))
+          sys.exit(0 if all(status.get(n) == "PASS" for n in REQUIRED) else 1)
+          PY
 
       - name: Smoke check public routes
         if: always()
@@ -178,7 +222,9 @@ jobs:
         if: always()
         with:
           name: student-1-live-test-results
-          path: student-1/reports/live-tests.xml
+          path: |
+            student-1/reports/live-tests.xml
+            student-1/reports/endpoint-tests.md
 
   evidence-pack:
     runs-on: ubuntu-latest
@@ -223,6 +269,17 @@ jobs:
           Run URL:
           https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
           EOF
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: student-1-live-test-results
+          path: student-1/reports/live
+
+      - name: Append the endpoint-test evidence to report.md
+        working-directory: student-1
+        run: |
+          printf '\n' >> reports/report.md
+          cat reports/live/endpoint-tests.md >> reports/report.md
 
       - uses: actions/upload-artifact@v4
         with:

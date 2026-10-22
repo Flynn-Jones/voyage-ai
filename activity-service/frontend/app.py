@@ -2,6 +2,7 @@ import os
 
 import requests
 from flask import Flask, redirect, render_template, request, url_for
+from markupsafe import escape
 
 BACKEND_SERVICE_URL = os.environ.get("BACKEND_SERVICE_URL", "http://activity-backend:5003")
 PORT = int(os.environ.get("PORT", "3004"))
@@ -25,6 +26,23 @@ MCP_TOOLS = [
 # RAG Mode's actions, each forwarded to /api/activity/rag/<kind> on the backend.
 RAG_ACTIONS = ("refresh", "retrieve", "answer")
 
+# Multi-Agent Mode's tasks (the activity_schedule_check workflow validates them) and the
+# request datalist. The activity schema has no trip id, so a day stands in for a trip.
+MULTI_AGENT_TASKS = {
+    "summary": "Activity summary",
+    "overlaps": "Check a day for overlapping activities",
+    "free_slots": "Propose clash-free slots on a day",
+}
+MULTI_AGENT_SAMPLES = (
+    "Generate an activity summary for my trip.",
+    "Check day 2026-10-06 for overlapping activities.",
+    "Propose a 2-hour walking tour on 2026-10-06 without clashes.",
+)
+ACTIVITY_FILTER_FIELDS = (
+    "q", "type", "min_cost", "max_cost", "min_duration", "max_duration", "date_from", "date_to", "sort",
+)
+MULTI_AGENT_DECISION_FIELDS = ("decision", "correction", "reason", "evidence_used", "reviewer")
+
 
 def create_app():
     app = Flask(__name__, template_folder="templates", static_folder="static")
@@ -38,8 +56,8 @@ def create_app():
         except requests.exceptions.RequestException as exc:
             raise RuntimeError(f"Backend request failed: {exc}") from exc
 
-    def fetch_activities():
-        response = backend_request("GET", "/api/view_activities")
+    def fetch_activities(params=None):
+        response = backend_request("GET", "/api/view_activities", params=params)
         if response.status_code >= 400:
             payload = response.json() if response.headers.get("Content-Type", "").startswith("application/json") else {}
             raise RuntimeError(payload.get("error") or f"Backend returned {response.status_code}")
@@ -72,25 +90,39 @@ def create_app():
 
     app.config["backend_request"] = backend_request
 
-    @app.route("/")
-    def index():
+    def render_activity_browser(template, show_actions):
+        """Home and list pages share one filter form and results table. The
+        backend does the filtering; an htmx filter request gets back only the
+        results fragment for #results."""
+        filters = {name: request.args.get(name, "").strip() for name in ACTIVITY_FILTER_FIELDS}
+        active = {name: value for name, value in filters.items() if value}
         try:
-            activities = fetch_activities()
+            activities = fetch_activities({**active, "include_dates": "1"})
             error = None
         except RuntimeError as exc:
             activities = []
             error = str(exc)
-        return render_template("index.html", activities=activities, error=error)
+        context = {"activities": activities, "error": error, "filters": filters,
+                   "filtered": bool(active), "show_actions": show_actions}
+        if is_hx_request():
+            return render_template("_activity_results.html", **context)
+
+        # The Type dropdown lists every type, not just the filtered ones.
+        try:
+            all_activities = fetch_activities() if active else activities
+        except RuntimeError:
+            all_activities = []
+        activity_types = sorted({(a.get("activity_type") or "").strip() for a in all_activities} - {""},
+                                key=str.lower)
+        return render_template(template, activity_types=activity_types, **context)
+
+    @app.route("/")
+    def index():
+        return render_activity_browser("index.html", show_actions=False)
 
     @app.route("/activities")
     def activities_list():
-        try:
-            activities = fetch_activities()
-            error = None
-        except RuntimeError as exc:
-            activities = []
-            error = str(exc)
-        return render_template("activities_list.html", activities=activities, error=error)
+        return render_activity_browser("activities_list.html", show_actions=True)
 
     @app.route("/activities/<int:activity_id>")
     def activity_detail(activity_id):
@@ -209,6 +241,63 @@ def create_app():
             error = data.get("error") or f"Request failed ({response.status_code})"
         return render_template("tabs/_rag_call.html", call=call, status_code=response.status_code, data=data, error=error)
 
+    @app.route("/multi-agent")
+    def multi_agent_mode():
+        return render_template("multi_agent_mode.html", tasks=MULTI_AGENT_TASKS, samples=MULTI_AGENT_SAMPLES)
+
+    @app.route("/multi-agent/run", methods=["POST"])
+    def multi_agent_run():
+        # Always 200 so htmx swaps the card in; the backend's status is shown on the card.
+        payload = {"task": request.form.get("task", "")}
+        if request.form.get("date", "").strip():
+            payload["date"] = request.form["date"].strip()
+        if request.form.get("request", "").strip():
+            payload["request"] = request.form["request"].strip()
+        if payload["task"] == "free_slots":
+            try:
+                payload["slot_hours"] = float(request.form.get("slot_hours", "2") or "2")
+            except ValueError:
+                return render_template("tabs/_multi_agent_run.html", run=None, status_code=None,
+                                       error="Slot length must be a number of hours.")
+        try:
+            response = backend_request("POST", "/api/activity/multi-agent/workflow", json_body=payload)
+        except RuntimeError as exc:
+            return render_template("tabs/_multi_agent_run.html", run=None, status_code=None, error=str(exc))
+
+        is_json = response.headers.get("Content-Type", "").startswith("application/json")
+        data = response.json() if is_json else {}
+        if response.status_code >= 400 or data.get("status") != "success":
+            error = data.get("error") or f"Request failed ({response.status_code})"
+            return render_template("tabs/_multi_agent_run.html", run=None, status_code=response.status_code,
+                                   error=error)
+        return render_template("tabs/_multi_agent_run.html", run=data["result"],
+                               status_code=response.status_code, error=None)
+
+    @app.route("/multi-agent/runs/<run_id>/decision", methods=["POST"])
+    def multi_agent_decision(run_id):
+        payload = {key: request.form.get(key, "").strip() for key in MULTI_AGENT_DECISION_FIELDS}
+        payload["approved_ids"] = request.form.getlist("approved_ids")
+        try:
+            response = backend_request("POST", f"/api/activity/multi-agent/runs/{run_id}/decision",
+                                       json_body=payload)
+        except RuntimeError as exc:
+            response, error = None, str(exc)
+
+        if response is not None:
+            is_json = response.headers.get("Content-Type", "").startswith("application/json")
+            data = response.json() if is_json else {}
+            if response.status_code == 409 or (response.status_code < 400 and data.get("status") == "success"):
+                # Recorded (or already decided elsewhere): the form is replaced by the outcome.
+                result = data.get("result") if response.status_code < 400 else None
+                error = None if result else data.get("error") or "This run already has a decision."
+                return render_template("tabs/_multi_agent_decision.html", result=result, error=error)
+            error = data.get("error") or f"Request failed ({response.status_code})"
+        # Fixable (a missing reason, backend briefly down): keep the form, show the error inside it.
+        reply = app.make_response((str(escape(error)), 200))
+        reply.headers["HX-Retarget"] = f"#ma-err-{run_id}"
+        reply.headers["HX-Reswap"] = "innerHTML"
+        return reply
+
     def parse_activity_form():
         return {
             "activity_name": request.form.get("activity_name", "").strip(),
@@ -315,7 +404,7 @@ def create_app():
         return redirect_to_detail(activity_id)
 
     # hx-delete only — never navigated to directly. Empty body on success (the
-    # list card's hx-swap="outerHTML" replaces it with nothing; the detail
+    # list row's hx-swap="outerHTML" replaces it with nothing; the detail
     # page's hx-on::after-request redirects to the list on success instead of
     # relying on a swap, since there's nothing sensible to swap into there).
     # Same route serves both callers; response shape doesn't need to know

@@ -1,0 +1,25 @@
+# Terminal scenario: cli.py run -> review (partial) -> applied  (run run-fac00aec8399)
+# input: interests=[food,nightlife] max_daily_cost=130 trip_days=3, decision=partial approve 3,5
+Run run-fac00aec8399  workflow=destination_recommend  state=applied
+  requested_by: terminal   created: 2026-10-22T09:05:31.828+00:00
+  PLAN
+    - list_destinations {}
+    rationale: Selecting destinations that fit the given interests and cost constraints.
+  WORK  10 destination(s) considered, 5 recommended; top pick 'Osaka, Japan' at $125.00/day (within the $130.00/day cap).
+    [3] {"destination_id": 3, "city": "Osaka", "country": "Japan", "average_daily_cost": 125.0, "recommended_trip_length": 3, "travel_style": "Food and nightlife", "matched_interests": ["food", "nightlife"], "within_budget": true, "fits_trip_length": true, "estimated_trip_cost": 375.0, "score": 6, "evidence_ref": "destination-db:/destinations/3"}
+    [5] {"destination_id": 5, "city": "Bangkok", "country": "Thailand", "average_daily_cost": 70.0, "recommended_trip_length": 5, "travel_style": "Budget", "matched_interests": ["food"], "within_budget": true, "fits_trip_length": false, "estimated_trip_cost": 210.0, "score": 3, "evidence_ref": "destination-db:/destinations/5"}
+    [4] {"destination_id": 4, "city": "Seoul", "country": "South Korea", "average_daily_cost": 120.0, "recommended_trip_length": 5, "travel_style": "City break", "matched_interests": ["nightlife"], "within_budget": true, "fits_trip_length": false, "estimated_trip_cost": 360.0, "score": 3, "evidence_ref": "destination-db:/destinations/4"}
+    [2] {"destination_id": 2, "city": "Kyoto", "country": "Japan", "average_daily_cost": 130.0, "recommended_trip_length": 4, "travel_style": "Cultural", "matched_interests": [], "within_budget": true, "fits_trip_length": true, "estimated_trip_cost": 390.0, "score": 2, "evidence_ref": "destination-db:/destinations/2"}
+    [1] {"destination_id": 1, "city": "Tokyo", "country": "Japan", "average_daily_cost": 150.0, "recommended_trip_length": 6, "travel_style": "City break", "matched_interests": ["food", "nightlife"], "within_budget": false, "fits_trip_length": false, "estimated_trip_cost": 450.0, "score": 1, "evidence_ref": "destination-db:/destinations/1"}
+  REVIEW  risk=low
+    > No adjustments are necessary based on the given information.
+  HUMAN  partial by terminal-flynn: keep Osaka and Bangkok
+  APPLIED  {'created_ids': [], 'target': 'none (read-only destination_recommend)'}
+
+  1  2026-10-22T09:05:31.829+00:00  created                  running                {"requested_by": "terminal"}
+  2  2026-10-22T09:05:44.747+00:00  plan           planner   running                {"source": "llm", "attempts": [{"attempt": 1, "ok": false, "error": "ValueError: plan uses 'None', which is not an allowed read-only source"}, {"attempt": 2, "ok": true}], "duration_ms": 12906}
+  3  2026-10-22T09:05:45.148+00:00  work           worker    running                {"source": "workflow", "duration_ms": 395, "tools_called": ["list_destinations"]}
+  4  2026-10-22T09:05:49.461+00:00  review         reviewer  running                {"source": "llm", "attempts": [{"attempt": 1, "ok": true}], "duration_ms": 4311}
+  5  2026-10-22T09:05:49.463+00:00  human_review   human     awaiting_human_review  {}
+  6  2026-10-22T09:06:02.002+00:00  human_review   human     partially_accepted     {"decision": "partial", "approved_ids": ["3", "5"], "rejected_ids": ["4", "2", "1"], "edits": {"5": {"reviewer_correction": "cheaper alternative to Osaka"}}, "note": "keep Osaka and Bangkok", "reviewer": "terminal-flynn"}
+  7  2026-10-22T09:06:02.212+00:00  applied        backend   applied                {"target": "none (read-only destination_recommend)"}

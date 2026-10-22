@@ -1,24 +1,17 @@
 {% extends "base.html" %}
+{% from "_mode_links.html" import mode_header, mode_links %}
 
 {% block title %}VoyageAI — Activities MCP Mode{% endblock %}
 
 {% block content %}
-<a href="{{ url_for('index') }}" class="act-btn act-btn--secondary act-back-link">&larr; Back to Home</a>
-<h1 class="act-section-title">Activities — MCP Mode</h1>
+<section class="panel">
+  {% call mode_header("MCP Mode") %}
+    Calls activity-service's MCP server directly. Every call shows which tool ran, with what arguments, and exactly what it returned. All tools are read-only.
+  {% endcall %}
+  {{ mode_links("mcp_mode") }}
 
-<div class="act-tabstrip">
-  <a href="{{ url_for('activities_list') }}">Manual Mode</a>
-  <a href="{{ url_for('ai_mode') }}">AI Mode</a>
-  <a href="{{ url_for('mcp_mode') }}" class="act-tab--active">MCP Mode</a>
-  <a href="{{ url_for('rag_mode') }}">RAG Mode</a>
-</div>
-
-<p style="color: var(--act-text-muted); margin-top: -8px; margin-bottom: 20px;">
-  Calls activity-service's MCP server directly. Every call shows which tool ran, with what
-  arguments, and exactly what it returned. All tools are read-only.
-</p>
-
-{% include "tabs/mcp.html" %}
+  {% include "tabs/mcp.html" %}
+</section>
 {% endblock %}
 
 {% block scripts %}
