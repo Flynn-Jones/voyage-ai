@@ -165,7 +165,8 @@ def create_app():
         placeholders = ", ".join("?" for _ in columns)
         conn = get_connection()
         cursor = conn.execute(
-            f"INSERT INTO destinations ({', '.join(columns)}) VALUES ({placeholders})",
+            # Column names are the fixed keys _validate() sets; values stay parameterised.
+            f"INSERT INTO destinations ({', '.join(columns)}) VALUES ({placeholders})",  # noqa: S608 - fixed column names
             [cleaned[c] for c in columns],
         )
         conn.commit()
@@ -193,7 +194,8 @@ def create_app():
 
         set_clause = ", ".join(f"{field} = ?" for field in cleaned)
         params = list(cleaned.values()) + [destination_id]
-        conn.execute(f"UPDATE destinations SET {set_clause} WHERE destination_id = ?", params)
+        # Field names are the fixed keys _validate() sets; values stay parameterised.
+        conn.execute(f"UPDATE destinations SET {set_clause} WHERE destination_id = ?", params)  # noqa: S608 - fixed field names
         conn.commit()
         row = conn.execute(
             "SELECT * FROM destinations WHERE destination_id = ?", (destination_id,)
@@ -223,4 +225,4 @@ app = create_app()
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=PORT, debug=False)
+    app.run(host="0.0.0.0", port=PORT, debug=False)  # noqa: S104 - container bind

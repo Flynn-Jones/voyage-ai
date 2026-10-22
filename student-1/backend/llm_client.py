@@ -12,6 +12,7 @@ import requests
 OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:0.5b")
 OLLAMA_TIMEOUT_SECONDS = float(os.environ.get("OLLAMA_TIMEOUT_SECONDS", "60"))
+AI_ENABLED = os.environ.get("AI_ENABLED", "true").strip().lower() in ("1", "true", "yes", "on")
 
 
 class LLMServiceError(Exception):
