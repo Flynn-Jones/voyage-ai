@@ -38,6 +38,9 @@ MULTI_AGENT_SAMPLES = (
     "Check day 2026-10-06 for overlapping activities.",
     "Propose a 2-hour walking tour on 2026-10-06 without clashes.",
 )
+ACTIVITY_FILTER_FIELDS = (
+    "q", "type", "min_cost", "max_cost", "min_duration", "max_duration", "date_from", "date_to", "sort",
+)
 MULTI_AGENT_DECISION_FIELDS = ("decision", "correction", "reason", "evidence_used", "reviewer")
 
 
@@ -53,8 +56,8 @@ def create_app():
         except requests.exceptions.RequestException as exc:
             raise RuntimeError(f"Backend request failed: {exc}") from exc
 
-    def fetch_activities():
-        response = backend_request("GET", "/api/view_activities")
+    def fetch_activities(params=None):
+        response = backend_request("GET", "/api/view_activities", params=params)
         if response.status_code >= 400:
             payload = response.json() if response.headers.get("Content-Type", "").startswith("application/json") else {}
             raise RuntimeError(payload.get("error") or f"Backend returned {response.status_code}")
@@ -87,25 +90,39 @@ def create_app():
 
     app.config["backend_request"] = backend_request
 
-    @app.route("/")
-    def index():
+    def render_activity_browser(template, show_actions):
+        """Home and list pages share one filter form and results table. The
+        backend does the filtering; an htmx filter request gets back only the
+        results fragment for #results."""
+        filters = {name: request.args.get(name, "").strip() for name in ACTIVITY_FILTER_FIELDS}
+        active = {name: value for name, value in filters.items() if value}
         try:
-            activities = fetch_activities()
+            activities = fetch_activities({**active, "include_dates": "1"})
             error = None
         except RuntimeError as exc:
             activities = []
             error = str(exc)
-        return render_template("index.html", activities=activities, error=error)
+        context = {"activities": activities, "error": error, "filters": filters,
+                   "filtered": bool(active), "show_actions": show_actions}
+        if is_hx_request():
+            return render_template("_activity_results.html", **context)
+
+        # The Type dropdown lists every type, not just the filtered ones.
+        try:
+            all_activities = fetch_activities() if active else activities
+        except RuntimeError:
+            all_activities = []
+        activity_types = sorted({(a.get("activity_type") or "").strip() for a in all_activities} - {""},
+                                key=str.lower)
+        return render_template(template, activity_types=activity_types, **context)
+
+    @app.route("/")
+    def index():
+        return render_activity_browser("index.html", show_actions=False)
 
     @app.route("/activities")
     def activities_list():
-        try:
-            activities = fetch_activities()
-            error = None
-        except RuntimeError as exc:
-            activities = []
-            error = str(exc)
-        return render_template("activities_list.html", activities=activities, error=error)
+        return render_activity_browser("activities_list.html", show_actions=True)
 
     @app.route("/activities/<int:activity_id>")
     def activity_detail(activity_id):
@@ -387,7 +404,7 @@ def create_app():
         return redirect_to_detail(activity_id)
 
     # hx-delete only — never navigated to directly. Empty body on success (the
-    # list card's hx-swap="outerHTML" replaces it with nothing; the detail
+    # list row's hx-swap="outerHTML" replaces it with nothing; the detail
     # page's hx-on::after-request redirects to the list on success instead of
     # relying on a swap, since there's nothing sensible to swap into there).
     # Same route serves both callers; response shape doesn't need to know

@@ -1,7 +1,7 @@
 """Activity Manager business logic: validates input, delegates to services, returns JSON."""
 from flask import Blueprint, jsonify, request
 
-from services import ai_client, db_client
+from services import activity_filters, ai_client, db_client
 
 activity_api = Blueprint("activity_api", __name__)
 
@@ -15,11 +15,23 @@ def health():
 
 @activity_api.route("/api/view_activities")
 def view_activities():
+    """With no query parameters, returns the raw activity list unchanged.
+    Any of activity_filters.FILTER_PARAMS switches on search/filter/sort and
+    adds each activity's assignment_time."""
+    filters = None
+    if activity_filters.wants_filtering(request.args):
+        try:
+            filters = activity_filters.parse_filters(request.args)
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
     try:
         activities = db_client.get_activities()
+        assignments = db_client.get_assignments() if filters is not None else None
     except db_client.DatabaseServiceError:
         return jsonify({"error": "database service unavailable"}), 502
-    return jsonify(activities)
+    if filters is None:
+        return jsonify(activities)
+    return jsonify(activity_filters.apply_filters(activities, assignments, filters))
 
 
 @activity_api.route("/api/view_activity/<int:activity_id>")

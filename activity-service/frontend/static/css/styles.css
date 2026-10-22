@@ -88,52 +88,39 @@ a:hover {
 }
 
 
-/* Hero */
+/* Home page tool links, a row of buttons inside the panel under the header */
 
-.act-hero {
-  text-align: center;
-  padding: 24px 0 40px;
-}
-
-.act-hero h1 {
-  font-size: 2.25rem;
-  margin: 0 0 8px;
-  color: var(--act-maroon);
-}
-
-.act-hero p {
-  color: var(--act-text-muted);
-  font-size: 1.1rem;
-  margin: 0;
-}
-
-.act-hero__actions {
+.act-mode-links {
   display: flex;
-  justify-content: center;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 20px;
+  gap: 8px;
+  margin-bottom: 24px;
 }
 
-/* Home hero buttons: background-coloured by default, a slight red on hover,
-   and the full red while pressed — the same
-   tokens as the service switcher in the nav. Scoped to the hero so other
-   .act-btn buttons keep their solid red. */
-.act-hero__actions .act-btn {
-  background: var(--bg-1);
-  color: var(--muted);
-  border: 1px solid var(--border);
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.act-hero__actions .act-btn:hover {
-  background: var(--accent-soft);
-  color: var(--accent-text);
-}
-
-.act-hero__actions .act-btn:active {
-  background: var(--accent);
+/* Beige mode buttons, matching Budget's .tab-btn (budget-fe/templates/css/styles.css) */
+.act-mode-links .button {
+  background: var(--surface-alt);
   color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.act-mode-links .button:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.act-mode-links .button.is-active {
+  background: var(--accent);
+  border-color: transparent;
+}
+
+/* AI pages: boxes inside the white panel keep their border but drop the
+   shadow, so they read as sections of the panel rather than stacked cards. */
+.panel .act-chat__log,
+.panel .act-mcp__box {
+  box-shadow: none;
 }
 
 .act-back-link {
@@ -151,13 +138,7 @@ a:hover {
 }
 
 
-/* Card grid */
-
-.act-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 20px;
-}
+/* Card (activity detail page) */
 
 .act-card {
   background: var(--act-white);
@@ -585,6 +566,176 @@ a:hover {
 }
 
 
+/* List page — panel, page header, data table, buttons, alert and empty
+   state, matching the Destination and Accommodation list pages
+   (student-1/frontend/static/theme.css). Keep these in sync with that file. */
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--act-shadow);
+  padding: 24px;
+}
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.page-header h1 {
+  margin: 0 0 4px;
+}
+
+.page-header p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.panel .act-banner--visible {
+  margin-bottom: 16px;
+}
+
+.filter-form {
+  margin-bottom: 24px;
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.filter-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.filter-form input,
+.filter-form select {
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  accent-color: var(--accent);
+  color-scheme: light;
+}
+
+.filter-form input:focus,
+.filter-form select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.form-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.button {
+  display: inline-block;
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: center;
+  border: 1px solid transparent;
+  background: var(--accent);
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.button:hover {
+  background: var(--accent-strong);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.button--secondary {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  border-color: var(--accent);
+}
+
+.button--secondary:hover {
+  background: var(--accent);
+}
+
+.button--danger {
+  background: var(--danger);
+  color: #fff;
+}
+
+.button--danger:hover {
+  background: var(--danger-text);
+  color: #fff;
+}
+
+.button--small {
+  padding: 4px 10px;
+  font-size: 0.8rem;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.data-table th {
+  color: var(--muted);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.data-table td > a:not(.button) {
+  color: var(--accent-text);
+}
+
+.actions {
+  white-space: nowrap;
+}
+
+.alert {
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+}
+
+.alert--error {
+  background: var(--danger-soft);
+  color: var(--danger-text);
+  border: 1px solid var(--danger);
+}
+
+.empty-state {
+  padding: 24px;
+  text-align: center;
+  color: var(--muted);
+}
+
+
 /* Activity detail */
 
 .act-detail__meta {
@@ -743,31 +894,6 @@ a:hover {
 /* Mode tab strip (Manual / AI / MCP). Copied verbatim from ai_mode.html's
    inline block so MCP Mode can share it; ai_mode.html's identical inline
    copy is left in place. */
-.act-tabstrip {
-  display: flex;
-  gap: 4px;
-  border-bottom: 1px solid var(--act-border);
-  margin-bottom: 24px;
-}
-
-.act-tabstrip a {
-  padding: 10px 18px;
-  font-weight: 600;
-  font-size: 0.9rem;
-  color: var(--act-text-muted);
-  border-bottom: 2px solid transparent;
-}
-
-.act-tabstrip a:hover {
-  color: var(--act-red);
-  text-decoration: none;
-}
-
-.act-tabstrip a.act-tab--active {
-  color: var(--act-maroon);
-  border-bottom-color: var(--act-red);
-}
-
 /* Rounded scrollbar for the scrolling logs (AI Mode chat, MCP call log):
    a visible pill-shaped track with a pill-shaped thumb inside it. The track
    is inset by the border radius so it sits inside the box's rounded corners.

@@ -1,0 +1,14 @@
+{% from "_activity_table.html" import activity_table %}
+{% if error %}
+  <div class="alert alert--error">Could not load activities: {{ error }}</div>
+{% elif activities %}
+  {{ activity_table(activities, show_actions=show_actions) }}
+{% elif filtered %}
+  <div class="empty-state">
+    No activities match these filters. <a href="{{ request.path }}">Clear filters</a>
+  </div>
+{% else %}
+  <div class="empty-state">
+    No activities found yet. <a href="{{ url_for('register_activity_form') }}">Register the first one</a>.
+  </div>
+{% endif %}

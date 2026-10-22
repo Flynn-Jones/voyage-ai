@@ -1,0 +1,41 @@
+{# Activity list as a .data-table, matching the Destination and Accommodation
+   list pages. show_actions adds Edit/Delete; Delete removes its own row. #}
+{% macro activity_table(activities, show_actions=True) %}
+<table class="data-table"
+       {% if show_actions %}hx-on::after-request="if (!event.detail.successful) { const b = document.getElementById('list-banner'); b.textContent = 'Could not delete activity: ' + event.detail.xhr.responseText; b.className = 'act-banner act-banner--visible act-banner--error'; }"{% endif %}>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Type</th>
+      <th>Cost</th>
+      <th>Duration</th>
+      <th>Date</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for activity in activities %}
+    <tr id="activity-row-{{ activity.activity_id }}">
+      <td><a href="{{ url_for('activity_detail', activity_id=activity.activity_id) }}">{{ activity.activity_name }}</a></td>
+      <td>{{ activity.activity_type or '—' }}</td>
+      <td>{{ '$%.2f'|format(activity.activity_cost|float) if activity.activity_cost is not none else '—' }}</td>
+      <td>{{ activity.duration or '—' }}</td>
+      <td>{{ activity.assignment_time or '—' }}</td>
+      <td class="actions">
+        <a class="button button--small" href="{{ url_for('activity_detail', activity_id=activity.activity_id) }}">View</a>
+        {% if show_actions %}
+        <a class="button button--small" href="{{ url_for('edit_activity_form', activity_id=activity.activity_id) }}">Edit</a>
+        <button type="button" class="button button--danger button--small"
+                hx-delete="{{ url_for('delete_activity', activity_id=activity.activity_id) }}"
+                hx-target="closest tr"
+                hx-swap="outerHTML"
+                hx-confirm="Delete &quot;{{ activity.activity_name }}&quot;? This cannot be undone.">
+          Delete
+        </button>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endmacro %}

@@ -40,6 +40,10 @@ def get_activity_assignments(activity_id):
     return _get(f"/activities/{activity_id}/assignments")
 
 
+def get_assignments():
+    return _get("/assignments")
+
+
 def _write(method, path, data, ok_status):
     try:
         response = requests.request(method, f"{DATABASE_SERVICE_URL}{path}", json=data, timeout=5)
