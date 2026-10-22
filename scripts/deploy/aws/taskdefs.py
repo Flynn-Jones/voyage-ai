@@ -4,6 +4,8 @@ region = os.environ["AWS_REGION"]
 account = os.environ["AWS_ACCOUNT_ID"]
 sha = os.environ["GIT_SHA"]
 role = os.environ["EXEC_ROLE_ARN"]
+if not role.startswith("arn:aws:iam::"):
+    sys.exit(f"EXEC_ROLE_ARN is not a valid role ARN: {role!r} (the lookup that set it likely failed silently)")
 
 with open("scripts/deploy/aws/services.yml") as f:
     manifest = yaml.safe_load(f)

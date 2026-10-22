@@ -115,7 +115,7 @@ DEPLOY_POLICY=$(cat <<EOF
     {
       "Sid": "PassExecutionRoleOnly",
       "Effect": "Allow",
-      "Action": "iam:PassRole",
+      "Action": ["iam:PassRole", "iam:GetRole"],
       "Resource": "$EXEC_ROLE_ARN"
     },
     {
