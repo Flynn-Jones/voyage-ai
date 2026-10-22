@@ -1,11 +1,18 @@
 # Canonical per-service manifest for the AWS Fargate deployment described in
 # docs/release-2/cloud/aws-setup-guide.md and docs/release-2/cloud/cloud-architecture.md.
 #
-# This is the single source of truth the setup guide's CLI commands are parameterised
-# from (ECR repo name, Dockerfile path, container port, Service Connect discovery name,
-# env vars). It is also the evidence file ai-services/agentic_loop's
-# `--mode cloud-deployment-review` reads to confirm the fleet shape and that every AI
-# flag is forced off in the cloud.
+# This is the single source of truth the setup guide's CLI commands, the deployment
+# scripts in this directory, and .github/workflows/cloud-deployment.yml are all
+# parameterised from (ECR repo name, Dockerfile path + build context, container port,
+# Service Connect discovery name, env vars). It is also the evidence file
+# ai-services/agentic_loop's `--mode cloud-deployment-review` reads to confirm the
+# fleet shape and that every AI flag is forced off in the cloud.
+#
+# `context` is NOT derivable from `dockerfile`'s directory - several Dockerfiles expect
+# the service GROUP root as their build context (because they `COPY <tier> ./<tier>`),
+# not the tier directory itself. Verified against every Dockerfile's own COPY
+# instructions: `shared/*` and `budget-backend` build from their group root
+# (`shared`, `budget-service`); every other service builds from its own tier directory.
 #
 # Ports mirror the local dev convention in the root README/CLAUDE.md (each service
 # group owns a 3xxx/5xxx/6xxx triple). `alb_listener_port` is only set on frontends —
@@ -33,6 +40,7 @@ services:
     name: shared-frontend
     ecr_repo: voyageai/shared-frontend
     dockerfile: shared/frontend/Dockerfile
+    context: shared # COPY frontend ./frontend - builds from the group root
     container_port: 3000
     alb_listener_port: 3000
     service_connect_name: shared-frontend
@@ -43,7 +51,8 @@ services:
     tier: api
     name: shared-api
     ecr_repo: voyageai/shared-api
-    dockerfile: shared/api/Dockerfile
+    dockerfile: shared/backend/Dockerfile # tier directory is "backend", not "api"
+    context: shared # COPY backend ./backend - builds from the group root
     container_port: 5000
     service_connect_name: shared-api
     env:
@@ -54,6 +63,7 @@ services:
     name: shared-database
     ecr_repo: voyageai/shared-database
     dockerfile: shared/database/Dockerfile
+    context: shared # COPY database ./database - builds from the group root
     container_port: 6000
     service_connect_name: shared-database
     env: {}
@@ -63,6 +73,7 @@ services:
     name: destination-frontend
     ecr_repo: voyageai/destination-frontend
     dockerfile: student-1/frontend/Dockerfile
+    context: student-1/frontend
     container_port: 3001
     alb_listener_port: 3001
     service_connect_name: destination-frontend
@@ -73,7 +84,8 @@ services:
     tier: api
     name: destination-api
     ecr_repo: voyageai/destination-api
-    dockerfile: student-1/api/Dockerfile
+    dockerfile: student-1/backend/Dockerfile # tier directory is "backend", not "api"
+    context: student-1/backend
     container_port: 5001
     service_connect_name: destination-api
     env:
@@ -88,6 +100,7 @@ services:
     name: destination-database
     ecr_repo: voyageai/destination-database
     dockerfile: student-1/database/Dockerfile
+    context: student-1/database
     container_port: 6001
     service_connect_name: destination-database
     env: {}
@@ -97,6 +110,7 @@ services:
     name: accommodation-frontend
     ecr_repo: voyageai/accommodation-frontend
     dockerfile: accommodation-service/frontend/Dockerfile
+    context: accommodation-service/frontend
     container_port: 3002 # Dockerfile EXPOSE says 3000 (bug) - task def must use the real listen port, 3002
     alb_listener_port: 3002
     service_connect_name: accommodation-frontend
@@ -107,7 +121,8 @@ services:
     tier: api
     name: accommodation-api
     ecr_repo: voyageai/accommodation-api
-    dockerfile: accommodation-service/api/Dockerfile
+    dockerfile: accommodation-service/backend/Dockerfile # tier directory is "backend", not "api"
+    context: accommodation-service/backend
     container_port: 5002 # Dockerfile EXPOSE says 6002 (bug) - task def must use the real listen port, 5002
     service_connect_name: accommodation-api
     env:
@@ -123,6 +138,7 @@ services:
     name: accommodation-database
     ecr_repo: voyageai/accommodation-database
     dockerfile: accommodation-service/database/Dockerfile
+    context: accommodation-service/database
     container_port: 6002
     service_connect_name: accommodation-database
     env: {}
@@ -132,6 +148,7 @@ services:
     name: activity-frontend
     ecr_repo: voyageai/activity-frontend
     dockerfile: activity-service/frontend/Dockerfile
+    context: activity-service/frontend
     container_port: 3004 # container listens on 3004 internally; external/ALB port is 3003
     alb_listener_port: 3003
     service_connect_name: activity-frontend
@@ -142,7 +159,8 @@ services:
     tier: api
     name: activity-api
     ecr_repo: voyageai/activity-api
-    dockerfile: activity-service/api/Dockerfile
+    dockerfile: activity-service/backend/Dockerfile # tier directory is "backend", not "api"
+    context: activity-service/backend
     container_port: 5003
     service_connect_name: activity-api
     env:
@@ -157,7 +175,8 @@ services:
     tier: database
     name: activity-database
     ecr_repo: voyageai/activity-database
-    dockerfile: activity-service/database/Dockerfile
+    dockerfile: activity-service/database-service/Dockerfile # tier directory is "database-service", not "database"
+    context: activity-service/database-service
     container_port: 6003
     service_connect_name: activity-database
     env: {}
@@ -166,8 +185,9 @@ services:
     tier: frontend
     name: budget-fe
     ecr_repo: voyageai/budget-fe
-    dockerfile: budget-service/frontend/Dockerfile
-    container_port: 80 # nginx; proxies /api/ to budget-backend:5004 (hardcoded in nginx.conf)
+    dockerfile: budget-service/budget-fe/Dockerfile # tier directory is "budget-fe", not "frontend"
+    context: budget-service/budget-fe # nginx; proxies /api/ to budget-backend:5004 (hardcoded in nginx.conf)
+    container_port: 80
     alb_listener_port: 3004
     service_connect_name: budget-fe
     env: {}
@@ -176,7 +196,8 @@ services:
     tier: api
     name: budget-backend # must stay exactly this name - budget-fe's nginx.conf hardcodes it
     ecr_repo: voyageai/budget-be
-    dockerfile: budget-service/api/Dockerfile
+    dockerfile: budget-service/budget-be/Dockerfile # tier directory is "budget-be", not "api"
+    context: budget-service # COPY budget-be ./budget-be - builds from the group root
     container_port: 5004
     service_connect_name: budget-backend
     env:
@@ -194,7 +215,8 @@ services:
     tier: database
     name: budget-database # referenced as "budget-database (reseeded)" in docs/release-2/student-4/architecture.md
     ecr_repo: voyageai/budget-db
-    dockerfile: budget-service/database/Dockerfile
+    dockerfile: budget-service/budget-db/Dockerfile # tier directory is "budget-db", not "database"
+    context: budget-service/budget-db
     container_port: 6004
     service_connect_name: budget-database
     env:
@@ -204,8 +226,9 @@ services:
     tier: frontend
     name: itinerary-fe
     ecr_repo: voyageai/itinerary-fe
-    dockerfile: itinerary-service/frontend/Dockerfile
-    container_port: 80 # nginx; proxies to itinerary-be:5005 (hardcoded in nginx.conf)
+    dockerfile: itinerary-service/itinerary-fe/Dockerfile # tier directory is "itinerary-fe", not "frontend"
+    context: itinerary-service/itinerary-fe # nginx; proxies to itinerary-be:5005 (hardcoded in nginx.conf)
+    container_port: 80
     alb_listener_port: 3005
     service_connect_name: itinerary-fe
     env: {}
@@ -214,7 +237,8 @@ services:
     tier: api
     name: itinerary-be # must stay exactly this name - itinerary-fe's nginx.conf hardcodes it
     ecr_repo: voyageai/itinerary-be
-    dockerfile: itinerary-service/api/Dockerfile
+    dockerfile: itinerary-service/itinerary-be/Dockerfile # tier directory is "itinerary-be", not "api"
+    context: itinerary-service/itinerary-be
     container_port: 5005
     service_connect_name: itinerary-be
     env:
@@ -230,7 +254,8 @@ services:
     tier: database
     name: itinerary-db
     ecr_repo: voyageai/itinerary-db
-    dockerfile: itinerary-service/database/Dockerfile
+    dockerfile: itinerary-service/itinerary-db/Dockerfile # tier directory is "itinerary-db", not "database"
+    context: itinerary-service/itinerary-db
     container_port: 6005
     service_connect_name: itinerary-db
     env: {}

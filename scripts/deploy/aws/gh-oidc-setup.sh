@@ -10,6 +10,12 @@ set -e
 # trusted branch is read from whatever branch is checked out when this script runs -
 # re-run it from a different branch (or add a second statement to the role's trust
 # policy) if the workflow should also be trustable from elsewhere.
+#
+# Repos created, renamed, or transferred after 2026-07-15 use GitHub's immutable OIDC
+# subject format (owner/repo IDs instead of names: repo:OWNER@OWNER_ID/REPO@REPO_ID:ref:...)
+# instead of the plain repo:OWNER/REPO:ref:... form - using the wrong one makes every
+# AssumeRoleWithWebIdentity call fail with "Not authorized" with no further detail, so
+# the IDs are fetched live from the GitHub API rather than assumed.
 
 ROLE_NAME="voyageai-github-actions"
 POLICY_NAME="voyageai-github-actions-deploy"
@@ -28,7 +34,14 @@ BRANCH=$(git rev-parse --abbrev-ref HEAD)
 AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 EXEC_ROLE_ARN=$(aws iam get-role --role-name "$EXEC_ROLE_NAME" --query Role.Arn --output text)
 
+OWNER_NAME=$(echo "$REPO_SLUG" | cut -d/ -f1)
+REPO_NAME=$(echo "$REPO_SLUG" | cut -d/ -f2)
+OWNER_ID=$(gh api "repos/${REPO_SLUG}" --jq '.owner.id')
+REPO_ID=$(gh api "repos/${REPO_SLUG}" --jq '.id')
+SUBJECT="repo:${OWNER_NAME}@${OWNER_ID}/${REPO_NAME}@${REPO_ID}:ref:refs/heads/${BRANCH}"
+
 echo "Repo: $REPO_SLUG   Trusted branch: $BRANCH   Account: $AWS_ACCOUNT_ID"
+echo "OIDC subject: $SUBJECT"
 
 # Step 1: GitHub's OIDC identity provider (one per AWS account, shared by every repo/role)
 OIDC_ARN="arn:aws:iam::${AWS_ACCOUNT_ID}:oidc-provider/token.actions.githubusercontent.com"
@@ -52,7 +65,7 @@ TRUST_POLICY=$(cat <<EOF
     "Action": "sts:AssumeRoleWithWebIdentity",
     "Condition": {
       "StringEquals": {"token.actions.githubusercontent.com:aud": "sts.amazonaws.com"},
-      "StringLike": {"token.actions.githubusercontent.com:sub": "repo:${REPO_SLUG}:ref:refs/heads/${BRANCH}"}
+      "StringLike": {"token.actions.githubusercontent.com:sub": "$SUBJECT"}
     }
   }]
 }
@@ -132,4 +145,4 @@ echo "Pushed AWS_ROLE_ARN to GitHub Actions secrets."
 
 echo "=== GitHub OIDC Setup Complete ==="
 echo "Role: $ROLE_ARN"
-echo "Trusted subject: repo:${REPO_SLUG}:ref:refs/heads/${BRANCH}"
+echo "Trusted subject: $SUBJECT"

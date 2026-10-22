@@ -81,7 +81,7 @@ jobs:
 
           for s in manifest["services"]:
               uri = f"{ecr}/{s['ecr_repo']}:{sha}"
-              context = os.path.dirname(s["dockerfile"])
+              context = s["context"]  # NOT derivable from dockerfile's directory - see services.yml
               print(f"=== build {s['name']} ===", flush=True)
               subprocess.run(
                   ["docker", "build", "--platform", "linux/amd64", "-f", s["dockerfile"], "-t", uri, context],
