@@ -1,0 +1,16 @@
+PASS frontend:shared http_200 (port 3000)
+PASS frontend:destination http_200 (port 3001)
+PASS frontend:accommodation http_200 (port 3002)
+PASS frontend:activity http_200 (port 3003)
+PASS frontend:budget http_200 (port 3004)
+PASS frontend:itinerary http_200 (port 3005)
+PASS crud:destination-service destination table rows render seeded data
+PASS crud:accommodation-service accommodation table rows render seeded data
+FAIL crud:activity-service activity-database returned no rows (empty seed data in this task)
+PASS crud:budget-service expense table renders seeded data
+PASS crud:itinerary-service itinerary read returns seeded rows
+PASS ai-disabled:destination-service MCP lookup reports disabled
+PASS ai-disabled:accommodation-service http_403 MCP mode is disabled
+PASS ai-disabled:activity-service MCP mode is disabled (surfaced via card)
+PASS ai-disabled:budget-service http_403 AI-Mode disabled
+PASS ai-disabled:itinerary-service http_502 AI review service is unavailable (no AI_ENABLED gate; fails closed on unreachable Ollama)
