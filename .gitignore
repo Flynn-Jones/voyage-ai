@@ -226,6 +226,8 @@ __marimo__/
 itinerary-service/reports/final-runtime/host-processes.json
 itinerary-service/reports/final-runtime/run_agentic.py
 itinerary-service/reports/final-runtime/agentic-loop.txt
+# Generated post-commit CI evidence is uploaded as an Actions artifact.
+itinerary-service/reports/post-commit/
 
 # Host AI servers started by up-all.sh (scripts/ai-services.sh): pids + logs
 ai-services/.run/

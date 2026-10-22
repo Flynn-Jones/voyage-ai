@@ -1,0 +1,9 @@
+# CI baseline: override all four switches even if the runner has different environment defaults.
+# docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d --build
+services:
+  itinerary-be:
+    environment:
+      AI_ENABLED: "false"
+      MCP_ENABLED: "false"
+      RAG_ENABLED: "false"
+      MULTI_AGENT_ENABLED: "false"
