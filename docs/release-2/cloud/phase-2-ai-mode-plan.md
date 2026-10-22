@@ -53,31 +53,46 @@ inbound only from the existing ECS task security group, on 7001/7002/7004/11434 
 inbound rule**, matching the existing pattern where only the ALB is internet-facing. The five
 feature backends already read `MCP_SERVICE_URL`/`RAG_SERVICE_URL`/`MULTI_AGENT_SERVICE_URL` from
 environment variables (currently `""`) — enabling AI Mode for a backend becomes: point that env var
-at the EC2 instance's private IP (or a Route 53 private DNS record, so the IP can change without
-touching `services.yml`), then flip its `_ENABLED` flag to `"true"`. No feature-backend application
-code changes — it's exactly the client shape already documented in `ai-services/CLAUDE.md`'s
-"Integration with feature services" section, just pointed at an EC2 private address instead of
-`host.docker.internal`.
+at the EC2 instance's private IP, then flip its `_ENABLED` flag to `"true"`. No feature-backend
+application code changes — it's exactly the client shape already documented in
+`ai-services/CLAUDE.md`'s "Integration with feature services" section, just pointed at an EC2
+private address instead of `host.docker.internal`.
 
-## Concrete steps
+**Real finding (discovered via a failing RAG corpus refresh, not anticipated when this was
+written):** MCP and RAG also read the 5 feature databases directly (`BUDGET_DB_URL`,
+`ACCOMMODATION_DB_URL`, etc.), and ECS Service Connect's `*.voyageai.local` DNS names turned out to
+be **not resolvable VPC-wide** — Service Connect uses per-task Envoy sidecar proxies that resolve
+those names only for other Service-Connect-enabled tasks in the same mesh. The AI host was never
+part of that mesh, so the name genuinely didn't exist from its point of view (a
+`NameResolutionError`, not a security-group problem — no amount of security-group tuning would have
+fixed it). The fix: `scripts/deploy/aws/ai-db-nlb-setup.sh` creates an internal Network Load
+Balancer in front of the 5 databases, registered by each task's current private IP — NLBs get a
+real, VPC-wide-resolvable DNS name, independent of Service Connect. **Caveat:** ECS Fargate tasks
+get a fresh IP on every replacement, and this NLB's targets are registered by IP, not auto-synced to
+the ECS service — re-run `ai-db-nlb-setup.sh` any time a database task is redeployed and MCP/RAG
+start failing to reach it.
 
-1. **Provision the EC2 instance and its security group.** `scripts/deploy/aws/ai-ec2-setup.sh`
-   (new, one-time) creates a security group scoped to the ECS task security group only (plus a
-   matching ingress rule on `voyageai-task-sg` for ports 6000–6005, since MCP/RAG read the feature
-   databases directly — see "Networking" above), a private S3 bucket + IAM role for code delivery,
-   and launches a `m7i-flex.large` running Amazon Linux whose user-data installs Ollama (its own installer
-   sets up its systemd unit) and pulls `qwen2.5:7b`. It records the instance ID, private IP, and
-   bundle bucket in SSM Parameter Store under `/voyageai/ai-host/*` — no fragile local files.
-2. **Deploy the application code.** `scripts/deploy/aws/ai-ec2-deploy.sh` (new, repeatable) packages
+## Concrete steps — status: 1, 2, 3, and the NLB fix are DONE and verified live; 4 and 5 are not started
+
+1. **✅ Provision the EC2 instance and its security group.** `scripts/deploy/aws/ai-ec2-setup.sh`
+   (one-time) creates a security group scoped to the ECS task security group only, a private S3
+   bucket + IAM role for code delivery, and launches an `m7i-flex.large` running Amazon Linux whose
+   user-data installs Ollama (its own installer sets up its systemd unit) and pulls `qwen2.5:7b` via
+   the REST API (the `ollama` CLI panics with `$HOME is not defined` in cloud-init's context). It
+   records the instance ID, private IP, and bundle bucket in SSM Parameter Store under
+   `/voyageai/ai-host/*` — no fragile local files. `m7i-flex.large` (2 vCPU/8GB) was chosen because
+   this account's Free Tier restriction blocks launching any non-free-tier-eligible instance type at
+   all — confirmed via `describe-instance-types`, and the largest-memory option on that list.
+2. **✅ Give MCP/RAG a real path to the 5 feature databases.** `scripts/deploy/aws/ai-db-nlb-setup.sh`
+   (one-time, re-run after any database task redeploy) — see "Networking" above for why this exists.
+3. **✅ Deploy the application code.** `scripts/deploy/aws/ai-ec2-deploy.sh` (repeatable) packages
    `ai-services/{mcp-server,rag-server,multi-agent-server}`, uploads them to the S3 bucket, and uses
    SSM Run Command (no SSH, no public inbound port) to install each service's `requirements.txt` into
-   a shared venv, write systemd units for all three, and restart them. Re-run this any time the code
-   changes.
-3. **Decide RAG's persistence story.** `chroma/` and `corpus/*.jsonl` are currently local, gitignored,
-   rebuilt by `refresh_corpus`. On a persistent EC2 instance (unlike ephemeral Fargate storage), these
-   can simply live on the instance's own EBS volume and survive reboots — no S3/EFS needed. Still run
-   `refresh_corpus` once after first deploy to populate it (`POST http://localhost:7002/refresh` on
-   the instance, or via SSM Run Command).
+   a shared venv, write systemd units for all three (env vars pointing `*_DB_URL` at the NLB from
+   step 2), and restart them. Re-run this any time the code changes. **Verified live:** MCP has 13
+   tools registered and successfully reads real budget-database rows through the NLB; RAG's corpus
+   refresh populated 58 real chunks across all 5 features (`"ok"` for every `source_status` entry);
+   Multi-Agent reports Ollama/MCP/RAG all reachable with 5 workflows loaded.
 4. **Point the pilot feature at the instance.** Add the private IP recorded at
    `/voyageai/ai-host/private-ip` to `scripts/deploy/aws/services.yml` as `MCP_SERVICE_URL`/
    `RAG_SERVICE_URL`/`MULTI_AGENT_SERVICE_URL` for **one** feature backend only (Budget — it has the
