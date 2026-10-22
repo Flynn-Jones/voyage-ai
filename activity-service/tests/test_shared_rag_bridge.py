@@ -25,7 +25,6 @@ for path in (SHARED_RAG, REPO_ROOT / "activity-service" / "backend"):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
-import activity_context  # noqa: E402  (shared server)
 import rag_http_server  # noqa: E402  (shared server)
 import rag_pipeline as rp  # noqa: E402  (shared server)
 from conftest import load_backend_app  # noqa: E402
@@ -232,7 +231,7 @@ def test_end_to_end_irrelevant_question_is_insufficient(live):
 
 
 def test_end_to_end_activity_db_down_still_refreshes(live, monkeypatch):
-    monkeypatch.setattr(activity_context, "ACTIVITY_DB_URL", "http://activity-db-down.invalid:6003")
+    monkeypatch.setattr(rp, "ACTIVITY_DB_URL", "http://activity-db-down.invalid:6003")
     monkeypatch.setattr(rp.requests, "get", lambda url, params=None, timeout=None: (_ for _ in ()).throw(
         requests.exceptions.ConnectionError("refused")))
     body = live.post("/api/activity/rag/refresh").get_json()

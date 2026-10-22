@@ -8,7 +8,7 @@ import json
 import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from rag_pipeline import answer_question, refresh_corpus, retrieve_context
+from rag_pipeline import answer_question, refresh_corpus, retrieve_context, validate_activity_query
 
 
 def http_status_for(result: dict) -> int:
@@ -64,9 +64,8 @@ class RAGHandler(BaseHTTPRequestHandler):
                     self._send_json(400, {"status": "error", "error": str(exc)})
                     return
             if self.path in ("/retrieve", "/answer") and payload.get("scope") == "activity":
-                from activity_context import validate as validate_activity
                 try:
-                    validate_activity(payload.get("query"), payload.get("k", 5))
+                    validate_activity_query(payload.get("query"), payload.get("k", 5))
                 except ValueError as exc:
                     self._send_json(400, {"status": "error", "error": str(exc), "error_type": "invalid_input"})
                     return
