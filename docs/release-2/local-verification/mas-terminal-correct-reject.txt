@@ -1,0 +1,73 @@
+## correct
+run exit=0
+RUN_ID=run-70a75ccefc5c
+ITEMS=5,3,10,8,6
+{
+ "status": "success",
+ "result": {
+  "run_id": "run-70a75ccefc5c",
+  "state": "corrected",
+  "decision": "correct",
+  "approved_items": [
+   {
+    "id": 5,
+    "destination_id": 5,
+    "city": "Bangkok",
+    "country": "Thailand",
+    "average_daily_cost": 70.0,
+    "recommended_trip_length": 5,
+    "travel_style": "Budget",
+    "matched_interests": [
+     "food"
+    ],
+    "within_budget": true,
+    "fits_trip_length": true,
+    "estimated_trip_cost": 280.0,
+    "score": 4,
+    "evidence_ref": "destination-db:/destinations/5",
+    "reviewer_correction": "Stay 3 days not 4"
+   },
+   {
+    "id": 3,
+    "destination_id": 3,
+    "city": "Osaka",
+    "country": "Japan",
+    "average_daily_cost": 125.0,
+    "recommended_trip_length": 3,
+    "travel_style": "Food and nightlife",
+    "matched_interests": [
+     "food"
+    ],
+    "within_budget": true,
+    "fits_trip_length": true,
+    "estimated_trip_cost": 500.0,
+    "score": 4,
+    "evidence_ref": "destination-db:/destinations/3"
+   }
+  ],
+  "rejected_ids": [
+   "10",
+   "8",
+   "6"
+  ]
+ }
+}
+review exit=0
+state corrected
+decision {"decision": "correct", "approved_ids": ["5", "3"], "rejected_ids": ["10", "8", "6"], "edits": {"5": {"reviewer_correction": "Stay 3 days not 4"}}, "note": "r2verify correct", "reviewer": "r2verify-terminal"}
+approved [5, 3]
+edit-in-approved ['Stay 3 days not 4', None]
+{'status': 'success', 'result': {'run_id': 'run-70a75ccefc5c', 'state': 'applied', 'created_ids': [], 'target': 'none (read-only destination_recommend)'}}
+## reject
+run exit=0
+RUN_ID=run-820601d6a716
+{'status': 'success', 'result': {'run_id': 'run-820601d6a716', 'state': 'rejected', 'decision': 'reject', 'approved_items': [], 'rejected_ids': ['1', '3', '2']}}
+$ applied after reject (expect refusal)
+{
+  "status": "error",
+  "error": "run run-820601d6a716 was rejected and cannot be applied"
+}
+applied exit=1
+state rejected applied None approved_items []
+['created', 'plan', 'work', 'review', 'human_review', 'human_review']
+correct history ['created', 'plan', 'work', 'review', 'human_review', 'human_review', 'applied']

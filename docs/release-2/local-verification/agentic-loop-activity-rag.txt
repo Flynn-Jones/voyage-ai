@@ -1,0 +1,19 @@
+[Activity RAG][START] Starting validation
+[Activity RAG][COLLECT] Running collector
+[Activity RAG][VERDICT] PASS
+[Activity RAG][PROMPTS] Loading prompt family: lab8
+[Activity RAG][LLM] Running Activity RAG implementation model (commentary only)
+[Activity RAG][LLM] Running Activity RAG review model (commentary only)
+[Activity RAG][DONE] Validation complete
+
+=== Activity RAG Result ===
+Activity RAG evidence (shared server http://127.0.0.1:7002, scope=activity): retrieve('total number of activities') -> HTTP 200, mode=hybrid, 2 results, top=activity_count (tier_1, distance=1.186). answer('How many activities are there?') -> 'There are 15 activities in total.' [deterministic, citations=['activity_count']]. answer('What does the Harbour Sunset Kayak cost?') -> HTTP 200, status=success, answer_source=llm, answer='The Harbour Sunset Kayak costs $95.00.', citations=['activity_11', 'activity_category_water_sports'], confidence=High. Latest eval: retrieval-metrics.md missing (run rag_eval.py).
+
+VERDICT PASS
+
+IMPLEMENTATION (LLM commentary): retrieve_context and answer_question meet contract requirements. Missing evidence for confidence_category and eval metrics.
+REVIEW (LLM commentary): Risk: Missing eval metrics, citation grounding uncertain.
+Correction: Add eval metrics, ensure citations support answers.
+Retest: Validate retrieval quality, P@5/R@5.
+
+OVERALL VERDICT PASS

@@ -1,16 +1,20 @@
 # Post-commit CI/CD report: Destination (Student 1), Release 2
 
-- **Result: PENDING.** No GitHub Actions run exists yet for these changes (nothing is committed or pushed). The sections below are a **local** run of the same tests against the same stack configuration, not CI evidence. Fill in the run section after the push.
-- Workflow: `.github/workflows/student-1.yml` (triggers: pushes to `main`, `feat/destination-service` and `student-1/**`, limited to `student-1/**` paths; plus manual dispatch)
+- **Result: SUCCESS** for the tested software commit `e223429db551d11541c8dba981fc2da5b81ca917` (`main`). This is the tested software SHA; it is not claimed to be the final repository SHA (see `docs/release-2/release-evidence-index.md`). Any later evidence or workflow commit needs its own `student-1` run.
+- Workflow: `.github/workflows/student-1.yml` (triggers: pushes to `main`, `feat/destination-service` and `student-1/**`, unfiltered by path; `workflow_dispatch`; and `workflow_call` from `cloud-deployment.yml`)
 
-## GitHub Actions run (to be completed after push)
+## GitHub Actions run
 
 | Field | Value |
 |---|---|
-| Run URL | _not yet run_ |
-| Commit SHA | _not yet run_ (the `evidence-pack` job writes it to `report.json` / `report.md`) |
-| Trigger | `gh workflow run student-1.yml --ref student-1/release-2-destination`, or a push to a `student-1/**` branch |
-| Artifacts | `student-1-live-test-results` (`live-tests.xml`, `endpoint-tests.md`), `student-1-report` |
+| Run URL | https://github.com/Flynn-Jones/voyage-ai/actions/runs/40154654944 |
+| Commit SHA | `e223429db551d11541c8dba981fc2da5b81ca917` (matches `commit_sha` in the downloaded `report.json`) |
+| Trigger / branch | `push` / `main`, generated 2026-10-25T02:31:14Z |
+| Conclusion | success |
+| Artifacts (all unexpired when checked) | `student-1-live-test-results` (`live-tests.xml`, `endpoint-tests.md`), `student-1-offline-test-results` (`offline-tests.xml`), `student-1-report` (`report.json`, `report.md`, `run-view.md`, `live/`) |
+| JUnit totals read from the artifacts | live: 35 tests, 0 failures or errors, 3 skipped (the AI-compare live tests, skipped because CI runs with every AI flag `false`); offline: 276 tests, 0 failures or errors |
+
+The raw JUnit files are not committed; the artifacts above are the authoritative copy. The dependency on the five other student workflows is enforced by `cloud-deployment.yml`, not by this file.
 
 ## The two endpoint functions tested
 
@@ -38,7 +42,7 @@ Also passing in the same run, the disabled-mode tests for the Release 2 switches
 
 AI-enabled profile (same stack, flags unset, host Ollama running): **22 passed, 13 skipped** (the skips are the flag-gated disabled-mode tests), including the 3 live AI-compare tests (Tokyo/Kyoto comparison, three consecutive calls, unknown city 404).
 
-The raw JUnit is not committed because it embeds local paths and the hostname; the CI artifact will be the authoritative copy.
+The raw JUnit is not committed because it embeds local paths and the hostname; the CI artifact for run 40154654944 (table above) is the authoritative copy.
 
 ## Other checks
 

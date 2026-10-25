@@ -1,0 +1,43 @@
+# CRUD verification TAG=R2VERIFY-20261025T025816Z-8c6395
+PASS destination   create 201                   201
+PASS destination   read back                    
+PASS destination   frontend renders             http://localhost:3001/
+PASS destination   update 200                   200
+PASS destination   delete 204                   204
+PASS destination   404 after delete             
+PASS destination   frontend no longer renders   
+PASS accommodation create 201                   201
+PASS accommodation read back                    
+PASS accommodation frontend renders             http://localhost:3002/
+PASS accommodation update 200                   200
+PASS accommodation update persisted             
+PASS accommodation delete 2xx                   204
+PASS accommodation 404 after delete             
+PASS activity      create 201                   201
+PASS activity      read back                    
+PASS activity      frontend renders             http://localhost:3003/
+PASS activity      update 200                   200
+PASS activity      update persisted             
+PASS activity      delete 2xx                   200
+PASS activity      404 after delete             
+PASS budget        create 201                   201
+PASS budget        id in response               
+PASS budget        read back                    
+PASS budget        frontend renders             http://localhost:3004/api/expenses
+PASS budget        update 200                   200
+PASS budget        update persisted             
+PASS budget        delete 2xx                   204
+PASS budget        404 after delete             
+PASS itinerary     create 201                   201
+PASS itinerary     read back                    
+PASS itinerary     frontend renders             http://localhost:3005/api/itinerary
+PASS itinerary     update 200                   200
+PASS itinerary     update persisted             
+PASS itinerary     delete 2xx                   204
+PASS itinerary     404 after delete             
+PASS destination   no leftover R2VERIFY rows    0 occurrences
+PASS accommodation no leftover R2VERIFY rows    0 occurrences
+PASS activity      no leftover R2VERIFY rows    0 occurrences
+PASS budget        no leftover R2VERIFY rows    0 occurrences
+PASS itinerary     no leftover R2VERIFY rows    0 occurrences
+# SUMMARY pass=41 fail=0 tag=R2VERIFY-20261025T025816Z-8c6395

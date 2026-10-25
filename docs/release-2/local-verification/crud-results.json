@@ -1,0 +1,251 @@
+{
+  "tag": "R2VERIFY-20261025T025816Z-8c6395",
+  "results": [
+    {
+      "feature": "destination",
+      "step": "create 201",
+      "ok": true,
+      "detail": "201"
+    },
+    {
+      "feature": "destination",
+      "step": "read back",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "feature": "destination",
+      "step": "frontend renders",
+      "ok": true,
+      "detail": "http://localhost:3001/"
+    },
+    {
+      "feature": "destination",
+      "step": "update 200",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "feature": "destination",
+      "step": "delete 204",
+      "ok": true,
+      "detail": "204"
+    },
+    {
+      "feature": "destination",
+      "step": "404 after delete",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "feature": "destination",
+      "step": "frontend no longer renders",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "feature": "accommodation",
+      "step": "create 201",
+      "ok": true,
+      "detail": "201"
+    },
+    {
+      "feature": "accommodation",
+      "step": "read back",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "feature": "accommodation",
+      "step": "frontend renders",
+      "ok": true,
+      "detail": "http://localhost:3002/"
+    },
+    {
+      "feature": "accommodation",
+      "step": "update 200",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "feature": "accommodation",
+      "step": "update persisted",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "feature": "accommodation",
+      "step": "delete 2xx",
+      "ok": true,
+      "detail": "204"
+    },
+    {
+      "feature": "accommodation",
+      "step": "404 after delete",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "feature": "activity",
+      "step": "create 201",
+      "ok": true,
+      "detail": "201"
+    },
+    {
+      "feature": "activity",
+      "step": "read back",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "feature": "activity",
+      "step": "frontend renders",
+      "ok": true,
+      "detail": "http://localhost:3003/"
+    },
+    {
+      "feature": "activity",
+      "step": "update 200",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "feature": "activity",
+      "step": "update persisted",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "feature": "activity",
+      "step": "delete 2xx",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "feature": "activity",
+      "step": "404 after delete",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "feature": "budget",
+      "step": "create 201",
+      "ok": true,
+      "detail": "201"
+    },
+    {
+      "feature": "budget",
+      "step": "id in response",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "feature": "budget",
+      "step": "read back",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "feature": "budget",
+      "step": "frontend renders",
+      "ok": true,
+      "detail": "http://localhost:3004/api/expenses"
+    },
+    {
+      "feature": "budget",
+      "step": "update 200",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "feature": "budget",
+      "step": "update persisted",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "feature": "budget",
+      "step": "delete 2xx",
+      "ok": true,
+      "detail": "204"
+    },
+    {
+      "feature": "budget",
+      "step": "404 after delete",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "feature": "itinerary",
+      "step": "create 201",
+      "ok": true,
+      "detail": "201"
+    },
+    {
+      "feature": "itinerary",
+      "step": "read back",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "feature": "itinerary",
+      "step": "frontend renders",
+      "ok": true,
+      "detail": "http://localhost:3005/api/itinerary"
+    },
+    {
+      "feature": "itinerary",
+      "step": "update 200",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "feature": "itinerary",
+      "step": "update persisted",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "feature": "itinerary",
+      "step": "delete 2xx",
+      "ok": true,
+      "detail": "204"
+    },
+    {
+      "feature": "itinerary",
+      "step": "404 after delete",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "feature": "destination",
+      "step": "no leftover R2VERIFY rows",
+      "ok": true,
+      "detail": "0 occurrences"
+    },
+    {
+      "feature": "accommodation",
+      "step": "no leftover R2VERIFY rows",
+      "ok": true,
+      "detail": "0 occurrences"
+    },
+    {
+      "feature": "activity",
+      "step": "no leftover R2VERIFY rows",
+      "ok": true,
+      "detail": "0 occurrences"
+    },
+    {
+      "feature": "budget",
+      "step": "no leftover R2VERIFY rows",
+      "ok": true,
+      "detail": "0 occurrences"
+    },
+    {
+      "feature": "itinerary",
+      "step": "no leftover R2VERIFY rows",
+      "ok": true,
+      "detail": "0 occurrences"
+    }
+  ]
+}
