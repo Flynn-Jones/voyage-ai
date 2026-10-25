@@ -1,6 +1,25 @@
 # Post-commit CI/CD report: Activity (student-3)
 
-**Status note:** the steps below were run locally, using the same commands as
+## Final-SHA GitHub Actions run (added 2026-10-25 by Student 1)
+
+**Result: PASS** (GitHub Actions conclusion `success`), verified with `gh run view` and `gh run download`.
+
+| Field | Value |
+|---|---|
+| Run URL | https://github.com/Flynn-Jones/voyage-ai/actions/runs/40160985570 |
+| Commit SHA | `48bb3cc6a76d2647d1ca00bedf52ee72f08c33e9` (`main`, the PR #28 merge; final code SHA) |
+| Trigger | `push` / `main`, attempt 1, 2026-10-25 04:11:41–04:14:12 UTC |
+| Jobs | `security-scans`, `offline-tests`, `compose-validate`, `build-and-smoke`, `evidence-pack` all success. `report.json` records `commit_sha` = `48bb3cc…` |
+| JUnit (unmodified CI artifacts) | [`live-tests.xml`](ci-run-40160985570-48bb3cc/live-tests.xml): 6 tests, 0 failures, errors or skips; [`offline-tests.xml`](ci-run-40160985570-48bb3cc/offline-tests.xml): 191 tests, 0 failures, errors or skips |
+
+| Required endpoint test | Endpoint function | Result |
+|---|---|---|
+| `test_backend_endpoints.py::test_add_activity_is_201_and_persists_in_the_database` | POST /api/add_activity -> add_activity | PASS |
+| `test_backend_endpoints.py::test_view_activities_filters_and_sorts` | GET /api/view_activities -> view_activities | PASS |
+
+Source: [`ci-run-40160985570-48bb3cc/endpoint-tests.md`](ci-run-40160985570-48bb3cc/endpoint-tests.md), written by the workflow's "Record the two endpoint-function tests" step. The JUnit files at the top of this folder are the earlier local run (2026-10-22) and are kept as historical evidence.
+
+**Status note (historical, 2026-10-22; superseded by the final-SHA run above):** the steps below were run locally, using the same commands as
 `.github/workflows/student-3.yml`'s jobs, against real Docker containers. They have not yet run
 as a GitHub Actions workflow; that needs these changes pushed. Every number and transcript here
 is real output from this machine.

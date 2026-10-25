@@ -1,20 +1,23 @@
 # Post-commit CI/CD report: Destination (Student 1), Release 2
 
-- **Result: SUCCESS** for the tested software commit `e223429db551d11541c8dba981fc2da5b81ca917` (`main`). This is the tested software SHA; it is not claimed to be the final repository SHA (see `docs/release-2/release-evidence-index.md`). Any later evidence or workflow commit needs its own `student-1` run.
+- **Result: PASS** (GitHub Actions conclusion `success`) for the final code commit `48bb3cc6a76d2647d1ca00bedf52ee72f08c33e9` on `main` (the PR #28 merge; same tree as `8b9e357`). Verified with `gh run view` / `gh run download` on 2026-10-25.
 - Workflow: `.github/workflows/student-1.yml` (triggers: pushes to `main`, `feat/destination-service` and `student-1/**`, unfiltered by path; `workflow_dispatch`; and `workflow_call` from `cloud-deployment.yml`)
 
-## GitHub Actions run
+## GitHub Actions run (final code SHA)
 
 | Field | Value |
 |---|---|
-| Run URL | https://github.com/Flynn-Jones/voyage-ai/actions/runs/40154654944 |
-| Commit SHA | `e223429db551d11541c8dba981fc2da5b81ca917` (matches `commit_sha` in the downloaded `report.json`) |
-| Trigger / branch | `push` / `main`, generated 2026-10-25T02:31:14Z |
-| Conclusion | success |
-| Artifacts (all unexpired when checked) | `student-1-live-test-results` (`live-tests.xml`, `endpoint-tests.md`), `student-1-offline-test-results` (`offline-tests.xml`), `student-1-report` (`report.json`, `report.md`, `run-view.md`, `live/`) |
-| JUnit totals read from the artifacts | live: 35 tests, 0 failures or errors, 3 skipped (the AI-compare live tests, skipped because CI runs with every AI flag `false`); offline: 276 tests, 0 failures or errors |
+| Run URL | https://github.com/Flynn-Jones/voyage-ai/actions/runs/40160985545 |
+| Commit SHA | `48bb3cc6a76d2647d1ca00bedf52ee72f08c33e9` (matches `commit_sha` in the run's `report.json`) |
+| Trigger / branch | `push` / `main`, attempt 1, 2026-10-25 04:11:41–04:13:02 UTC |
+| Conclusion | success. Jobs `offline-tests`, `compose-validate`, `build-and-smoke`, `evidence-pack` all success |
+| JUnit (unmodified CI artifacts copied into this folder; untracked until the evidence commit) | [`ci-run-40160985545-48bb3cc/live-tests.xml`](ci-run-40160985545-48bb3cc/live-tests.xml): 35 tests, 0 failures or errors, 3 skipped (the AI-compare live tests; CI runs with every AI flag `false`). [`offline-tests.xml`](ci-run-40160985545-48bb3cc/offline-tests.xml): 276 tests, 0 failures, errors or skips. [`endpoint-tests.md`](ci-run-40160985545-48bb3cc/endpoint-tests.md): both endpoint functions PASS |
 
-The raw JUnit files are not committed; the artifacts above are the authoritative copy. The dependency on the five other student workflows is enforced by `cloud-deployment.yml`, not by this file.
+The dependency on the five other student workflows is enforced by `cloud-deployment.yml`, not by this file.
+
+### Historical runs
+
+- [40154654944](https://github.com/Flynn-Jones/voyage-ai/actions/runs/40154654944): `push` / `main` on `e223429db551d11541c8dba981fc2da5b81ca917`, 2026-10-25, success. Same totals: live 35 (3 skipped), offline 276. Its JUnit was not committed.
 
 ## The two endpoint functions tested
 
@@ -25,7 +28,7 @@ The existing live-stack job already runs `test_destinations_api.py` against the 
 | `test_destinations_api.py::test_seed_count` | `GET /api/destinations` → `list_destinations` | 200 and at least 10 seeded records |
 | `test_destinations_api.py::test_crud_lifecycle` | `POST /api/destinations` → `create_destination` | 201 create, then GET, PUT, DELETE and a 404 on the deleted record |
 
-## Local run of the same tests (not CI)
+## Local run of the same tests (not CI, historical)
 
 Stack: `student-1/docker-compose.yml` built and started under a throwaway project name, with the CI profile (`DESTINATION_AI_ENABLED`, `DESTINATION_MCP_ENABLED`, `DESTINATION_RAG_ENABLED`, `DESTINATION_MULTI_AGENT_ENABLED` all `false`). Command: `pytest student-1/tests -m live -v`.
 
@@ -42,7 +45,7 @@ Also passing in the same run, the disabled-mode tests for the Release 2 switches
 
 AI-enabled profile (same stack, flags unset, host Ollama running): **22 passed, 13 skipped** (the skips are the flag-gated disabled-mode tests), including the 3 live AI-compare tests (Tokyo/Kyoto comparison, three consecutive calls, unknown city 404).
 
-The raw JUnit is not committed because it embeds local paths and the hostname; the CI artifact for run 40154654944 (table above) is the authoritative copy.
+The local raw JUnit is not committed because it embeds local paths and the hostname. The CI JUnit for run 40160985545 (table above) is the authoritative copy. The GitHub artifact is the original; `ci-run-40160985545-48bb3cc/` holds a byte-identical copy that becomes part of the repository with the evidence commit.
 
 ## Other checks
 

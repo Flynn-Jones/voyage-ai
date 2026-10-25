@@ -1,5 +1,24 @@
 # Student 5 Release 2 post-commit CI/CD endpoint report
 
+## Final-SHA GitHub Actions run (added 2026-10-25 by Student 1)
+
+**Result: PASS** (GitHub Actions conclusion `success`), verified with `gh run view` and `gh run download`.
+
+| Field | Value |
+|---|---|
+| Run URL | https://github.com/Flynn-Jones/voyage-ai/actions/runs/40160985592 |
+| Commit SHA | `48bb3cc6a76d2647d1ca00bedf52ee72f08c33e9` (`main`, the PR #28 merge; final code SHA) |
+| Trigger | `push` / `main`, attempt 1, 2026-10-25 04:11:41–04:12:40 UTC |
+| Jobs | single job `Student 5 Release 1 Validation` success. `report.json` records `commit_sha` = `48bb3cc…` |
+| JUnit (unmodified CI artifacts) | [`junit-endpoint-tests.xml`](ci-run-40160985592-48bb3cc/junit-endpoint-tests.xml): 27 tests, 0 failures, errors or skips; [`junit-contract-tests.xml`](ci-run-40160985592-48bb3cc/junit-contract-tests.xml): 51 tests, 0 failures or errors, 1 skipped; [`junit-unit-tests.xml`](ci-run-40160985592-48bb3cc/junit-unit-tests.xml): 240 tests, 0 failures, errors or skips |
+
+| Required endpoint test | Endpoint function | Result |
+|---|---|---|
+| `itinerary-service/ci/test_endpoints.py::test_post_create_returns_201_and_persists` | POST /api/itinerary -> create_item | PASS |
+| `itinerary-service/ci/test_endpoints.py::test_put_update_returns_200_and_persists` | PUT /api/itinerary/<id> -> update_item | PASS |
+
+Source: [`ci-run-40160985592-48bb3cc/endpoint-tests.md`](ci-run-40160985592-48bb3cc/endpoint-tests.md), written by the workflow's "Record the two endpoint-function tests" step. The status, run 39765017520 and commit `1fba88d` described below are the earlier run (2026-10-22) and are kept as historical evidence.
+
 GitHub Actions status: **SUCCESS**. The GitHub-hosted `student-5` workflow completed successfully
 for the exact tested commit below, including the live POST/PUT endpoint and disabled-service checks.
 
