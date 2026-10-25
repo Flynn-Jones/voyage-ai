@@ -112,6 +112,16 @@ for pair in $DB_SERVICES; do
     continue
   fi
 
+  # Each database runs as a single task (desiredCount=1), so exactly one IP should ever
+  # be registered - deregister any other targets first (stale IPs from a prior task that
+  # got replaced) so they don't accumulate as permanently-unhealthy dead weight.
+  STALE_IPS=$(aws elbv2 describe-target-health --target-group-arn "$TG_ARN" --region "$AWS_REGION" \
+    --query "TargetHealthDescriptions[?Target.Id!='$TASK_IP'].Target.Id" --output text)
+  for stale_ip in $STALE_IPS; do
+    aws elbv2 deregister-targets --target-group-arn "$TG_ARN" --targets "Id=$stale_ip" --region "$AWS_REGION"
+    echo "Deregistered stale target $stale_ip from $tg_name."
+  done
+
   aws elbv2 register-targets --target-group-arn "$TG_ARN" --targets "Id=$TASK_IP" --region "$AWS_REGION"
   echo "Registered $svc -> $TASK_IP:$port"
 done
