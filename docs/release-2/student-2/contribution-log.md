@@ -1,8 +1,18 @@
 # Contribution log: Accommodation (student-2) — Release 2 integration
 
-**Status note:** everything below is staged/uncommitted on `main` as of 2026-10-21 — no commits
-have been made yet, pending a decision on branch/PR shape (see "Open items"). This log describes
-what changed and why; it will be updated with real commit SHAs once committed.
+**Status note (updated 2026-10-25 by Student 1 from `git log origin/main` and GitHub PR data; Student 2
+should confirm):** the "uncommitted" note written on 2026-10-21 is out of date. This work is on `main`:
+
+| Commit / PR | Author (as recorded) | What |
+|---|---|---|
+| `a92b36c`: PR #22 (`student-2/release-2`), squash-merged 2026-10-21, merged by `DebuggingMyLife` | GiangPiano | Everything in "What I built" below |
+| `646b657`, `65a04ff` | GiangPiano | The original branch commits behind PR #22 (same change) plus `accommodation-service/scripts/integration-evidence.sh`. They reached `main` through PR #24 (`aws-integration`, merge `1cd26db`) |
+| `cfcb7fc` (2026-10-21, after PR #22) | GiangPiano | Multi-Agent tab in the Accommodation frontend (`frontend/app.py`, `templates/multi_agent.html`, `frontend/tests/test_multi_agent.py`), also via PR #24 |
+
+Commits by others in `accommodation-service/` since then: `9845ba4` (GiangPiano, nav links from
+the request host) and `e223429` (Flynn Jones, `workflow_call` and `push: main` triggers and the endpoint-function recording step in `student-2.yml`).
+Identity: GitHub resolves Git author `GiangPiano` to the account `GiangPiano`. PR #22's title names
+"Student 2".
 
 ## What I built
 
@@ -43,9 +53,10 @@ not whatever `python3` resolves to by default). A planted-secret demonstration c
 
 ## CI
 
-`.github/workflows/student-2.yml`'s 5 jobs were reproduced locally, command-for-command, against
-real Docker containers (see [`post-commit-cicd-report.md`](post-commit-cicd-report.md)) — the
-workflow itself has not yet run on GitHub Actions, which needs this branch pushed.
+`.github/workflows/student-2.yml`'s 5 jobs were first reproduced locally against real Docker
+containers. *Updated 2026-10-25:* the workflow has since run on GitHub Actions. The final-SHA run is
+[40160985621](https://github.com/Flynn-Jones/voyage-ai/actions/runs/40160985621) (`48bb3cc`, success),
+recorded in [`post-commit-cicd-report.md`](post-commit-cicd-report.md).
 
 ## Agentic-loop review (Release 2 requirement)
 
@@ -55,7 +66,8 @@ Ran all three Release 2 review modes for real, not simulated:
   runs (`docs/release-2/agentic-loop/multi-agent-review-20261021T025922Z.md`).
 - `testing-review` — student-2 passes every check (pre-commit, CI/CD report, 93 passing JUnit
   tests); overall verdict is INCOMPLETE only because students 1/3/5 have no `docs/release-2/student-N/`
-  yet (`docs/release-2/agentic-loop/testing-review-20261021T025747Z.md`).
+  yet (`docs/release-2/agentic-loop/testing-review-20261021T025747Z.md`). *Superseded:* see
+  `docs/release-2/agentic-loop/testing-review-20261025T043322Z.md` (PASS for all five students).
 - `cloud-deployment-review` — **INCOMPLETE**, honestly: no actual AWS deployment exists yet (only
   the proposal), so this correctly reports 4 gaps and a pending human decision rather than a false
   pass (`docs/release-2/agentic-loop/cloud-deployment-review-20261021T025950Z.md`).
@@ -63,6 +75,10 @@ Ran all three Release 2 review modes for real, not simulated:
 Each `.md` report has a matching `*-validation-<timestamp>.jsonl` log in the same folder.
 
 ## Open items (not done by this change)
+
+*Updated 2026-10-25:* items 1, 3 and 4 below are resolved. The work is committed (table above), a
+Multi-Agent frontend tab was added in `cfcb7fc`, and the Student 1, 3 and 5 folders now exist. For
+cloud status, see `docs/release-2/cloud/` rather than item 2.
 
 - **Not yet committed or pushed.** Decide on a branch name (e.g. `student-2/release-2-shortlist`)
   and PR before any of this reaches `origin`.
