@@ -149,7 +149,6 @@ else
   check "FAIL ai-mode:itinerary-service http_$code, no review found"
 fi
 rm -f /tmp/voyage-smoke-itin.json
-rm -f /tmp/voyage-smoke-itin.json
 
 echo "=== Smoke test complete: $SMOKE_FILE ==="
 cat "$SMOKE_FILE"
