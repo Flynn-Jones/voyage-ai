@@ -45,6 +45,8 @@ services:
       # turns every /api/activity/multi-agent/* route into a 403.
       - MULTI_AGENT_SERVICE_URL=${ACTIVITY_MULTI_AGENT_SERVICE_URL:-http://host.docker.internal:7004}
       - MULTI_AGENT_ENABLED=${ACTIVITY_MULTI_AGENT_ENABLED:-true}
+      # AI Mode (/api/activity/ai-chat, /ai-summary); ACTIVITY_AI_ENABLED=false turns both into a 403.
+      - AI_ENABLED=${ACTIVITY_AI_ENABLED:-true}
     volumes:
       # prompts/mcp/ for /api/activity/mcp/ask — the build context is
       # ./backend, so the prompts can't be COPY'd into the image. ",z" lets

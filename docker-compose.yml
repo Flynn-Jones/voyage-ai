@@ -218,6 +218,8 @@ services:
       # Release 2: shared Multi-Agent Server (:7004, host-run); false in the cloud.
       MULTI_AGENT_SERVICE_URL: ${ACTIVITY_MULTI_AGENT_SERVICE_URL:-http://host.docker.internal:7004}
       MULTI_AGENT_ENABLED: ${ACTIVITY_MULTI_AGENT_ENABLED:-true}
+      # AI Mode (/api/activity/ai-chat, /ai-summary); false makes both routes answer 403.
+      AI_ENABLED: ${ACTIVITY_AI_ENABLED:-true}
       # MCP Mode's Ask box picks tools with this model (shared with AI Mode's
       # intent step); the code default, qwen2.5:7b, isn't pulled locally.
       OLLAMA_INTENT_MODEL: ${OLLAMA_INTENT_MODEL:-llama3.1:8b}
@@ -342,8 +344,9 @@ services:
       RAG_ENABLED: ${ITINERARY_RAG_ENABLED:-true}
       RAG_SERVICE_URL: ${ITINERARY_RAG_SERVICE_URL:-http://host.docker.internal:7002}
       RAG_TIMEOUT_SECONDS: ${ITINERARY_RAG_TIMEOUT_SECONDS:-120}
-      # Opt in locally; all AI switches stay false for the cloud baseline.
-      MULTI_AGENT_ENABLED: ${ITINERARY_MULTI_AGENT_ENABLED:-false}
+      # On by default in the integrated local stack; itinerary-service/docker-compose.ci.yml
+      # and scripts/deploy/aws/services.yml keep every AI switch false for CI and the cloud.
+      MULTI_AGENT_ENABLED: ${ITINERARY_MULTI_AGENT_ENABLED:-true}
       MULTI_AGENT_SERVICE_URL: ${ITINERARY_MULTI_AGENT_SERVICE_URL:-http://host.docker.internal:7004}
       MULTI_AGENT_TIMEOUT_SECONDS: ${ITINERARY_MULTI_AGENT_TIMEOUT_SECONDS:-240}
     extra_hosts:

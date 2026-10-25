@@ -16,6 +16,12 @@ OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.1:8b")
 # extract_intent). Defaults to a stronger model than OLLAMA_MODEL for this
 # one call — override independently if needed.
 OLLAMA_INTENT_MODEL = os.environ.get("OLLAMA_INTENT_MODEL", "qwen2.5:7b")
+# AI Mode switch (false in the cloud): /api/activity/ai-chat and /ai-summary answer 403 when off.
+AI_ENABLED = os.environ.get("AI_ENABLED", "true").strip().lower() in ("1", "true", "yes", "on")
+
+
+def ai_mode_is_enabled():
+    return AI_ENABLED
 
 
 class AIServiceError(Exception):
