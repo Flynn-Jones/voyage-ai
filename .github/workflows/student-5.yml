@@ -1,20 +1,12 @@
 name: student-5
 
+# Push runs are unfiltered so every final commit on main gets its own student-5 run. workflow_call
+# lets cloud-deployment.yml re-run this workflow on the SHA it is about to deploy.
 on:
   workflow_dispatch:
+  workflow_call:
   push:
     branches: [main, student-5/itinerary-feature]
-    paths:
-      - "itinerary-service/**"
-      - "docs/release-2/student-5/**"
-      - ".github/workflows/student-5.yml"
-      - "ai-services/mcp-server/**"
-      - "ai-services/rag-server/**"
-      - "ai-services/agentic_loop/**"
-      - "ai-services/multi-agent-server/**"
-      - "prompts/mcp/**"
-      - "prompts/rag/**"
-      - "docker-compose.yml"
 
 jobs:
   itinerary-release-1:
@@ -170,6 +162,41 @@ jobs:
           python -m pytest -m live itinerary-service/ci -v \
             --junitxml=itinerary-service/reports/post-commit/junit-endpoint-tests.xml \
             2>&1 | tee itinerary-service/reports/post-commit/endpoint-tests.txt
+
+      # Reads the JUnit from the step above (no second run) and fails unless both endpoint
+      # functions have a passing test, so a renamed or deleted test cannot pass silently.
+      - name: Record the two endpoint-function tests from the live JUnit
+        if: always()
+        run: |
+          python - <<'PY'
+          import os
+          import sys
+          import xml.etree.ElementTree as ET
+
+          REPORTS = "itinerary-service/reports/post-commit"
+          REQUIRED = {
+              "test_post_create_returns_201_and_persists":
+                  "POST /api/itinerary -> create_item (201, persisted in the database)",
+              "test_put_update_returns_200_and_persists":
+                  "PUT /api/itinerary/<id> -> update_item (200, persisted in the database)",
+          }
+          status = {}
+          try:
+              for case in ET.parse(f"{REPORTS}/junit-endpoint-tests.xml").getroot().iter("testcase"):  # noqa: S314 - our own JUnit
+                  if case.get("classname") == "test_endpoints" and case.get("name") in REQUIRED:
+                      bad = any(case.find(tag) is not None for tag in ("failure", "error", "skipped"))
+                      status[case.get("name")] = "FAIL" if bad else "PASS"
+          except (OSError, ET.ParseError) as exc:
+              print(f"live JUnit unreadable: {exc}")
+          lines = ["## Post-commit endpoint tests (student-5 backend, live stack)", "",
+                   "| Test | Endpoint function | Result |", "|---|---|---|"]
+          lines += [f"| `itinerary-service/ci/test_endpoints.py::{name}` | {what} | {status.get(name, 'MISSING')} |"
+                    for name, what in REQUIRED.items()]
+          os.makedirs(REPORTS, exist_ok=True)
+          open(f"{REPORTS}/endpoint-tests.md", "w").write("\n".join(lines) + "\n")
+          print("\n".join(lines))
+          sys.exit(0 if all(status.get(n) == "PASS" for n in REQUIRED) else 1)
+          PY
 
       - name: Generate Student 5 Evidence
         if: always()

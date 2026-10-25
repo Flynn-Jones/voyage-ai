@@ -35,13 +35,14 @@ This is the day-to-day loop once the one-time setup above is done:
 1. Make your code change in whichever service(s), as normal.
 2. Commit and push to the branch the OIDC role trusts (currently `aws-integration` — check with
    `git branch --show-current` before pushing if unsure).
-3. Trigger the deploy:
+3. Trigger the deploy with the full SHA of that branch's HEAD (the run refuses any other SHA):
    ```bash
-   gh workflow run cloud-deployment.yml --ref <branch>
+   gh workflow run cloud-deployment.yml --ref <branch> -f sha=$(git rev-parse HEAD)
    gh run watch
    ```
-   Or from the GitHub UI: **Actions → cloud-deployment → Run workflow**.
-4. Expect ~15–20 minutes — it rebuilds and pushes all 18 images from scratch every run (no layer
+   Or from the GitHub UI: **Actions → cloud-deployment → Run workflow**, pasting the full SHA.
+4. Expect the gate (all five student workflows plus the security scan, in parallel) and then
+   ~15–20 minutes of deploy — it rebuilds and pushes all 18 images from scratch every run (no layer
    cache across runs today; see "Possible improvements" below).
 5. When it finishes, download the evidence:
    ```bash
@@ -61,10 +62,24 @@ This is the day-to-day loop once the one-time setup above is done:
 
 ### What the workflow actually does
 
-| Step | Purpose |
+```
+preflight ─┬─ security-scans ─────────┐
+           ├─ student-1 (reusable) ───┤
+           ├─ student-2 (reusable) ───┤
+           ├─ student-3 (reusable) ───┼─> gate (always; 7/7 success) ─> deploy
+           ├─ student-4 (reusable) ───┤
+           └─ student-5 (reusable) ───┘
+```
+
+| Job / step | Purpose |
 |---|---|
-| Configure AWS credentials (OIDC) | Assumes `voyageai-github-actions` via `aws-actions/configure-aws-credentials@v4` — no stored keys |
-| Build and push all 18 service images | Reads `scripts/deploy/aws/services.yml`'s `dockerfile` + `context` per service, tags with the commit SHA, pushes to ECR |
+| `preflight` | Checks the `sha` input is a full SHA equal to the dispatched branch HEAD and the checked-out commit; validates the root Compose config; runs `scripts/deploy/aws/tests` |
+| `security-scans` | `pre-commit run --all-files` with `.pre-commit-config.yaml` (artifact `cloud-deployment-pre-commit-scan`). Additional CI security validation — **not** proof that any developer ran their local hook |
+| `student-1` … `student-5` | Each student's own workflow, called with `workflow_call` on the same SHA (endpoint suites, builds, Compose checks) |
+| `gate` | Always runs; fails unless all seven jobs above concluded `success` (failed, skipped, cancelled or missing all block) |
+| `deploy` → Build all 18 service images | Runs only after `gate` succeeds. Reads `scripts/deploy/aws/services.yml`'s `dockerfile` + `context` per service and builds locally, before any AWS access |
+| Configure AWS credentials (OIDC) | Assumes `voyageai-github-actions` via `aws-actions/configure-aws-credentials@v4` — no stored keys; only `deploy` has `id-token: write` |
+| Tag and push all 18 service images | Tags the images built above with the ECR URI and commit SHA, pushes to ECR |
 | Register updated task definitions | `scripts/deploy/aws/taskdefs.py` — one new revision per service, referencing the just-pushed image |
 | Roll out the new revisions | `aws ecs update-service --force-new-deployment` for all 18 services, then waits for `services-stable` |
 | Validate deployment and generate evidence | `scripts/deploy/aws/smoke-test.sh` — frontend/CRUD/AI-disabled checks against the live ALB |
@@ -80,6 +95,40 @@ This is the day-to-day loop once the one-time setup above is done:
   (`alb.py`, `services.py`) by hand first.
 - Doesn't tear anything down. There is currently no automated cleanup script — teardown is the
   manual CLI sequence in `aws-setup-guide.md`'s final section.
+
+## Capturing post-commit CI evidence for the final commit
+
+The assessed evidence is the five **standalone** `student-N.yml` push runs on the final commit. A
+successful cloud-deployment run separately proves the deployed SHA was validated, but its nested
+runs are not a substitute for those five links. Do not commit evidence afterwards — that changes the
+SHA. Keep it outside the repo.
+
+```bash
+SHA=$(git rev-parse HEAD); git fetch origin; test "$SHA" = "$(git rev-parse origin/main)" && echo "$SHA"
+for n in 1 2 3 4 5; do
+  gh run list --workflow student-$n.yml --commit "$SHA" --event push \
+    --json databaseId,url,headSha,status,conclusion --limit 3
+done
+# then, per student N with run id ID:
+gh run watch ID --exit-status
+D=~/voyage-evidence/$SHA/student-N; mkdir -p "$D"
+gh run view ID --json url,headSha,headBranch,event,conclusion,jobs > "$D/run.json"
+gh run view ID --log > "$D/run.log"
+gh run download ID --dir "$D/artifacts"
+jq -e --arg s "$SHA" '.headSha==$s and .event=="push" and .conclusion=="success"' "$D/run.json"
+grep -c '| PASS |' "$D"/artifacts/*/endpoint-tests.md   # expect 2
+```
+
+| Workflow | Artifacts |
+|---|---|
+| student-1 | `student-1-offline-test-results`, `student-1-live-test-results`, `student-1-report` |
+| student-2 | `student-2-junit-unit-tests`, `student-2-junit-endpoint-tests` |
+| student-3 | `student-3-pre-commit-scan`, `student-3-offline-test-results`, `student-3-live-test-results`, `student-3-report` |
+| student-4 | `student-4-junit-unit-tests`, `student-4-junit-endpoint-tests` |
+| student-5 | `student-5-endpoint-tests`, `student-5-report` |
+
+Record per student: run URL, full `headSha`, conclusion and artifact names. A flaky failure can be
+re-run with `gh run rerun ID --failed` (same SHA, same push event).
 
 ## Re-running the smoke test without a full redeploy
 

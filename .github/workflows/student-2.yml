@@ -3,11 +3,13 @@ name: student-2
 # Accommodation (Student 2): lint + security, unit tests, image build, live endpoint tests, and a
 # check that every AI path (MCP, RAG, Multi-Agent, AI-Mode) is disabled under docker-compose.ci.yml.
 #
-# Runs on EVERY push to main (no path filter) so the cloud-deployment gate always finds a
-# student-2 run for the commit it deploys. GitHub allows a single push filter, so Accommodation's
-# own student-2/** branches run unfiltered too; pull requests keep the Accommodation path filter.
+# Runs on EVERY push to main (no path filter) so every final commit gets its own student-2 run as
+# post-commit evidence. GitHub allows a single push filter, so Accommodation's own student-2/**
+# branches run unfiltered too; pull requests keep the Accommodation path filter. workflow_call lets
+# cloud-deployment.yml re-run this whole workflow on the SHA it is about to deploy.
 on:
   workflow_dispatch:
+  workflow_call:
   push:
     branches: [main, "student-2/**"]
   pull_request:
@@ -18,7 +20,7 @@ on:
       - ".github/workflows/student-2.yml"
 
 concurrency:
-  group: student-2-${{ github.ref }}
+  group: student-2-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -107,11 +109,46 @@ jobs:
         run: |
           pip install -r accommodation-service/tests/requirements.txt
           cd accommodation-service && python -m pytest -m live --junitxml=junit-endpoint-tests.xml -v
+      # Reads the JUnit from the step above (no second run) and fails unless both endpoint
+      # functions have a passing test - the live fixture skips when the stack is unreachable,
+      # and an all-skipped run would otherwise pass.
+      - name: Record the two endpoint-function tests from the live JUnit
+        if: always()
+        working-directory: accommodation-service
+        run: |
+          python - <<'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+
+          REQUIRED = {
+              "test_post_valid_accommodation_is_201_and_reads_back":
+                  "POST /accommodations -> create_accommodation (201, read back from the database)",
+              "test_get_list_includes_created_record":
+                  "GET /accommodations -> list_accommodations (lists the created record)",
+          }
+          status = {}
+          try:
+              for case in ET.parse("junit-endpoint-tests.xml").getroot().iter("testcase"):  # noqa: S314 - our own JUnit
+                  if case.get("classname") == "tests.test_endpoints" and case.get("name") in REQUIRED:
+                      bad = any(case.find(tag) is not None for tag in ("failure", "error", "skipped"))
+                      status[case.get("name")] = "FAIL" if bad else "PASS"
+          except (OSError, ET.ParseError) as exc:
+              print(f"live JUnit unreadable: {exc}")
+          lines = ["## Post-commit endpoint tests (student-2 backend, live stack)", "",
+                   "| Test | Endpoint function | Result |", "|---|---|---|"]
+          lines += [f"| `tests/test_endpoints.py::{name}` | {what} | {status.get(name, 'MISSING')} |"
+                    for name, what in REQUIRED.items()]
+          open("endpoint-tests.md", "w").write("\n".join(lines) + "\n")
+          print("\n".join(lines))
+          sys.exit(0 if all(status.get(n) == "PASS" for n in REQUIRED) else 1)
+          PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: junit-endpoint-tests
-          path: accommodation-service/junit-endpoint-tests.xml
+          name: student-2-junit-endpoint-tests
+          path: |
+            accommodation-service/junit-endpoint-tests.xml
+            accommodation-service/endpoint-tests.md
       - name: Container logs on failure
         if: failure()
         working-directory: accommodation-service
