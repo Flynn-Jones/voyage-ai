@@ -98,7 +98,7 @@ def start_shared_servers(python, log_dir):
 
 
 def seed_activity_db():
-    """Activity's documented, idempotent demo seed (a fresh volume is empty by design)."""
+    """Activity's documented, idempotent demo seed (also applied automatically to an empty database on startup)."""
     cmd = ["docker", "compose", "-f", str(REPO_ROOT / "docker-compose.yml"), "exec", "-T", "activity-database",
            "python", "seed_mock_data.py"]
     out = subprocess.run(cmd, cwd=REPO_ROOT, capture_output=True, text=True)

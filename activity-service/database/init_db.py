@@ -38,3 +38,13 @@ def init_schema(conn=None):
     conn.commit()
     if close_after:
         conn.close()
+
+
+def ensure_schema(conn):
+    """Create the tables on `conn` without committing. init_schema's
+    executescript() commits any pending transaction first; this runs each
+    statement through execute(), so it is safe inside a caller's open
+    transaction (the caller still decides whether to commit or roll back)."""
+    for statement in SCHEMA.split(";"):
+        if statement.strip():
+            conn.execute(statement)

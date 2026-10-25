@@ -1,6 +1,9 @@
 """Seed the activities table with 15 unique mock activities, plus scheduled
-times for most of them, for demos and manual testing. Not run on startup — a
-fresh database stays empty (the database-service tests rely on that).
+times for most of them, for demos and manual testing. Seeded automatically on
+startup (app.create_app -> seed_if_empty) only when the activities table is
+empty, so a fresh database gets the demonstration records while a populated
+one is never touched. Note: a database whose activities were deliberately all
+deleted is therefore reseeded on the next restart.
 Idempotent: an activity whose name is already present, or an assignment
 already scheduled for that activity at that time, is skipped, so re-running
 never creates duplicates.
@@ -8,7 +11,7 @@ never creates duplicates.
 Run inside the container:  docker exec <db-container> python seed_mock_data.py
 Run locally:               python seed_mock_data.py
 """
-from init_db import get_connection, init_schema
+from init_db import ensure_schema, get_connection, init_schema
 
 # (activity_name, activity_type, activity_cost, duration). Durations use the
 # free-text forms ai_client._parse_duration_hours understands.
@@ -51,26 +54,19 @@ MOCK_ASSIGNMENTS = [
 ]
 
 
-def seed(conn=None):
-    """Insert any MOCK_ACTIVITIES not already present (matched by name), then
-    any MOCK_ASSIGNMENTS not already present (matched by activity + time).
-    Returns (activities_inserted, assignments_inserted)."""
-    close_after = conn is None
-    conn = conn or get_connection()
-    init_schema(conn)
-
-    existing = {row["activity_name"] for row in conn.execute("SELECT activity_name FROM activities")}
+def _insert_missing(conn):
+    """Insert any MOCK_ACTIVITIES / MOCK_ASSIGNMENTS not already present on
+    `conn`. Never commits or closes; rows are read by position so any
+    row_factory works. Returns (activities_inserted, assignments_inserted)."""
+    existing = {row[0] for row in conn.execute("SELECT activity_name FROM activities")}
     new_activities = [a for a in MOCK_ACTIVITIES if a[0] not in existing]
     conn.executemany(
         "INSERT INTO activities (activity_name, activity_type, activity_cost, duration) VALUES (?, ?, ?, ?)",
         new_activities,
     )
 
-    ids = {row["activity_name"]: row["activity_id"] for row in conn.execute("SELECT activity_id, activity_name FROM activities")}
-    scheduled = {
-        (row["activity_id"], row["assignment_time"])
-        for row in conn.execute("SELECT activity_id, assignment_time FROM activities_assignment")
-    }
+    ids = {name: activity_id for activity_id, name in conn.execute("SELECT activity_id, activity_name FROM activities")}
+    scheduled = {tuple(row) for row in conn.execute("SELECT activity_id, assignment_time FROM activities_assignment")}
     new_assignments = [
         (ids[name], time) for name, time in MOCK_ASSIGNMENTS if (ids[name], time) not in scheduled
     ]
@@ -78,11 +74,45 @@ def seed(conn=None):
         "INSERT INTO activities_assignment (activity_id, assignment_time) VALUES (?, ?)",
         new_assignments,
     )
+    return len(new_activities), len(new_assignments)
 
+
+def seed(conn=None):
+    """Insert any MOCK_ACTIVITIES not already present (matched by name), then
+    any MOCK_ASSIGNMENTS not already present (matched by activity + time), and
+    commit. Returns (activities_inserted, assignments_inserted)."""
+    close_after = conn is None
+    conn = conn or get_connection()
+    init_schema(conn)
+    counts = _insert_missing(conn)
     conn.commit()
     if close_after:
         conn.close()
-    return len(new_activities), len(new_assignments)
+    return counts
+
+
+def seed_if_empty(conn=None):
+    """Seed only when the activities table has no rows; a populated database
+    is left untouched. Returns (activities_inserted, assignments_inserted), or
+    (0, 0) when nothing was seeded.
+
+    With a caller-supplied `conn` this neither commits nor closes it: any
+    schema/demo rows join the caller's open transaction, so the caller decides
+    whether to commit or roll back. Without one, it opens its own connection,
+    commits and closes it."""
+    close_after = conn is None
+    conn = conn or get_connection()
+    try:
+        ensure_schema(conn)
+        if conn.execute("SELECT 1 FROM activities LIMIT 1").fetchone() is not None:
+            return 0, 0
+        counts = _insert_missing(conn)
+        if close_after:
+            conn.commit()
+        return counts
+    finally:
+        if close_after:
+            conn.close()
 
 
 if __name__ == "__main__":
