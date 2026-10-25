@@ -1,5 +1,6 @@
 """Release 2 review modes: multi-agent-review, testing-review, cloud-deployment-review."""
 import json
+from pathlib import Path
 
 import pytest
 
@@ -141,23 +142,50 @@ def write(path, text):
     path.write_text(text, encoding="utf-8")
 
 
-JUNIT_OK = """<testsuites><testsuite name="s"><testcase name="test_get_items"/>
-<testcase name="test_post_item"/></testsuite></testsuites>"""
-JUNIT_FAIL = """<testsuite><testcase name="test_a"/><testcase name="test_b"><failure>x</failure></testcase></testsuite>"""
+REQUIRED = testing_collector.REQUIRED_ENDPOINT_TESTS
+UNRELATED = ("test_health", "test_other_a", "test_other_b")
+
+
+def junit_xml(classname, passed=(), failed=(), skipped=()):
+    cases = [f'<testcase classname="{classname}" name="{n}"/>' for n in passed]
+    cases += [f'<testcase classname="{classname}" name="{n}"><failure>boom</failure></testcase>' for n in failed]
+    cases += [f'<testcase classname="{classname}" name="{n}"><skipped/></testcase>' for n in skipped]
+    return f'<testsuites><testsuite name="s">{"".join(cases)}</testsuite></testsuites>'
+
+
+def write_sources(root, skip=(), omit=None):
+    """Synthetic endpoint test source for each student: `def <name>():` for every required test."""
+    for student, (source, _module, names) in REQUIRED.items():
+        if student not in skip:
+            defs = [n for n in names if n != (omit or {}).get(student)]
+            write(root / source, "".join(f"def {n}():\n    pass\n\n" for n in defs))
+
+
+def required_junit(student, **kw):
+    _source, module, names = REQUIRED[student]
+    return junit_xml(f"tests.{module}", passed=kw.pop("passed", names), **kw)
+
+
+def endpoint_checks(result, student):
+    return {c.id: c for c in result.checks
+            if c.subject == student and c.id in ("endpoint_tests", "endpoint_test_source", "endpoint_test_evidence")}
 
 
 def test_testing_review_reports_per_student(tmp_path):
     base = tmp_path / "docs" / "release-2"
+    write_sources(tmp_path)
     write(base / "student-1" / "pre-commit-security-report.md", "# report\n- Result: PASS\n")
     write(base / "student-1" / "post-commit-cicd-report.md", "Result: PASS")
-    write(base / "student-1" / "junit" / "results.xml", JUNIT_OK)
+    write(base / "student-1" / "junit" / "results.xml", required_junit("student-1", passed=(*REQUIRED["student-1"][2], *UNRELATED)))
 
     write(base / "student-2" / "pre-commit-security-report.md", "Result: PASS (claimed)")
     write(base / "student-2" / "pre-commit-20261020T000000Z.txt", "ruff.....Failed\nexit status: 1 (FAIL)\n")
-    write(base / "student-2" / "post-commit-cicd-report.md", "ran test_create_budget and test_list_budget")
+    write(base / "student-2" / "post-commit-cicd-report.md",
+          "ran test_post_valid_accommodation_is_201_and_reads_back and test_get_list_includes_created_record")
 
     write(base / "student-3" / "post-commit-cicd-report.md", "Result: FAIL")
-    write(base / "student-3" / "results.xml", JUNIT_FAIL)
+    write(base / "student-3" / "results.xml",
+          required_junit("student-3", passed=REQUIRED["student-3"][2][:1], failed=REQUIRED["student-3"][2][1:]))
     write(base / "student-4" / "results.xml", "<not-xml")
 
     result = testing_collector.review(tmp_path)
@@ -165,64 +193,280 @@ def test_testing_review_reports_per_student(tmp_path):
     assert by[("student-1", "precommit_scans")].status == "pass"
     assert by[("student-1", "endpoint_tests")].status == "pass"
     assert by[("student-2", "precommit_scans")].status == "fail"  # raw scan output beats the claim
-    assert by[("student-2", "endpoint_tests")].status == "warn"   # report text, no JUnit
+    gap = by[("student-2", "endpoint_test_evidence")]            # report text is not execution evidence
+    assert gap.status == "gap" and "not execution evidence" in gap.detail
     assert by[("student-3", "cicd_report")].status == "fail"
     assert by[("student-3", "endpoint_tests")].status == "fail"
     assert by[("student-4", "junit_parse")].status == "warn"      # malformed XML never crashes
+    assert by[("student-4", "endpoint_test_evidence")].status == "gap"
     assert by[("student-5", "precommit_report")].status == "gap"
     assert result.verdict == "FAIL"
-    assert result.metrics["students"]["student-1"]["passing_tests"] == 2
+    assert result.metrics["students"]["student-1"]["required_tests"] == {n: "passed" for n in REQUIRED["student-1"][2]}
     assert any(r.startswith("student-5:") for r in result.recommendations)
 
 
-def test_testing_review_empty_repo_is_incomplete(tmp_path):
+def test_unrelated_passing_tests_are_not_required_test_evidence(tmp_path):
+    write_sources(tmp_path)
+    base = tmp_path / "docs" / "release-2" / "student-1"
+    write(base / "results.xml", junit_xml("tests.test_destinations_api", passed=UNRELATED))
+    write(base / "other.xml", junit_xml("tests.test_other", passed=REQUIRED["student-1"][2]))  # wrong module
+
     result = testing_collector.review(tmp_path)
-    assert result.verdict == "INCOMPLETE"
-    assert len([c for c in result.checks if c.status == "gap"]) == 15  # 3 per student
+    checks = endpoint_checks(result, "student-1")
+    assert set(checks) == {"endpoint_test_evidence"} and checks["endpoint_test_evidence"].status == "gap"
+    assert checks["endpoint_test_evidence"].evidence["tests"] == list(REQUIRED["student-1"][2])
+
+
+def test_testing_review_distinguishes_missing_implementation_from_failed_and_unrun(tmp_path):
+    omit = {"student-5": REQUIRED["student-5"][2][1]}
+    write_sources(tmp_path, omit=omit)
+    base = tmp_path / "docs" / "release-2"
+    write(base / "student-4" / "r.xml", required_junit("student-4", passed=REQUIRED["student-4"][2][:1],
+                                                        failed=REQUIRED["student-4"][2][1:]))
+    write(base / "student-3" / "r.xml", required_junit("student-3", passed=REQUIRED["student-3"][2][:1]))
+    write(base / "student-5" / "r.xml", required_junit("student-5", passed=REQUIRED["student-5"][2][:1]))
+
+    result = testing_collector.review(tmp_path)
+    assert endpoint_checks(result, "student-4")["endpoint_tests"].status == "fail"            # ran and failed
+    assert endpoint_checks(result, "student-5")["endpoint_test_source"].status == "fail"      # not implemented
+    assert endpoint_checks(result, "student-3")["endpoint_test_evidence"].status == "gap"     # implemented, not run
+    states = result.metrics["students"]
+    assert states["student-4"]["required_tests"][REQUIRED["student-4"][2][1]] == "failed"
+    assert states["student-5"]["required_tests"][omit["student-5"]] == "not_implemented"
+    assert states["student-3"]["required_tests"][REQUIRED["student-3"][2][1]] == "no_evidence"
+
+
+def test_passing_junit_for_a_test_removed_from_source_is_not_a_pass(tmp_path):
+    removed = REQUIRED["student-1"][2][1]
+    write_sources(tmp_path, omit={"student-1": removed})
+    write(tmp_path / "docs" / "release-2" / "student-1" / "stale.xml", required_junit("student-1"))  # both "passed"
+
+    result = testing_collector.review(tmp_path)
+    checks = endpoint_checks(result, "student-1")
+    assert set(checks) == {"endpoint_test_source"} and checks["endpoint_test_source"].status == "fail"
+    assert checks["endpoint_test_source"].evidence["tests"] == [removed]
+    assert "stale" in checks["endpoint_test_source"].detail
+    assert result.metrics["students"]["student-1"]["required_tests"] == {
+        REQUIRED["student-1"][2][0]: "passed", removed: "not_implemented"}
+    assert result.verdict == "FAIL"
+
+
+def test_failed_junit_for_a_test_removed_from_source_is_not_implemented_not_failed(tmp_path):
+    removed = REQUIRED["student-4"][2][0]
+    write_sources(tmp_path, omit={"student-4": removed})
+    write(tmp_path / "docs" / "release-2" / "student-4" / "stale.xml",
+          required_junit("student-4", passed=REQUIRED["student-4"][2][1:], failed=(removed,)))
+    checks = endpoint_checks(testing_collector.review(tmp_path), "student-4")
+    assert set(checks) == {"endpoint_test_source"}
+
+
+def test_testing_review_matches_parametrized_cases_and_skips(tmp_path):
+    write_sources(tmp_path)
+    base = tmp_path / "docs" / "release-2"
+    first, second = REQUIRED["student-5"][2]
+    cases = "".join(f'<testcase classname="test_endpoints" name="{first}[{i}]"/>' for i in range(3))
+    write(base / "student-5" / "r.xml", f"<testsuite>{cases}"
+          f'<testcase classname="test_endpoints" name="{second}[a]"/>'
+          f'<testcase classname="test_endpoints" name="{second}[b]"><skipped/></testcase></testsuite>')
+    result = testing_collector.review(tmp_path)
+    assert result.metrics["students"]["student-5"]["required_tests"] == {first: "passed", second: "skipped"}
+    assert endpoint_checks(result, "student-5")["endpoint_test_evidence"].status == "gap"
+
+    write(base / "student-5" / "r.xml", f"<testsuite>{cases}"
+          f'<testcase classname="test_endpoints" name="{second}[a]"/>'
+          f'<testcase classname="test_endpoints" name="{second}[b]"><error>x</error></testcase></testsuite>')
+    result = testing_collector.review(tmp_path)
+    assert endpoint_checks(result, "student-5")["endpoint_tests"].status == "fail"
+
+
+def test_testing_review_evidence_gap_asks_for_junit_not_new_tests(tmp_path):
+    write_sources(tmp_path)
+    result = testing_collector.review(tmp_path)
+    recs = [r for r in result.recommendations if r.startswith("student-1:")]
+    assert recs and "JUnit XML" in recs[0] and "test_seed_count" in recs[0]
+    assert not any(word in r.lower() for r in result.recommendations for word in ("implement", "add "))  # sources exist
+
+
+def test_required_endpoint_tests_match_the_student_workflows():
+    workflows = Path(__file__).resolve().parents[3] / ".github" / "workflows"
+    for student, (_source, _module, names) in REQUIRED.items():
+        text = (workflows / f"{student}.yml").read_text(encoding="utf-8")
+        assert all(f'"{name}"' in text for name in names), student
+
+
+def test_testing_review_empty_repo_is_not_implemented_and_missing_reports(tmp_path):
+    result = testing_collector.review(tmp_path)
+    assert result.verdict == "FAIL"  # required endpoint tests absent from source
+    assert len([c for c in result.checks if c.status == "gap"]) == 10  # precommit + cicd report per student
+    assert len([c for c in result.checks if c.id == "endpoint_test_source" and c.status == "fail"]) == 5
 
 
 # ------------------------------------------------------ cloud-deployment-review
 
 SMOKE_OK = "\n".join(
     [f"PASS frontend:{n} 200" for n in ("home", "destination", "accommodation", "activity", "budget", "itinerary")]
-    + [f"PASS crud:{n} create/read/update/delete" for n in ("destination", "accommodation", "activity", "budget", "itinerary")]
+    + [f"PASS read:{n} seeded read" for n in ("destination", "accommodation", "activity", "budget", "itinerary")]
     + [f"PASS ai-disabled:{n} disabled" for n in ("destination", "accommodation", "activity", "budget", "itinerary")]
 )
 SERVICES_OK = "\n".join(
     f'  {flag}: "false"'  # plain YAML mapping, matching the real services.yml - not CFN Name/Value
     for flag in ("MCP_ENABLED", "RAG_ENABLED", "MULTI_AGENT_ENABLED", "AI_ENABLED"))
+SMOKE_STAMP = "20261020T000000Z"
+ALB = "http://alb.example"
+FEATURES = tuple(f"{n}-service" for n in ("destination", "accommodation", "activity", "budget", "itinerary"))
 
 
-def cloud_repo(tmp_path, smoke=SMOKE_OK, services=SERVICES_OK):
+def lifecycle_evidence(**overrides):
+    """A complete, valid lifecycle evidence document for the ALB/smoke run cloud_repo() builds."""
+    doc = {"format": "voyageai-crud-lifecycle/1", "verified_at": "2026-10-20T01:00:00Z", "verified_by": "tester",
+           "alb_url": ALB,
+           "features": {f: {"tag": f"r2-crud-{f}", "create": "PASS", "read": "PASS", "update": "PASS",
+                            "delete": "PASS", "notes": ""} for f in FEATURES}}
+    doc.update(overrides)
+    return doc
+
+
+def write_run(tmp_path, run_id, alb, stack=True):
+    """One smoke run's files, named as smoke-test.sh does: both carry the same run id."""
+    cloud = tmp_path / "docs" / "release-2" / "cloud"
+    write(cloud / f"smoke-test-output-{run_id}.txt", "header line\n" + SMOKE_OK)
+    if stack:
+        write(cloud / f"stack-outputs-{run_id}.json", json.dumps({"alb_url": alb, "generated": run_id}))
+
+
+def cloud_repo(tmp_path, smoke=SMOKE_OK, services=SERVICES_OK, lifecycle="default"):
     cloud = tmp_path / "docs" / "release-2" / "cloud"
     write(cloud / "cloud-deployment-report.md", "# report")
-    write(cloud / "smoke-test-output-20261020T000000Z.txt", "header line\n" + smoke)
-    write(cloud / "stack-outputs.json", json.dumps([{"OutputKey": "AlbUrl", "OutputValue": "http://alb.example"}]))
+    write(cloud / f"smoke-test-output-{SMOKE_STAMP}.txt", "header line\n" + smoke)
+    write(cloud / f"stack-outputs-{SMOKE_STAMP}.json", json.dumps([{"OutputKey": "AlbUrl", "OutputValue": ALB}]))
     write(tmp_path / "scripts" / "deploy" / "aws" / "services.yml", services)
+    if lifecycle is not None:
+        doc = lifecycle_evidence() if lifecycle == "default" else lifecycle
+        write(cloud / "crud-lifecycle-evidence-20261020T010000Z.json", json.dumps(doc))
     return tmp_path
+
+
+def lifecycle_checks(result):
+    return [c for c in result.checks if c.id == "crud_lifecycle"]
 
 
 def test_cloud_review_passes_with_full_evidence(tmp_path):
     result = cloud_collector.review(cloud_repo(tmp_path))
     assert result.verdict == "PASS", result.evidence_text()
-    assert result.metrics["alb_url"] == "http://alb.example"
-    assert result.metrics["smoke"] == {"frontend": 6, "crud": 5, "ai-disabled": 5}
+    assert result.metrics["alb_url"] == ALB
+    assert result.metrics["smoke"] == {"frontend": 6, "read": 5, "ai-disabled": 5}
+    assert result.metrics["crud_lifecycle"] == {f: "pass" for f in FEATURES}
 
 
-def test_cloud_review_fails_on_crud_and_enabled_ai(tmp_path):
-    smoke = SMOKE_OK.replace("PASS crud:budget", "FAIL crud:budget")
+def test_cloud_review_fails_on_read_and_enabled_ai(tmp_path):
+    smoke = SMOKE_OK.replace("PASS read:budget", "FAIL read:budget")
     services = SERVICES_OK.replace('RAG_ENABLED: "false"', 'RAG_ENABLED: "true"')
     result = cloud_collector.review(cloud_repo(tmp_path, smoke, services))
     failing = {(c.id, c.subject) for c in result.checks if c.status == "fail"}
-    assert ("crud", "smoke") in failing and ("ai_flags", "RAG_ENABLED") in failing
+    assert ("read", "smoke") in failing and ("ai_flags", "RAG_ENABLED") in failing
     assert result.verdict == "FAIL"
 
 
 def test_cloud_review_missing_evidence_is_gaps(tmp_path):
     result = cloud_collector.review(tmp_path)
     assert {c.id for c in result.checks if c.status == "gap"} == {
-        "deployment_report", "smoke_output", "alb_url", "ai_flags"}
+        "deployment_report", "smoke_output", "alb_url", "ai_flags", "crud_lifecycle"}
     assert result.verdict == "INCOMPLETE"
+
+
+def test_cloud_review_reads_alone_are_not_crud_proof(tmp_path):
+    result = cloud_collector.review(cloud_repo(tmp_path, lifecycle=None))
+    assert [c.status for c in result.checks if c.id == "read"] == ["pass"]
+    assert [c.status for c in lifecycle_checks(result)] == ["gap"]
+    assert result.verdict == "INCOMPLETE"  # a gap, not an application failure
+    assert not any(c.status == "fail" for c in result.checks)
+    assert any("crud-lifecycle-evidence" in r for r in result.recommendations)
+
+
+def test_cloud_review_legacy_crud_lines_count_as_reads_only(tmp_path):
+    legacy = SMOKE_OK.replace("PASS read:", "PASS crud:")
+    result = cloud_collector.review(cloud_repo(tmp_path, legacy, lifecycle=None))
+    assert result.metrics["smoke"] == {"frontend": 6, "read": 5, "ai-disabled": 5}
+    assert [c.status for c in lifecycle_checks(result)] == ["gap"]
+    assert result.verdict == "INCOMPLETE"
+    assert "legacy crud: label, read-only check" in cloud_collector.parse_smoke(legacy)["read"][0][2]
+
+
+def test_cloud_review_lifecycle_needs_every_step_tag_and_feature(tmp_path):
+    doc = lifecycle_evidence()
+    feats = doc["features"]
+    del feats["destination-service"]["update"]            # missing step
+    feats["accommodation-service"]["tag"] = ""            # untagged
+    feats["activity-service"]["delete"] = "FAIL"          # explicit failure
+    del feats["budget-service"]                           # feature absent
+    result = cloud_collector.review(cloud_repo(tmp_path, lifecycle=doc))
+    by = {c.subject: c.status for c in lifecycle_checks(result)}
+    assert by == {"destination-service": "gap", "accommodation-service": "gap", "activity-service": "fail",
+                  "budget-service": "gap", "itinerary-service": "pass"}
+    assert result.verdict == "FAIL"
+
+
+def test_cloud_review_lifecycle_for_a_different_alb_is_a_gap(tmp_path):
+    doc = lifecycle_evidence(alb_url="http://some-other-alb.example")
+    result = cloud_collector.review(cloud_repo(tmp_path, lifecycle=doc))
+    checks = lifecycle_checks(result)
+    assert [c.status for c in checks] == ["gap"] and "does not match" in checks[0].detail
+    assert result.metrics["crud_lifecycle"] == {f: "gap" for f in FEATURES}
+    assert result.verdict == "INCOMPLETE"
+
+
+def test_cloud_review_lifecycle_older_than_the_smoke_run_is_a_gap(tmp_path):
+    doc = lifecycle_evidence(verified_at="2026-10-19T23:59:59Z")  # before the 20261020T000000Z smoke run
+    result = cloud_collector.review(cloud_repo(tmp_path, lifecycle=doc))
+    checks = lifecycle_checks(result)
+    assert [c.status for c in checks] == ["gap"] and "older than the smoke run" in checks[0].detail
+    assert result.verdict == "INCOMPLETE"
+
+
+def test_cloud_review_pairs_stack_outputs_with_the_newest_smoke_run(tmp_path):
+    cloud_repo(tmp_path)  # run 20261020T000000Z -> http://alb.example, matching the lifecycle evidence
+    write_run(tmp_path, "20261019T000000Z", "http://old-alb.example")  # older run sorts first
+    result = cloud_collector.review(tmp_path)
+    assert result.metrics["alb_url"] == ALB
+    assert result.verdict == "PASS", result.evidence_text()
+    assert not any("old-alb" in s for s in result.sources)  # the unselected run's stack outputs are not consulted
+
+
+def test_cloud_review_lifecycle_for_an_older_runs_alb_is_a_gap(tmp_path):
+    cloud_repo(tmp_path)  # lifecycle evidence is bound to http://alb.example (run 20261020...)
+    write_run(tmp_path, "20261021T000000Z", "http://new-alb.example")  # newer reviewed deployment
+    result = cloud_collector.review(tmp_path)
+    assert result.metrics["alb_url"] == "http://new-alb.example"
+    checks = lifecycle_checks(result)
+    assert [c.status for c in checks] == ["gap"] and "does not match" in checks[0].detail
+    assert result.verdict == "INCOMPLETE"
+
+
+def test_cloud_review_newest_smoke_run_without_its_stack_outputs_is_a_gap(tmp_path):
+    cloud_repo(tmp_path)
+    write_run(tmp_path, "20261021T000000Z", "", stack=False)  # newest run: no paired stack-outputs file
+    result = cloud_collector.review(tmp_path)
+    alb_checks = [c for c in result.checks if c.id == "alb_url"]
+    assert [c.status for c in alb_checks] == ["gap"] and "stack-outputs-20261021T000000Z.json" in alb_checks[0].detail
+    assert result.metrics["alb_url"] is None  # never falls back to an older run's ALB
+    assert [c.status for c in lifecycle_checks(result)] == ["gap"]
+    assert result.verdict == "INCOMPLETE"
+
+
+def test_cloud_review_pairs_rerun_suffixes(tmp_path):
+    cloud_repo(tmp_path)
+    write_run(tmp_path, f"{SMOKE_STAMP}_01", "http://rerun-alb.example")  # same-second rerun sorts last
+    assert cloud_collector.review(tmp_path).metrics["alb_url"] == "http://rerun-alb.example"
+
+
+@pytest.mark.parametrize("overrides", [
+    {"alb_url": ""}, {"verified_at": "yesterday"}, {"verified_at": "2026-10-20T01:00:00"},  # no offset
+    {"format": "other/1"},
+])
+def test_cloud_review_unbound_lifecycle_evidence_is_a_gap(tmp_path, overrides):
+    result = cloud_collector.review(cloud_repo(tmp_path, lifecycle=lifecycle_evidence(**overrides)))
+    assert [c.status for c in lifecycle_checks(result)] == ["gap"]
+    assert "not bound to the reviewed deployment" in lifecycle_checks(result)[0].detail
 
 
 # ------------------------------------------------------------- reports + CLI
@@ -259,12 +503,12 @@ def reports(root):
 
 def test_cli_testing_review_writes_reports_and_llm_runs_on_fail(cli_repo, capsys):
     root, calls = cli_repo
-    assert app_main.main(["--mode", "testing-review"]) == 1  # all gaps -> INCOMPLETE -> exit 1
+    assert app_main.main(["--mode", "testing-review"]) == 1  # no sources or reports -> FAIL -> exit 1
     names = reports(root)
     assert len(names) == 2 and names[0].startswith("testing-review-")
     assert calls == [False, True]  # recommendations even when not passing
     text = (root / "docs" / "release-2" / "agentic-loop" / names[0]).read_text(encoding="utf-8")
-    assert "Implementation recommendations" in text and "VERDICT INCOMPLETE" in capsys.readouterr().out
+    assert "Implementation recommendations" in text and "VERDICT FAIL" in capsys.readouterr().out
 
 
 def test_cli_cloud_review_decision_handling(cli_repo, monkeypatch, capsys):

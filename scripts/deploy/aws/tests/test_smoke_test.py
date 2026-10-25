@@ -148,7 +148,7 @@ def test_large_response_body_does_not_false_fail(tmp_path):
     proc, cloud_dir, scratch = run_smoke(tmp_path, **{"3003/": big})
 
     assert proc.returncode == 0, proc.stdout + proc.stderr
-    assert "PASS crud:activity-service" in evidence(cloud_dir, scratch)[0]
+    assert "PASS read:activity-service" in evidence(cloud_dir, scratch)[0]
 
 
 def test_required_failure_exits_nonzero_and_keeps_evidence(tmp_path):
@@ -156,7 +156,7 @@ def test_required_failure_exits_nonzero_and_keeps_evidence(tmp_path):
 
     assert proc.returncode != 0
     smoke, _, report = evidence(cloud_dir, scratch)
-    assert "FAIL crud:activity-service http_200 body_mismatch" in smoke
+    assert "FAIL read:activity-service http_200 body_mismatch" in smoke
     assert "Partial (1 check(s) failing)" in report
 
 
@@ -244,7 +244,7 @@ def test_alb_lookup_failure_fails_every_http_check_without_calling_curl(tmp_path
 
     assert proc.returncode != 0
     smoke, outputs, report = evidence(cloud_dir, scratch)
-    assert smoke.count("alb_unresolved") == 16  # 6 frontends + 5 crud + 5 ai-disabled
+    assert smoke.count("alb_unresolved") == 16  # 6 frontends + 5 read + 5 ai-disabled
     assert "PASS" not in smoke
     assert outputs["alb_url"] is None and "ALB URL: unresolved" in report
 

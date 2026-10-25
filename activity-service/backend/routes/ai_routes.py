@@ -18,6 +18,8 @@ logger = logging.getLogger(__name__)
 
 @ai_api.route("/api/activity/ai-chat", methods=["POST"])
 def ai_chat():
+    if not ai_client.ai_mode_is_enabled():
+        return jsonify({"error": "AI mode is disabled."}), 403
     data = request.get_json(silent=True)
     message = (data or {}).get("message", "")
     if not isinstance(message, str) or not message.strip():

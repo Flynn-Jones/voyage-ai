@@ -116,6 +116,8 @@ def delete_activity(activity_id):
 
 @activity_api.route("/api/activity/ai-summary", methods=["POST"])
 def activity_ai_summary():
+    if not ai_client.ai_mode_is_enabled():
+        return jsonify({"error": "AI mode is disabled."}), 403
     data = request.get_json(silent=True)
     if not data or not data.get("activity_id"):
         return jsonify({"error": "activity_id is required"}), 400

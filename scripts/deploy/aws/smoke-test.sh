@@ -169,40 +169,43 @@ for pair in shared:3000 destination:3001 accommodation:3002 activity:3003 budget
   fi
 done
 
-# ---- crud: one real read per backend, through its own frontend -----------
+# ---- read: one seeded GET per backend, through its own frontend ----------
+# These prove the seeded data can be READ. They are not CRUD evidence: a complete tagged
+# create/read/update/delete lifecycle is recorded separately in
+# docs/release-2/cloud/crud-lifecycle-evidence-<UTC>.json (see cloud_collector.py).
 # Destination: table rows render known seed countries
 if http_expect 200 "<td>(Japan|Australia|France)" -m 10 "http://$ALB_DNS:3001/"; then
-  check "PASS crud:destination-service destination table rows render seeded data"
+  check "PASS read:destination-service destination table rows render seeded data"
 else
-  check "FAIL crud:destination-service $WHY, no seeded destination rows found on /"
+  check "FAIL read:destination-service $WHY, no seeded destination rows found on /"
 fi
 
 # Accommodation: table rows render known seed destinations
 if http_expect 200 "<td>[A-Za-z]" -m 10 "http://$ALB_DNS:3002/"; then
-  check "PASS crud:accommodation-service accommodation table rows render seeded data"
+  check "PASS read:accommodation-service accommodation table rows render seeded data"
 else
-  check "FAIL crud:accommodation-service $WHY, no seeded accommodation rows found on /"
+  check "FAIL read:accommodation-service $WHY, no seeded accommodation rows found on /"
 fi
 
 # Activity: the Activities page (home) lists every activity in a table
 if http_expect 200 'id="activity-row-' -m 10 "http://$ALB_DNS:3003/"; then
-  check "PASS crud:activity-service activity list renders seeded data"
+  check "PASS read:activity-service activity list renders seeded data"
 else
-  check "FAIL crud:activity-service $WHY, activity-database returned no rows"
+  check "FAIL read:activity-service $WHY, activity-database returned no rows"
 fi
 
 # Budget: real expense table
 if http_expect 200 "data-expense-id" -m 10 "http://$ALB_DNS:3004/api/expenses"; then
-  check "PASS crud:budget-service expense table renders seeded data"
+  check "PASS read:budget-service expense table renders seeded data"
 else
-  check "FAIL crud:budget-service $WHY, no expense rows found on /api/expenses"
+  check "FAIL read:budget-service $WHY, no expense rows found on /api/expenses"
 fi
 
 # Itinerary: JSON read through nginx proxy
 if http_expect 200 "itinerary_item_id" -m 10 "http://$ALB_DNS:3005/api/itinerary"; then
-  check "PASS crud:itinerary-service itinerary read returns seeded rows"
+  check "PASS read:itinerary-service itinerary read returns seeded rows"
 else
-  check "FAIL crud:itinerary-service $WHY, no itinerary rows found on /api/itinerary"
+  check "FAIL read:itinerary-service $WHY, no itinerary rows found on /api/itinerary"
 fi
 
 # ---- ai-disabled: every backend's AI/MCP path reports disabled -----------

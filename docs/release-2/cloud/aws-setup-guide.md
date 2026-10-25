@@ -262,13 +262,13 @@ for port in 3000 3001 3002 3003 3004 3005; do
   fi
 done
 
-# One CRUD round-trip per backend, e.g. for budget (repeat per service, adjust path/payload):
-curl -s -X POST "http://$ALB_DNS:3004/api/expenses" -H 'Content-Type: application/json' \
-  -d '{"description":"smoke-test","amount":1,"category":"Other"}' -o /tmp/crud.json
-if grep -q '"id"' /tmp/crud.json; then
-  echo "PASS crud:budget-service created" >> "$OUT"
+# One seeded read per backend, e.g. for budget (repeat per service, adjust path/pattern).
+# This proves a READ only, not CRUD - the full lifecycle is recorded separately, see below.
+curl -s "http://$ALB_DNS:3004/api/expenses" -o /tmp/read.json
+if grep -q 'data-expense-id' /tmp/read.json; then
+  echo "PASS read:budget-service seeded expense rows returned" >> "$OUT"
 else
-  echo "FAIL crud:budget-service $(cat /tmp/crud.json)" >> "$OUT"
+  echo "FAIL read:budget-service no seeded expense rows" >> "$OUT"
 fi
 
 # AI routes must report disabled on every feature that has one, e.g.:
@@ -280,10 +280,25 @@ else
 fi
 ```
 
-Repeat the CRUD and AI-disabled checks for `shared`, `student-1`, `accommodation-service`,
+Repeat the read and AI-disabled checks for `shared`, `student-1`, `accommodation-service`,
 `activity-service`, `itinerary-service` against their own ALB ports/routes, appending to the same
 `$OUT` file. Keep every line to the exact contract
-`ai-services/agentic_loop/README.md` expects: `PASS|FAIL frontend:<name>|crud:<service>|ai-disabled:<service> <detail>`.
+`ai-services/agentic_loop/README.md` expects: `PASS|FAIL frontend:<name>|read:<service>|ai-disabled:<service> <detail>`.
+
+`read:` lines are not CRUD evidence. After live verification, the AWS teammate runs a complete tagged
+create, read, update and delete on each of the five features against this ALB and records it in
+`docs/release-2/cloud/crud-lifecycle-evidence-<UTC>.json` (format `voyageai-crud-lifecycle/1`, documented at the
+top of `ai-services/agentic_loop/collectors/cloud_collector.py`):
+
+```json
+{"format": "voyageai-crud-lifecycle/1", "verified_at": "<UTC ISO, e.g. 2026-10-26T01:23:45Z>",
+ "verified_by": "<name>", "alb_url": "http://<ALB DNS name>",
+ "features": {"destination-service": {"tag": "r2-crud-<UTC>", "create": "PASS", "read": "PASS",
+                                      "update": "PASS", "delete": "PASS", "notes": ""}}}
+```
+
+Include all five `-service` features. The review reports a GAP, never a pass, when this file is missing, its
+`alb_url` differs from the stack output, `verified_at` is older than the smoke run, or any step lacks an explicit PASS.
 
 ## 10. Record stack outputs
 
@@ -296,15 +311,20 @@ import json
 with open("/tmp/service-arns.json") as f:
     service_arns = json.load(f)
 out = {
-    "alb_dns_name": "$ALB_DNS",
+    "alb_url": "http://$ALB_DNS",
     "alb_arn": "$ALB_ARN",
     "cluster_arn": "arn:aws:ecs:$AWS_REGION:$AWS_ACCOUNT_ID:cluster/voyageai-cluster",
     "service_arns": service_arns,
+    "generated": "$TS",
 }
 with open("docs/release-2/cloud/stack-outputs-$TS.json", "w") as f:
     json.dump(out, f, indent=2)
 PY
 ```
+
+Use the same `$TS` as the smoke output in §9: the review pairs `stack-outputs-<TS>.json` with the
+`smoke-test-output-<TS>.txt` it selects (newest), and reads `alb_url` from it. (`smoke-test.sh` writes both
+files this way.)
 
 ## 11. Write the cloud deployment report
 

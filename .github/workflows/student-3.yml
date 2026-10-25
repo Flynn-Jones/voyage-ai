@@ -29,11 +29,12 @@ permissions:
   contents: read
 
 # The shared MCP/RAG/Multi-Agent servers run on a developer's host, not in CI, so the stack runs
-# with them switched off (as in the cloud). activity-service/docker-compose.yml reads these.
+# with them (and AI Mode) switched off, as in the cloud. activity-service/docker-compose.yml reads these.
 env:
   ACTIVITY_MCP_ENABLED: "false"
   ACTIVITY_RAG_ENABLED: "false"
   ACTIVITY_MULTI_AGENT_ENABLED: "false"
+  ACTIVITY_AI_ENABLED: "false"
 
 jobs:
   security-scans:
@@ -97,7 +98,7 @@ jobs:
         working-directory: activity-service
         run: |
           docker compose config > rendered.yml
-          for flag in MCP_ENABLED RAG_ENABLED MULTI_AGENT_ENABLED; do
+          for flag in AI_ENABLED MCP_ENABLED RAG_ENABLED MULTI_AGENT_ENABLED; do
             grep -Eq "^ +$flag: \"?false\"?$" rendered.yml && echo "PASS $flag=false" \
               || { echo "FAIL $flag is not false"; exit 1; }
           done
