@@ -282,9 +282,11 @@ services:
       MULTI_AGENT_SERVICE_URL: http://172.31.45.32:7004
       MULTI_AGENT_ENABLED: "true"
       # itinerary gained Multi-Agent integration (routes/multi_agent.py,
-      # services/multi_agent_api.py, itinerary-db/multi_agent_application.py) after this
-      # manifest's original Phase 2 wiring - the ai-review route still has no _ENABLED
-      # flag at all (unconditional, just needs Ollama reachable).
+      # services/multi_agent_api.py, itinerary-db/multi_agent_application.py) and an
+      # AI_ENABLED gate on ai-review (previously unconditional) after this manifest's
+      # original Phase 2 wiring - without this override it silently inherits
+      # common_disabled_ai_env's AI_ENABLED=false default and 403s.
+      AI_ENABLED: "true"
       OLLAMA_BASE_URL: http://172.31.45.32:11434
       OLLAMA_MODEL: qwen2.5:1.5b
 
