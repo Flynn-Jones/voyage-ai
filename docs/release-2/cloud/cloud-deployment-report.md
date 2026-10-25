@@ -2,14 +2,14 @@
 
 ## AWS ECS Fargate (voyageai-cluster)
 
-Deployment Status: Success
+Deployment Status: Partial (1 check(s) failing)
 
 ALB URL: http://voyageai-alb-615478022.ap-southeast-2.elb.amazonaws.com
 
-Smoke test: `smoke-test-output-20261022T122515Z.txt`
-Stack outputs: `stack-outputs-20261022T122515Z.json`
+Smoke test: `smoke-test-output-20261025T013730Z.txt`
+Stack outputs: `stack-outputs-20261025T013730Z.json`
 
-Timestamp: 20261022T122515Z
+Timestamp: 20261025T013730Z
 
 ## AI services
 
@@ -23,7 +23,7 @@ AI-host-generated response, not just that a flag is set.
 
 ## Known gaps at this run
 
-- None: every check passed.
+- FAIL crud:activity-service activity-database returned no rows (empty seed data in this task)
 
 ## Release Decision
 

@@ -1,0 +1,16 @@
+PASS frontend:shared http_200 (port 3000)
+PASS frontend:destination http_200 (port 3001)
+PASS frontend:accommodation http_200 (port 3002)
+PASS frontend:activity http_200 (port 3003)
+PASS frontend:budget http_200 (port 3004)
+PASS frontend:itinerary http_200 (port 3005)
+PASS crud:destination-service destination table rows render seeded data
+PASS crud:accommodation-service accommodation table rows render seeded data
+FAIL crud:activity-service activity-database returned no rows (empty seed data in this task)
+PASS crud:budget-service expense table renders seeded data
+PASS crud:itinerary-service itinerary read returns seeded rows
+PASS ai-mode:destination-service compare returned a real result
+PASS ai-mode:accommodation-service recommend returned a real result
+PASS ai-mode:activity-service ai-mode/chat returned a real result
+PASS ai-mode:budget-service ai-analyse returned a real result
+PASS ai-mode:itinerary-service ai-review returned a real result
