@@ -1,0 +1,99 @@
+{
+  "real_frontend": "http://127.0.0.1:3005",
+  "real_backend_and_containers": true,
+  "javascript_exceptions": [],
+  "scenarios": [
+    {
+      "decision": "approve",
+      "run_id": "run-3bc2a8fe1842",
+      "final_state": "applied",
+      "trip_scope_preserved": true,
+      "unchanged_before_apply": true,
+      "updated_rows": 2,
+      "frontend_reflects_changes": true,
+      "history_steps": [
+        "created",
+        "plan",
+        "work",
+        "review",
+        "human_review",
+        "human_review",
+        "applied"
+      ]
+    },
+    {
+      "decision": "partial",
+      "run_id": "run-0a70fe12b8bd",
+      "final_state": "applied",
+      "trip_scope_preserved": true,
+      "unchanged_before_apply": true,
+      "updated_rows": 1,
+      "frontend_reflects_changes": true,
+      "history_steps": [
+        "created",
+        "plan",
+        "work",
+        "review",
+        "human_review",
+        "human_review",
+        "applied"
+      ]
+    },
+    {
+      "decision": "correct",
+      "run_id": "run-875d21878fe4",
+      "final_state": "applied",
+      "trip_scope_preserved": true,
+      "unchanged_before_apply": true,
+      "updated_rows": 2,
+      "frontend_reflects_changes": true,
+      "history_steps": [
+        "created",
+        "plan",
+        "work",
+        "review",
+        "human_review",
+        "human_review",
+        "applied"
+      ]
+    },
+    {
+      "decision": "reject",
+      "run_id": "run-479c24b29b70",
+      "final_state": "rejected",
+      "trip_scope_preserved": true,
+      "unchanged_before_apply": true,
+      "updated_rows": 0,
+      "frontend_reflects_changes": false,
+      "history_steps": [
+        "created",
+        "plan",
+        "work",
+        "review",
+        "human_review",
+        "human_review"
+      ]
+    }
+  ],
+  "overall": "PASS",
+  "deleted_test_item_ids": [
+    22,
+    26,
+    30,
+    34,
+    21,
+    27,
+    35,
+    36,
+    23,
+    31,
+    24,
+    28,
+    32,
+    25,
+    29,
+    33,
+    37
+  ],
+  "restored_baseline": true
+}

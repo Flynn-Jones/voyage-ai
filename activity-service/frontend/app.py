@@ -26,17 +26,12 @@ MCP_TOOLS = [
 # RAG Mode's actions, each forwarded to /api/activity/rag/<kind> on the backend.
 RAG_ACTIONS = ("refresh", "retrieve", "answer")
 
-# Multi-Agent Mode's tasks (the activity_schedule_check workflow validates them) and the
-# request datalist. The activity schema has no trip id, so a day stands in for a trip.
-MULTI_AGENT_TASKS = {
-    "summary": "Activity summary",
-    "overlaps": "Check a day for overlapping activities",
-    "free_slots": "Propose clash-free slots on a day",
-}
+# Multi-Agent Mode's request datalist. The activity_schedule_check workflow checks one day (the
+# activity schema has no trip id, so a day stands in for a trip).
 MULTI_AGENT_SAMPLES = (
-    "Generate an activity summary for my trip.",
-    "Check day 2026-10-06 for overlapping activities.",
-    "Propose a 2-hour walking tour on 2026-10-06 without clashes.",
+    "Check my 2026-10-06 schedule for clashes and free time.",
+    "Find room for a 2-hour walking tour on 2026-10-06.",
+    "Is my day on 2026-10-07 overbooked?",
 )
 ACTIVITY_FILTER_FIELDS = (
     "q", "type", "min_cost", "max_cost", "min_duration", "max_duration", "date_from", "date_to", "sort",
@@ -90,10 +85,11 @@ def create_app():
 
     app.config["backend_request"] = backend_request
 
-    def render_activity_browser(template, show_actions):
-        """Home and list pages share one filter form and results table. The
-        backend does the filtering; an htmx filter request gets back only the
-        results fragment for #results."""
+    @app.route("/")
+    def index():
+        """The Activities page: filter form plus the results table with Edit
+        and Delete on every row. The backend does the filtering; an htmx
+        filter request gets back only the results fragment for #results."""
         filters = {name: request.args.get(name, "").strip() for name in ACTIVITY_FILTER_FIELDS}
         active = {name: value for name, value in filters.items() if value}
         try:
@@ -103,7 +99,7 @@ def create_app():
             activities = []
             error = str(exc)
         context = {"activities": activities, "error": error, "filters": filters,
-                   "filtered": bool(active), "show_actions": show_actions}
+                   "filtered": bool(active), "show_actions": True}
         if is_hx_request():
             return render_template("_activity_results.html", **context)
 
@@ -114,15 +110,13 @@ def create_app():
             all_activities = []
         activity_types = sorted({(a.get("activity_type") or "").strip() for a in all_activities} - {""},
                                 key=str.lower)
-        return render_template(template, activity_types=activity_types, **context)
-
-    @app.route("/")
-    def index():
-        return render_activity_browser("index.html", show_actions=False)
+        return render_template("index.html", activity_types=activity_types, **context)
 
     @app.route("/activities")
     def activities_list():
-        return render_activity_browser("activities_list.html", show_actions=True)
+        # The separate Manual Mode list page was folded into the Activities
+        # page; keep old links and bookmarks (filters included) working.
+        return redirect(url_for("index", **request.args), code=301)
 
     @app.route("/activities/<int:activity_id>")
     def activity_detail(activity_id):
@@ -243,22 +237,21 @@ def create_app():
 
     @app.route("/multi-agent")
     def multi_agent_mode():
-        return render_template("multi_agent_mode.html", tasks=MULTI_AGENT_TASKS, samples=MULTI_AGENT_SAMPLES)
+        return render_template("multi_agent_mode.html", samples=MULTI_AGENT_SAMPLES)
 
     @app.route("/multi-agent/run", methods=["POST"])
     def multi_agent_run():
         # Always 200 so htmx swaps the card in; the backend's status is shown on the card.
-        payload = {"task": request.form.get("task", "")}
+        payload = {}
         if request.form.get("date", "").strip():
             payload["date"] = request.form["date"].strip()
         if request.form.get("request", "").strip():
             payload["request"] = request.form["request"].strip()
-        if payload["task"] == "free_slots":
-            try:
-                payload["slot_hours"] = float(request.form.get("slot_hours", "2") or "2")
-            except ValueError:
-                return render_template("tabs/_multi_agent_run.html", run=None, status_code=None,
-                                       error="Slot length must be a number of hours.")
+        try:
+            payload["slot_hours"] = float(request.form.get("slot_hours", "2") or "2")
+        except ValueError:
+            return render_template("tabs/_multi_agent_run.html", run=None, status_code=None,
+                                   error="Slot length must be a number of hours.")
         try:
             response = backend_request("POST", "/api/activity/multi-agent/workflow", json_body=payload)
         except RuntimeError as exc:
@@ -433,4 +426,4 @@ app = create_app()
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=PORT, debug=True, use_reloader=False)
+    app.run(host="0.0.0.0", port=PORT, debug=True, use_reloader=False)  # noqa: S104 - binds inside its container; only the published port is reachable

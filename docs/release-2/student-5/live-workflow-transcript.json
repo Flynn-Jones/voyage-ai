@@ -1,0 +1,1729 @@
+[
+  {
+    "decision": "approve",
+    "run_id": "run-3bc2a8fe1842",
+    "workflow": "itinerary_schedule_review",
+    "input": {
+      "trip_reference": "R2-LIVE-20261022-APPROVE",
+      "day": 87
+    },
+    "before": [
+      {
+        "activity_id": 1,
+        "day": 87,
+        "destination_id": 1,
+        "end_time": "11:00",
+        "estimated_cost": 10.0,
+        "itinerary_item_id": 22,
+        "notes": "Temporary Student 5 Release 2 validation",
+        "start_time": "09:00",
+        "trip_reference": "R2-LIVE-20261022-APPROVE"
+      },
+      {
+        "activity_id": 1,
+        "day": 87,
+        "destination_id": 1,
+        "end_time": "11:00",
+        "estimated_cost": 10.0,
+        "itinerary_item_id": 23,
+        "notes": "Temporary Student 5 Release 2 validation",
+        "start_time": "10:00",
+        "trip_reference": "R2-LIVE-20261022-APPROVE"
+      },
+      {
+        "activity_id": 1,
+        "day": 87,
+        "destination_id": 1,
+        "end_time": "11:30",
+        "estimated_cost": 10.0,
+        "itinerary_item_id": 24,
+        "notes": "Temporary Student 5 Release 2 validation",
+        "start_time": "10:30",
+        "trip_reference": "R2-LIVE-20261022-APPROVE"
+      },
+      {
+        "activity_id": 1,
+        "day": 88,
+        "destination_id": 1,
+        "end_time": "10:00",
+        "estimated_cost": 10.0,
+        "itinerary_item_id": 25,
+        "notes": "Temporary Student 5 Release 2 validation",
+        "start_time": "09:00",
+        "trip_reference": "R2-LIVE-20261022-APPROVE"
+      }
+    ],
+    "run_before_human_review": {
+      "run_id": "run-3bc2a8fe1842",
+      "workflow": "itinerary_schedule_review",
+      "state": "awaiting_human_review",
+      "requested_by": "itinerary-be",
+      "input": {
+        "trip_reference": "R2-LIVE-20261022-APPROVE",
+        "day": 87
+      },
+      "plan": {
+        "scope": {
+          "trip_reference": "R2-LIVE-20261022-APPROVE",
+          "day": 87
+        },
+        "objective": "Review recorded schedule overlaps and propose same-day time shifts.",
+        "evidence_required": [
+          "get_itinerary: exact trip_reference and optional day"
+        ],
+        "steps": [
+          {
+            "tool": "get_itinerary",
+            "action": "Read scoped records"
+          },
+          {
+            "action": "Worker computes shifts; preserve duration, activity, destination and cost"
+          },
+          {
+            "action": "Reviewer checks proposals against the evidence"
+          },
+          {
+            "action": "Human approves, partially accepts, corrects or rejects; backend alone applies"
+          }
+        ]
+      },
+      "work": {
+        "scope": {
+          "trip_reference": "R2-LIVE-20261022-APPROVE",
+          "day": 87
+        },
+        "items": [
+          {
+            "itinerary_item_id": 23,
+            "trip_reference": "R2-LIVE-20261022-APPROVE",
+            "day": 87,
+            "start_time": "11:00",
+            "end_time": "12:00",
+            "activity_id": 1,
+            "destination_id": 1,
+            "estimated_cost": 10.0,
+            "notes": "Temporary Student 5 Release 2 validation",
+            "id": "23",
+            "original": {
+              "itinerary_item_id": 23,
+              "trip_reference": "R2-LIVE-20261022-APPROVE",
+              "day": 87,
+              "start_time": "10:00",
+              "end_time": "11:00",
+              "activity_id": 1,
+              "destination_id": 1,
+              "estimated_cost": 10.0,
+              "notes": "Temporary Student 5 Release 2 validation"
+            },
+            "reason": "Shift later to remove an overlap, preserving the recorded duration."
+          },
+          {
+            "itinerary_item_id": 24,
+            "trip_reference": "R2-LIVE-20261022-APPROVE",
+            "day": 87,
+            "start_time": "12:00",
+            "end_time": "13:00",
+            "activity_id": 1,
+            "destination_id": 1,
+            "estimated_cost": 10.0,
+            "notes": "Temporary Student 5 Release 2 validation",
+            "id": "24",
+            "original": {
+              "itinerary_item_id": 24,
+              "trip_reference": "R2-LIVE-20261022-APPROVE",
+              "day": 87,
+              "start_time": "10:30",
+              "end_time": "11:30",
+              "activity_id": 1,
+              "destination_id": 1,
+              "estimated_cost": 10.0,
+              "notes": "Temporary Student 5 Release 2 validation"
+            },
+            "reason": "Shift later to remove an overlap, preserving the recorded duration."
+          }
+        ],
+        "summary": "Reviewed 3 records; 2 proposed shifts.",
+        "evidence": [
+          {
+            "source": "MCP:get_itinerary",
+            "scope": {
+              "trip_reference": "R2-LIVE-20261022-APPROVE",
+              "day": 87
+            },
+            "records": [
+              {
+                "itinerary_item_id": 22,
+                "trip_reference": "R2-LIVE-20261022-APPROVE",
+                "day": 87,
+                "start_time": "09:00",
+                "end_time": "11:00",
+                "activity_id": 1,
+                "destination_id": 1,
+                "estimated_cost": 10.0,
+                "notes": "Temporary Student 5 Release 2 validation"
+              },
+              {
+                "itinerary_item_id": 23,
+                "trip_reference": "R2-LIVE-20261022-APPROVE",
+                "day": 87,
+                "start_time": "10:00",
+                "end_time": "11:00",
+                "activity_id": 1,
+                "destination_id": 1,
+                "estimated_cost": 10.0,
+                "notes": "Temporary Student 5 Release 2 validation"
+              },
+              {
+                "itinerary_item_id": 24,
+                "trip_reference": "R2-LIVE-20261022-APPROVE",
+                "day": 87,
+                "start_time": "10:30",
+                "end_time": "11:30",
+                "activity_id": 1,
+                "destination_id": 1,
+                "estimated_cost": 10.0,
+                "notes": "Temporary Student 5 Release 2 validation"
+              }
+            ]
+          }
+        ],
+        "issues": [],
+        "limitations": "No travel times, opening hours or booking constraints are known."
+      },
+      "review": {
+        "risk": "medium",
+        "status": "ready_for_human_review",
+        "findings": [
+          "Proposals match recorded evidence and preserve scope, duration, identifiers and cost."
+        ],
+        "recommendations": [
+          "Check real-world availability; only explicitly approved time/notes changes may be saved."
+        ]
+      },
+      "decision": null,
+      "approved_items": null,
+      "applied": null,
+      "error": null,
+      "created_at": "2026-10-22T10:00:56.706+00:00",
+      "updated_at": "2026-10-22T10:01:16.649+00:00"
+    },
+    "human_decision": {
+      "decision": "approve",
+      "approved_ids": [
+        "23",
+        "24"
+      ],
+      "rejected_ids": [],
+      "edits": {},
+      "note": "",
+      "reviewer": "itinerary-ui"
+    },
+    "approved_items": [
+      {
+        "itinerary_item_id": 23,
+        "trip_reference": "R2-LIVE-20261022-APPROVE",
+        "day": 87,
+        "start_time": "11:00",
+        "end_time": "12:00",
+        "activity_id": 1,
+        "destination_id": 1,
+        "estimated_cost": 10.0,
+        "notes": "Temporary Student 5 Release 2 validation",
+        "id": "23",
+        "original": {
+          "itinerary_item_id": 23,
+          "trip_reference": "R2-LIVE-20261022-APPROVE",
+          "day": 87,
+          "start_time": "10:00",
+          "end_time": "11:00",
+          "activity_id": 1,
+          "destination_id": 1,
+          "estimated_cost": 10.0,
+          "notes": "Temporary Student 5 Release 2 validation"
+        },
+        "reason": "Shift later to remove an overlap, preserving the recorded duration."
+      },
+      {
+        "itinerary_item_id": 24,
+        "trip_reference": "R2-LIVE-20261022-APPROVE",
+        "day": 87,
+        "start_time": "12:00",
+        "end_time": "13:00",
+        "activity_id": 1,
+        "destination_id": 1,
+        "estimated_cost": 10.0,
+        "notes": "Temporary Student 5 Release 2 validation",
+        "id": "24",
+        "original": {
+          "itinerary_item_id": 24,
+          "trip_reference": "R2-LIVE-20261022-APPROVE",
+          "day": 87,
+          "start_time": "10:30",
+          "end_time": "11:30",
+          "activity_id": 1,
+          "destination_id": 1,
+          "estimated_cost": 10.0,
+          "notes": "Temporary Student 5 Release 2 validation"
+        },
+        "reason": "Shift later to remove an overlap, preserving the recorded duration."
+      }
+    ],
+    "second_decision_blocked": {
+      "method": "POST",
+      "url": "http://127.0.0.1:3005/api/itinerary/multi-agent/runs/run-3bc2a8fe1842/review",
+      "http_status": 409,
+      "elapsed_seconds": 0.03,
+      "body": {
+        "error": "run already decided or not reviewable",
+        "status": "error"
+      }
+    },
+    "duplicate_apply_blocked": {
+      "method": "POST",
+      "url": "http://127.0.0.1:3005/api/itinerary/multi-agent/runs/run-3bc2a8fe1842/apply",
+      "http_status": 409,
+      "elapsed_seconds": 0.03,
+      "body": {
+        "error": "run must have an unapplied approving human decision",
+        "status": "error"
+      }
+    },
+    "after": [
+      {
+        "activity_id": 1,
+        "day": 87,
+        "destination_id": 1,
+        "end_time": "11:00",
+        "estimated_cost": 10.0,
+        "itinerary_item_id": 22,
+        "notes": "Temporary Student 5 Release 2 validation",
+        "start_time": "09:00",
+        "trip_reference": "R2-LIVE-20261022-APPROVE"
+      },
+      {
+        "activity_id": 1,
+        "day": 87,
+        "destination_id": 1,
+        "end_time": "12:00",
+        "estimated_cost": 10.0,
+        "itinerary_item_id": 23,
+        "notes": "Temporary Student 5 Release 2 validation",
+        "start_time": "11:00",
+        "trip_reference": "R2-LIVE-20261022-APPROVE"
+      },
+      {
+        "activity_id": 1,
+        "day": 87,
+        "destination_id": 1,
+        "end_time": "13:00",
+        "estimated_cost": 10.0,
+        "itinerary_item_id": 24,
+        "notes": "Temporary Student 5 Release 2 validation",
+        "start_time": "12:00",
+        "trip_reference": "R2-LIVE-20261022-APPROVE"
+      },
+      {
+        "activity_id": 1,
+        "day": 88,
+        "destination_id": 1,
+        "end_time": "10:00",
+        "estimated_cost": 10.0,
+        "itinerary_item_id": 25,
+        "notes": "Temporary Student 5 Release 2 validation",
+        "start_time": "09:00",
+        "trip_reference": "R2-LIVE-20261022-APPROVE"
+      }
+    ],
+    "final_state": "applied",
+    "applied": {
+      "created_ids": [
+        23,
+        24
+      ],
+      "target": "itinerary-db"
+    },
+    "history": [
+      {
+        "agent": null,
+        "detail": {
+          "requested_by": "itinerary-be"
+        },
+        "seq": 1,
+        "state": "running",
+        "step": "created",
+        "ts": "2026-10-22T10:00:56.711+00:00"
+      },
+      {
+        "agent": "planner",
+        "detail": {
+          "attempts": [
+            {
+              "attempt": 1,
+              "ok": true
+            }
+          ],
+          "duration_ms": 6647,
+          "source": "llm",
+          "tools_called": []
+        },
+        "seq": 2,
+        "state": "running",
+        "step": "plan",
+        "ts": "2026-10-22T10:01:03.364+00:00"
+      },
+      {
+        "agent": "worker",
+        "detail": {
+          "attempts": [],
+          "duration_ms": 1179,
+          "source": "workflow",
+          "tools_called": [
+            "get_itinerary"
+          ]
+        },
+        "seq": 3,
+        "state": "running",
+        "step": "work",
+        "ts": "2026-10-22T10:01:04.549+00:00"
+      },
+      {
+        "agent": "reviewer",
+        "detail": {
+          "attempts": [
+            {
+              "attempt": 1,
+              "error": "ValueError: review must preserve the evidence-based assessment",
+              "ok": false
+            },
+            {
+              "attempt": 2,
+              "error": "ValueError: review must preserve the evidence-based assessment",
+              "ok": false
+            }
+          ],
+          "duration_ms": 12090,
+          "source": "fallback",
+          "tools_called": []
+        },
+        "seq": 4,
+        "state": "running",
+        "step": "review",
+        "ts": "2026-10-22T10:01:16.645+00:00"
+      },
+      {
+        "agent": "human",
+        "detail": {},
+        "seq": 5,
+        "state": "awaiting_human_review",
+        "step": "human_review",
+        "ts": "2026-10-22T10:01:16.655+00:00"
+      },
+      {
+        "agent": "human",
+        "detail": {
+          "approved_ids": [
+            "23",
+            "24"
+          ],
+          "decision": "approve",
+          "edits": {},
+          "note": "",
+          "rejected_ids": [],
+          "reviewer": "itinerary-ui"
+        },
+        "seq": 6,
+        "state": "approved",
+        "step": "human_review",
+        "ts": "2026-10-22T10:01:17.113+00:00"
+      },
+      {
+        "agent": "backend",
+        "detail": {
+          "created_ids": [
+            23,
+            24
+          ],
+          "target": "itinerary-db"
+        },
+        "seq": 7,
+        "state": "applied",
+        "step": "applied",
+        "ts": "2026-10-22T10:01:17.590+00:00"
+      }
+    ]
+  },
+  {
+    "decision": "partial",
+    "run_id": "run-0a70fe12b8bd",
+    "workflow": "itinerary_schedule_review",
+    "input": {
+      "trip_reference": "R2-LIVE-20261022-PARTIAL",
+      "day": 87
+    },
+    "before": [
+      {
+        "activity_id": 1,
+        "day": 87,
+        "destination_id": 1,
+        "end_time": "11:00",
+        "estimated_cost": 10.0,
+        "itinerary_item_id": 26,
+        "notes": "Temporary Student 5 Release 2 validation",
+        "start_time": "09:00",
+        "trip_reference": "R2-LIVE-20261022-PARTIAL"
+      },
+      {
+        "activity_id": 1,
+        "day": 87,
+        "destination_id": 1,
+        "end_time": "11:00",
+        "estimated_cost": 10.0,
+        "itinerary_item_id": 27,
+        "notes": "Temporary Student 5 Release 2 validation",
+        "start_time": "10:00",
+        "trip_reference": "R2-LIVE-20261022-PARTIAL"
+      },
+      {
+        "activity_id": 1,
+        "day": 87,
+        "destination_id": 1,
+        "end_time": "11:30",
+        "estimated_cost": 10.0,
+        "itinerary_item_id": 28,
+        "notes": "Temporary Student 5 Release 2 validation",
+        "start_time": "10:30",
+        "trip_reference": "R2-LIVE-20261022-PARTIAL"
+      },
+      {
+        "activity_id": 1,
+        "day": 88,
+        "destination_id": 1,
+        "end_time": "10:00",
+        "estimated_cost": 10.0,
+        "itinerary_item_id": 29,
+        "notes": "Temporary Student 5 Release 2 validation",
+        "start_time": "09:00",
+        "trip_reference": "R2-LIVE-20261022-PARTIAL"
+      }
+    ],
+    "run_before_human_review": {
+      "run_id": "run-0a70fe12b8bd",
+      "workflow": "itinerary_schedule_review",
+      "state": "awaiting_human_review",
+      "requested_by": "itinerary-be",
+      "input": {
+        "trip_reference": "R2-LIVE-20261022-PARTIAL",
+        "day": 87
+      },
+      "plan": {
+        "scope": {
+          "trip_reference": "R2-LIVE-20261022-PARTIAL",
+          "day": 87
+        },
+        "objective": "Review recorded schedule overlaps and propose same-day time shifts.",
+        "evidence_required": [
+          "get_itinerary: exact trip_reference and optional day"
+        ],
+        "steps": [
+          {
+            "tool": "get_itinerary",
+            "action": "Read scoped records"
+          },
+          {
+            "action": "Worker computes shifts; preserve duration, activity, destination and cost"
+          },
+          {
+            "action": "Reviewer checks proposals against the evidence"
+          },
+          {
+            "action": "Human approves, partially accepts, corrects or rejects; backend alone applies"
+          }
+        ]
+      },
+      "work": {
+        "scope": {
+          "trip_reference": "R2-LIVE-20261022-PARTIAL",
+          "day": 87
+        },
+        "items": [
+          {
+            "itinerary_item_id": 27,
+            "trip_reference": "R2-LIVE-20261022-PARTIAL",
+            "day": 87,
+            "start_time": "11:00",
+            "end_time": "12:00",
+            "activity_id": 1,
+            "destination_id": 1,
+            "estimated_cost": 10.0,
+            "notes": "Temporary Student 5 Release 2 validation",
+            "id": "27",
+            "original": {
+              "itinerary_item_id": 27,
+              "trip_reference": "R2-LIVE-20261022-PARTIAL",
+              "day": 87,
+              "start_time": "10:00",
+              "end_time": "11:00",
+              "activity_id": 1,
+              "destination_id": 1,
+              "estimated_cost": 10.0,
+              "notes": "Temporary Student 5 Release 2 validation"
+            },
+            "reason": "Shift later to remove an overlap, preserving the recorded duration."
+          },
+          {
+            "itinerary_item_id": 28,
+            "trip_reference": "R2-LIVE-20261022-PARTIAL",
+            "day": 87,
+            "start_time": "12:00",
+            "end_time": "13:00",
+            "activity_id": 1,
+            "destination_id": 1,
+            "estimated_cost": 10.0,
+            "notes": "Temporary Student 5 Release 2 validation",
+            "id": "28",
+            "original": {
+              "itinerary_item_id": 28,
+              "trip_reference": "R2-LIVE-20261022-PARTIAL",
+              "day": 87,
+              "start_time": "10:30",
+              "end_time": "11:30",
+              "activity_id": 1,
+              "destination_id": 1,
+              "estimated_cost": 10.0,
+              "notes": "Temporary Student 5 Release 2 validation"
+            },
+            "reason": "Shift later to remove an overlap, preserving the recorded duration."
+          }
+        ],
+        "summary": "Reviewed 3 records; 2 proposed shifts.",
+        "evidence": [
+          {
+            "source": "MCP:get_itinerary",
+            "scope": {
+              "trip_reference": "R2-LIVE-20261022-PARTIAL",
+              "day": 87
+            },
+            "records": [
+              {
+                "itinerary_item_id": 26,
+                "trip_reference": "R2-LIVE-20261022-PARTIAL",
+                "day": 87,
+                "start_time": "09:00",
+                "end_time": "11:00",
+                "activity_id": 1,
+                "destination_id": 1,
+                "estimated_cost": 10.0,
+                "notes": "Temporary Student 5 Release 2 validation"
+              },
+              {
+                "itinerary_item_id": 27,
+                "trip_reference": "R2-LIVE-20261022-PARTIAL",
+                "day": 87,
+                "start_time": "10:00",
+                "end_time": "11:00",
+                "activity_id": 1,
+                "destination_id": 1,
+                "estimated_cost": 10.0,
+                "notes": "Temporary Student 5 Release 2 validation"
+              },
+              {
+                "itinerary_item_id": 28,
+                "trip_reference": "R2-LIVE-20261022-PARTIAL",
+                "day": 87,
+                "start_time": "10:30",
+                "end_time": "11:30",
+                "activity_id": 1,
+                "destination_id": 1,
+                "estimated_cost": 10.0,
+                "notes": "Temporary Student 5 Release 2 validation"
+              }
+            ]
+          }
+        ],
+        "issues": [],
+        "limitations": "No travel times, opening hours or booking constraints are known."
+      },
+      "review": {
+        "risk": "medium",
+        "status": "ready_for_human_review",
+        "findings": [
+          "Proposals match recorded evidence and preserve scope, duration, identifiers and cost."
+        ],
+        "recommendations": [
+          "Check real-world availability; only explicitly approved time/notes changes may be saved."
+        ]
+      },
+      "decision": null,
+      "approved_items": null,
+      "applied": null,
+      "error": null,
+      "created_at": "2026-10-22T10:01:23.046+00:00",
+      "updated_at": "2026-10-22T10:01:40.573+00:00"
+    },
+    "human_decision": {
+      "decision": "partial",
+      "approved_ids": [
+        "28"
+      ],
+      "rejected_ids": [
+        "27"
+      ],
+      "edits": {},
+      "note": "",
+      "reviewer": "itinerary-ui"
+    },
+    "approved_items": [
+      {
+        "itinerary_item_id": 28,
+        "trip_reference": "R2-LIVE-20261022-PARTIAL",
+        "day": 87,
+        "start_time": "12:00",
+        "end_time": "13:00",
+        "activity_id": 1,
+        "destination_id": 1,
+        "estimated_cost": 10.0,
+        "notes": "Temporary Student 5 Release 2 validation",
+        "id": "28",
+        "original": {
+          "itinerary_item_id": 28,
+          "trip_reference": "R2-LIVE-20261022-PARTIAL",
+          "day": 87,
+          "start_time": "10:30",
+          "end_time": "11:30",
+          "activity_id": 1,
+          "destination_id": 1,
+          "estimated_cost": 10.0,
+          "notes": "Temporary Student 5 Release 2 validation"
+        },
+        "reason": "Shift later to remove an overlap, preserving the recorded duration."
+      }
+    ],
+    "second_decision_blocked": {
+      "method": "POST",
+      "url": "http://127.0.0.1:3005/api/itinerary/multi-agent/runs/run-0a70fe12b8bd/review",
+      "http_status": 409,
+      "elapsed_seconds": 0.02,
+      "body": {
+        "error": "run already decided or not reviewable",
+        "status": "error"
+      }
+    },
+    "duplicate_apply_blocked": {
+      "method": "POST",
+      "url": "http://127.0.0.1:3005/api/itinerary/multi-agent/runs/run-0a70fe12b8bd/apply",
+      "http_status": 409,
+      "elapsed_seconds": 0.03,
+      "body": {
+        "error": "run must have an unapplied approving human decision",
+        "status": "error"
+      }
+    },
+    "after": [
+      {
+        "activity_id": 1,
+        "day": 87,
+        "destination_id": 1,
+        "end_time": "11:00",
+        "estimated_cost": 10.0,
+        "itinerary_item_id": 26,
+        "notes": "Temporary Student 5 Release 2 validation",
+        "start_time": "09:00",
+        "trip_reference": "R2-LIVE-20261022-PARTIAL"
+      },
+      {
+        "activity_id": 1,
+        "day": 87,
+        "destination_id": 1,
+        "end_time": "11:00",
+        "estimated_cost": 10.0,
+        "itinerary_item_id": 27,
+        "notes": "Temporary Student 5 Release 2 validation",
+        "start_time": "10:00",
+        "trip_reference": "R2-LIVE-20261022-PARTIAL"
+      },
+      {
+        "activity_id": 1,
+        "day": 87,
+        "destination_id": 1,
+        "end_time": "13:00",
+        "estimated_cost": 10.0,
+        "itinerary_item_id": 28,
+        "notes": "Temporary Student 5 Release 2 validation",
+        "start_time": "12:00",
+        "trip_reference": "R2-LIVE-20261022-PARTIAL"
+      },
+      {
+        "activity_id": 1,
+        "day": 88,
+        "destination_id": 1,
+        "end_time": "10:00",
+        "estimated_cost": 10.0,
+        "itinerary_item_id": 29,
+        "notes": "Temporary Student 5 Release 2 validation",
+        "start_time": "09:00",
+        "trip_reference": "R2-LIVE-20261022-PARTIAL"
+      }
+    ],
+    "final_state": "applied",
+    "applied": {
+      "created_ids": [
+        28
+      ],
+      "target": "itinerary-db"
+    },
+    "history": [
+      {
+        "agent": null,
+        "detail": {
+          "requested_by": "itinerary-be"
+        },
+        "seq": 8,
+        "state": "running",
+        "step": "created",
+        "ts": "2026-10-22T10:01:23.051+00:00"
+      },
+      {
+        "agent": "planner",
+        "detail": {
+          "attempts": [
+            {
+              "attempt": 1,
+              "ok": true
+            }
+          ],
+          "duration_ms": 5698,
+          "source": "llm",
+          "tools_called": []
+        },
+        "seq": 9,
+        "state": "running",
+        "step": "plan",
+        "ts": "2026-10-22T10:01:28.754+00:00"
+      },
+      {
+        "agent": "worker",
+        "detail": {
+          "attempts": [],
+          "duration_ms": 89,
+          "source": "workflow",
+          "tools_called": [
+            "get_itinerary"
+          ]
+        },
+        "seq": 10,
+        "state": "running",
+        "step": "work",
+        "ts": "2026-10-22T10:01:28.849+00:00"
+      },
+      {
+        "agent": "reviewer",
+        "detail": {
+          "attempts": [
+            {
+              "attempt": 1,
+              "error": "ValueError: review must preserve the evidence-based assessment",
+              "ok": false
+            },
+            {
+              "attempt": 2,
+              "error": "ValueError: review must preserve the evidence-based assessment",
+              "ok": false
+            }
+          ],
+          "duration_ms": 11712,
+          "source": "fallback",
+          "tools_called": []
+        },
+        "seq": 11,
+        "state": "running",
+        "step": "review",
+        "ts": "2026-10-22T10:01:40.568+00:00"
+      },
+      {
+        "agent": "human",
+        "detail": {},
+        "seq": 12,
+        "state": "awaiting_human_review",
+        "step": "human_review",
+        "ts": "2026-10-22T10:01:40.581+00:00"
+      },
+      {
+        "agent": "human",
+        "detail": {
+          "approved_ids": [
+            "28"
+          ],
+          "decision": "partial",
+          "edits": {},
+          "note": "",
+          "rejected_ids": [
+            "27"
+          ],
+          "reviewer": "itinerary-ui"
+        },
+        "seq": 13,
+        "state": "partially_accepted",
+        "step": "human_review",
+        "ts": "2026-10-22T10:01:40.765+00:00"
+      },
+      {
+        "agent": "backend",
+        "detail": {
+          "created_ids": [
+            28
+          ],
+          "target": "itinerary-db"
+        },
+        "seq": 14,
+        "state": "applied",
+        "step": "applied",
+        "ts": "2026-10-22T10:01:41.233+00:00"
+      }
+    ]
+  },
+  {
+    "decision": "correct",
+    "run_id": "run-875d21878fe4",
+    "workflow": "itinerary_schedule_review",
+    "input": {
+      "trip_reference": "R2-LIVE-20261022-CORRECT",
+      "day": 87
+    },
+    "before": [
+      {
+        "activity_id": 1,
+        "day": 87,
+        "destination_id": 1,
+        "end_time": "11:00",
+        "estimated_cost": 10.0,
+        "itinerary_item_id": 30,
+        "notes": "Temporary Student 5 Release 2 validation",
+        "start_time": "09:00",
+        "trip_reference": "R2-LIVE-20261022-CORRECT"
+      },
+      {
+        "activity_id": 1,
+        "day": 87,
+        "destination_id": 1,
+        "end_time": "11:00",
+        "estimated_cost": 10.0,
+        "itinerary_item_id": 31,
+        "notes": "Temporary Student 5 Release 2 validation",
+        "start_time": "10:00",
+        "trip_reference": "R2-LIVE-20261022-CORRECT"
+      },
+      {
+        "activity_id": 1,
+        "day": 87,
+        "destination_id": 1,
+        "end_time": "11:30",
+        "estimated_cost": 10.0,
+        "itinerary_item_id": 32,
+        "notes": "Temporary Student 5 Release 2 validation",
+        "start_time": "10:30",
+        "trip_reference": "R2-LIVE-20261022-CORRECT"
+      },
+      {
+        "activity_id": 1,
+        "day": 88,
+        "destination_id": 1,
+        "end_time": "10:00",
+        "estimated_cost": 10.0,
+        "itinerary_item_id": 33,
+        "notes": "Temporary Student 5 Release 2 validation",
+        "start_time": "09:00",
+        "trip_reference": "R2-LIVE-20261022-CORRECT"
+      }
+    ],
+    "run_before_human_review": {
+      "run_id": "run-875d21878fe4",
+      "workflow": "itinerary_schedule_review",
+      "state": "awaiting_human_review",
+      "requested_by": "itinerary-be",
+      "input": {
+        "trip_reference": "R2-LIVE-20261022-CORRECT",
+        "day": 87
+      },
+      "plan": {
+        "scope": {
+          "trip_reference": "R2-LIVE-20261022-CORRECT",
+          "day": 87
+        },
+        "objective": "Review recorded schedule overlaps and propose same-day time shifts.",
+        "evidence_required": [
+          "get_itinerary: exact trip_reference and optional day"
+        ],
+        "steps": [
+          {
+            "tool": "get_itinerary",
+            "action": "Read scoped records"
+          },
+          {
+            "action": "Worker computes shifts; preserve duration, activity, destination and cost"
+          },
+          {
+            "action": "Reviewer checks proposals against the evidence"
+          },
+          {
+            "action": "Human approves, partially accepts, corrects or rejects; backend alone applies"
+          }
+        ]
+      },
+      "work": {
+        "scope": {
+          "trip_reference": "R2-LIVE-20261022-CORRECT",
+          "day": 87
+        },
+        "items": [
+          {
+            "itinerary_item_id": 31,
+            "trip_reference": "R2-LIVE-20261022-CORRECT",
+            "day": 87,
+            "start_time": "11:00",
+            "end_time": "12:00",
+            "activity_id": 1,
+            "destination_id": 1,
+            "estimated_cost": 10.0,
+            "notes": "Temporary Student 5 Release 2 validation",
+            "id": "31",
+            "original": {
+              "itinerary_item_id": 31,
+              "trip_reference": "R2-LIVE-20261022-CORRECT",
+              "day": 87,
+              "start_time": "10:00",
+              "end_time": "11:00",
+              "activity_id": 1,
+              "destination_id": 1,
+              "estimated_cost": 10.0,
+              "notes": "Temporary Student 5 Release 2 validation"
+            },
+            "reason": "Shift later to remove an overlap, preserving the recorded duration."
+          },
+          {
+            "itinerary_item_id": 32,
+            "trip_reference": "R2-LIVE-20261022-CORRECT",
+            "day": 87,
+            "start_time": "12:00",
+            "end_time": "13:00",
+            "activity_id": 1,
+            "destination_id": 1,
+            "estimated_cost": 10.0,
+            "notes": "Temporary Student 5 Release 2 validation",
+            "id": "32",
+            "original": {
+              "itinerary_item_id": 32,
+              "trip_reference": "R2-LIVE-20261022-CORRECT",
+              "day": 87,
+              "start_time": "10:30",
+              "end_time": "11:30",
+              "activity_id": 1,
+              "destination_id": 1,
+              "estimated_cost": 10.0,
+              "notes": "Temporary Student 5 Release 2 validation"
+            },
+            "reason": "Shift later to remove an overlap, preserving the recorded duration."
+          }
+        ],
+        "summary": "Reviewed 3 records; 2 proposed shifts.",
+        "evidence": [
+          {
+            "source": "MCP:get_itinerary",
+            "scope": {
+              "trip_reference": "R2-LIVE-20261022-CORRECT",
+              "day": 87
+            },
+            "records": [
+              {
+                "itinerary_item_id": 30,
+                "trip_reference": "R2-LIVE-20261022-CORRECT",
+                "day": 87,
+                "start_time": "09:00",
+                "end_time": "11:00",
+                "activity_id": 1,
+                "destination_id": 1,
+                "estimated_cost": 10.0,
+                "notes": "Temporary Student 5 Release 2 validation"
+              },
+              {
+                "itinerary_item_id": 31,
+                "trip_reference": "R2-LIVE-20261022-CORRECT",
+                "day": 87,
+                "start_time": "10:00",
+                "end_time": "11:00",
+                "activity_id": 1,
+                "destination_id": 1,
+                "estimated_cost": 10.0,
+                "notes": "Temporary Student 5 Release 2 validation"
+              },
+              {
+                "itinerary_item_id": 32,
+                "trip_reference": "R2-LIVE-20261022-CORRECT",
+                "day": 87,
+                "start_time": "10:30",
+                "end_time": "11:30",
+                "activity_id": 1,
+                "destination_id": 1,
+                "estimated_cost": 10.0,
+                "notes": "Temporary Student 5 Release 2 validation"
+              }
+            ]
+          }
+        ],
+        "issues": [],
+        "limitations": "No travel times, opening hours or booking constraints are known."
+      },
+      "review": {
+        "risk": "medium",
+        "status": "ready_for_human_review",
+        "findings": [
+          "Proposals match recorded evidence and preserve scope, duration, identifiers and cost."
+        ],
+        "recommendations": [
+          "Check real-world availability; only explicitly approved time/notes changes may be saved."
+        ]
+      },
+      "decision": null,
+      "approved_items": null,
+      "applied": null,
+      "error": null,
+      "created_at": "2026-10-22T10:01:46.663+00:00",
+      "updated_at": "2026-10-22T10:02:04.926+00:00"
+    },
+    "human_decision": {
+      "decision": "correct",
+      "approved_ids": [
+        "31",
+        "32"
+      ],
+      "rejected_ids": [],
+      "edits": {
+        "31": {
+          "notes": "Human corrected after checking live itinerary evidence"
+        }
+      },
+      "note": "",
+      "reviewer": "itinerary-ui"
+    },
+    "approved_items": [
+      {
+        "itinerary_item_id": 31,
+        "trip_reference": "R2-LIVE-20261022-CORRECT",
+        "day": 87,
+        "start_time": "11:00",
+        "end_time": "12:00",
+        "activity_id": 1,
+        "destination_id": 1,
+        "estimated_cost": 10.0,
+        "notes": "Human corrected after checking live itinerary evidence",
+        "id": "31",
+        "original": {
+          "itinerary_item_id": 31,
+          "trip_reference": "R2-LIVE-20261022-CORRECT",
+          "day": 87,
+          "start_time": "10:00",
+          "end_time": "11:00",
+          "activity_id": 1,
+          "destination_id": 1,
+          "estimated_cost": 10.0,
+          "notes": "Temporary Student 5 Release 2 validation"
+        },
+        "reason": "Shift later to remove an overlap, preserving the recorded duration."
+      },
+      {
+        "itinerary_item_id": 32,
+        "trip_reference": "R2-LIVE-20261022-CORRECT",
+        "day": 87,
+        "start_time": "12:00",
+        "end_time": "13:00",
+        "activity_id": 1,
+        "destination_id": 1,
+        "estimated_cost": 10.0,
+        "notes": "Temporary Student 5 Release 2 validation",
+        "id": "32",
+        "original": {
+          "itinerary_item_id": 32,
+          "trip_reference": "R2-LIVE-20261022-CORRECT",
+          "day": 87,
+          "start_time": "10:30",
+          "end_time": "11:30",
+          "activity_id": 1,
+          "destination_id": 1,
+          "estimated_cost": 10.0,
+          "notes": "Temporary Student 5 Release 2 validation"
+        },
+        "reason": "Shift later to remove an overlap, preserving the recorded duration."
+      }
+    ],
+    "second_decision_blocked": {
+      "method": "POST",
+      "url": "http://127.0.0.1:3005/api/itinerary/multi-agent/runs/run-875d21878fe4/review",
+      "http_status": 409,
+      "elapsed_seconds": 0.02,
+      "body": {
+        "error": "run already decided or not reviewable",
+        "status": "error"
+      }
+    },
+    "duplicate_apply_blocked": {
+      "method": "POST",
+      "url": "http://127.0.0.1:3005/api/itinerary/multi-agent/runs/run-875d21878fe4/apply",
+      "http_status": 409,
+      "elapsed_seconds": 0.02,
+      "body": {
+        "error": "run must have an unapplied approving human decision",
+        "status": "error"
+      }
+    },
+    "after": [
+      {
+        "activity_id": 1,
+        "day": 87,
+        "destination_id": 1,
+        "end_time": "11:00",
+        "estimated_cost": 10.0,
+        "itinerary_item_id": 30,
+        "notes": "Temporary Student 5 Release 2 validation",
+        "start_time": "09:00",
+        "trip_reference": "R2-LIVE-20261022-CORRECT"
+      },
+      {
+        "activity_id": 1,
+        "day": 87,
+        "destination_id": 1,
+        "end_time": "12:00",
+        "estimated_cost": 10.0,
+        "itinerary_item_id": 31,
+        "notes": "Human corrected after checking live itinerary evidence",
+        "start_time": "11:00",
+        "trip_reference": "R2-LIVE-20261022-CORRECT"
+      },
+      {
+        "activity_id": 1,
+        "day": 87,
+        "destination_id": 1,
+        "end_time": "13:00",
+        "estimated_cost": 10.0,
+        "itinerary_item_id": 32,
+        "notes": "Temporary Student 5 Release 2 validation",
+        "start_time": "12:00",
+        "trip_reference": "R2-LIVE-20261022-CORRECT"
+      },
+      {
+        "activity_id": 1,
+        "day": 88,
+        "destination_id": 1,
+        "end_time": "10:00",
+        "estimated_cost": 10.0,
+        "itinerary_item_id": 33,
+        "notes": "Temporary Student 5 Release 2 validation",
+        "start_time": "09:00",
+        "trip_reference": "R2-LIVE-20261022-CORRECT"
+      }
+    ],
+    "final_state": "applied",
+    "applied": {
+      "created_ids": [
+        31,
+        32
+      ],
+      "target": "itinerary-db"
+    },
+    "history": [
+      {
+        "agent": null,
+        "detail": {
+          "requested_by": "itinerary-be"
+        },
+        "seq": 15,
+        "state": "running",
+        "step": "created",
+        "ts": "2026-10-22T10:01:46.667+00:00"
+      },
+      {
+        "agent": "planner",
+        "detail": {
+          "attempts": [
+            {
+              "attempt": 1,
+              "ok": true
+            }
+          ],
+          "duration_ms": 5848,
+          "source": "llm",
+          "tools_called": []
+        },
+        "seq": 16,
+        "state": "running",
+        "step": "plan",
+        "ts": "2026-10-22T10:01:52.521+00:00"
+      },
+      {
+        "agent": "worker",
+        "detail": {
+          "attempts": [],
+          "duration_ms": 77,
+          "source": "workflow",
+          "tools_called": [
+            "get_itinerary"
+          ]
+        },
+        "seq": 17,
+        "state": "running",
+        "step": "work",
+        "ts": "2026-10-22T10:01:52.603+00:00"
+      },
+      {
+        "agent": "reviewer",
+        "detail": {
+          "attempts": [
+            {
+              "attempt": 1,
+              "error": "ValueError: review must preserve the evidence-based assessment",
+              "ok": false
+            },
+            {
+              "attempt": 2,
+              "error": "ValueError: review must preserve the evidence-based assessment",
+              "ok": false
+            }
+          ],
+          "duration_ms": 12312,
+          "source": "fallback",
+          "tools_called": []
+        },
+        "seq": 18,
+        "state": "running",
+        "step": "review",
+        "ts": "2026-10-22T10:02:04.923+00:00"
+      },
+      {
+        "agent": "human",
+        "detail": {},
+        "seq": 19,
+        "state": "awaiting_human_review",
+        "step": "human_review",
+        "ts": "2026-10-22T10:02:04.933+00:00"
+      },
+      {
+        "agent": "human",
+        "detail": {
+          "approved_ids": [
+            "31",
+            "32"
+          ],
+          "decision": "correct",
+          "edits": {
+            "31": {
+              "notes": "Human corrected after checking live itinerary evidence"
+            }
+          },
+          "note": "",
+          "rejected_ids": [],
+          "reviewer": "itinerary-ui"
+        },
+        "seq": 20,
+        "state": "corrected",
+        "step": "human_review",
+        "ts": "2026-10-22T10:02:05.216+00:00"
+      },
+      {
+        "agent": "backend",
+        "detail": {
+          "created_ids": [
+            31,
+            32
+          ],
+          "target": "itinerary-db"
+        },
+        "seq": 21,
+        "state": "applied",
+        "step": "applied",
+        "ts": "2026-10-22T10:02:05.687+00:00"
+      }
+    ]
+  },
+  {
+    "decision": "reject",
+    "run_id": "run-479c24b29b70",
+    "workflow": "itinerary_schedule_review",
+    "input": {
+      "trip_reference": "R2-LIVE-20261022-REJECT",
+      "day": 87
+    },
+    "before": [
+      {
+        "activity_id": 1,
+        "day": 87,
+        "destination_id": 1,
+        "end_time": "11:00",
+        "estimated_cost": 10.0,
+        "itinerary_item_id": 34,
+        "notes": "Temporary Student 5 Release 2 validation",
+        "start_time": "09:00",
+        "trip_reference": "R2-LIVE-20261022-REJECT"
+      },
+      {
+        "activity_id": 1,
+        "day": 87,
+        "destination_id": 1,
+        "end_time": "11:00",
+        "estimated_cost": 10.0,
+        "itinerary_item_id": 35,
+        "notes": "Temporary Student 5 Release 2 validation",
+        "start_time": "10:00",
+        "trip_reference": "R2-LIVE-20261022-REJECT"
+      },
+      {
+        "activity_id": 1,
+        "day": 87,
+        "destination_id": 1,
+        "end_time": "11:30",
+        "estimated_cost": 10.0,
+        "itinerary_item_id": 36,
+        "notes": "Temporary Student 5 Release 2 validation",
+        "start_time": "10:30",
+        "trip_reference": "R2-LIVE-20261022-REJECT"
+      },
+      {
+        "activity_id": 1,
+        "day": 88,
+        "destination_id": 1,
+        "end_time": "10:00",
+        "estimated_cost": 10.0,
+        "itinerary_item_id": 37,
+        "notes": "Temporary Student 5 Release 2 validation",
+        "start_time": "09:00",
+        "trip_reference": "R2-LIVE-20261022-REJECT"
+      }
+    ],
+    "run_before_human_review": {
+      "run_id": "run-479c24b29b70",
+      "workflow": "itinerary_schedule_review",
+      "state": "awaiting_human_review",
+      "requested_by": "itinerary-be",
+      "input": {
+        "trip_reference": "R2-LIVE-20261022-REJECT",
+        "day": 87
+      },
+      "plan": {
+        "scope": {
+          "trip_reference": "R2-LIVE-20261022-REJECT",
+          "day": 87
+        },
+        "objective": "Review recorded schedule overlaps and propose same-day time shifts.",
+        "evidence_required": [
+          "get_itinerary: exact trip_reference and optional day"
+        ],
+        "steps": [
+          {
+            "tool": "get_itinerary",
+            "action": "Read scoped records"
+          },
+          {
+            "action": "Worker computes shifts; preserve duration, activity, destination and cost"
+          },
+          {
+            "action": "Reviewer checks proposals against the evidence"
+          },
+          {
+            "action": "Human approves, partially accepts, corrects or rejects; backend alone applies"
+          }
+        ]
+      },
+      "work": {
+        "scope": {
+          "trip_reference": "R2-LIVE-20261022-REJECT",
+          "day": 87
+        },
+        "items": [
+          {
+            "itinerary_item_id": 35,
+            "trip_reference": "R2-LIVE-20261022-REJECT",
+            "day": 87,
+            "start_time": "11:00",
+            "end_time": "12:00",
+            "activity_id": 1,
+            "destination_id": 1,
+            "estimated_cost": 10.0,
+            "notes": "Temporary Student 5 Release 2 validation",
+            "id": "35",
+            "original": {
+              "itinerary_item_id": 35,
+              "trip_reference": "R2-LIVE-20261022-REJECT",
+              "day": 87,
+              "start_time": "10:00",
+              "end_time": "11:00",
+              "activity_id": 1,
+              "destination_id": 1,
+              "estimated_cost": 10.0,
+              "notes": "Temporary Student 5 Release 2 validation"
+            },
+            "reason": "Shift later to remove an overlap, preserving the recorded duration."
+          },
+          {
+            "itinerary_item_id": 36,
+            "trip_reference": "R2-LIVE-20261022-REJECT",
+            "day": 87,
+            "start_time": "12:00",
+            "end_time": "13:00",
+            "activity_id": 1,
+            "destination_id": 1,
+            "estimated_cost": 10.0,
+            "notes": "Temporary Student 5 Release 2 validation",
+            "id": "36",
+            "original": {
+              "itinerary_item_id": 36,
+              "trip_reference": "R2-LIVE-20261022-REJECT",
+              "day": 87,
+              "start_time": "10:30",
+              "end_time": "11:30",
+              "activity_id": 1,
+              "destination_id": 1,
+              "estimated_cost": 10.0,
+              "notes": "Temporary Student 5 Release 2 validation"
+            },
+            "reason": "Shift later to remove an overlap, preserving the recorded duration."
+          }
+        ],
+        "summary": "Reviewed 3 records; 2 proposed shifts.",
+        "evidence": [
+          {
+            "source": "MCP:get_itinerary",
+            "scope": {
+              "trip_reference": "R2-LIVE-20261022-REJECT",
+              "day": 87
+            },
+            "records": [
+              {
+                "itinerary_item_id": 34,
+                "trip_reference": "R2-LIVE-20261022-REJECT",
+                "day": 87,
+                "start_time": "09:00",
+                "end_time": "11:00",
+                "activity_id": 1,
+                "destination_id": 1,
+                "estimated_cost": 10.0,
+                "notes": "Temporary Student 5 Release 2 validation"
+              },
+              {
+                "itinerary_item_id": 35,
+                "trip_reference": "R2-LIVE-20261022-REJECT",
+                "day": 87,
+                "start_time": "10:00",
+                "end_time": "11:00",
+                "activity_id": 1,
+                "destination_id": 1,
+                "estimated_cost": 10.0,
+                "notes": "Temporary Student 5 Release 2 validation"
+              },
+              {
+                "itinerary_item_id": 36,
+                "trip_reference": "R2-LIVE-20261022-REJECT",
+                "day": 87,
+                "start_time": "10:30",
+                "end_time": "11:30",
+                "activity_id": 1,
+                "destination_id": 1,
+                "estimated_cost": 10.0,
+                "notes": "Temporary Student 5 Release 2 validation"
+              }
+            ]
+          }
+        ],
+        "issues": [],
+        "limitations": "No travel times, opening hours or booking constraints are known."
+      },
+      "review": {
+        "risk": "medium",
+        "status": "ready_for_human_review",
+        "findings": [
+          "Proposals match recorded evidence and preserve scope, duration, identifiers and cost."
+        ],
+        "recommendations": [
+          "Check real-world availability; only explicitly approved time/notes changes may be saved."
+        ]
+      },
+      "decision": null,
+      "approved_items": null,
+      "applied": null,
+      "error": null,
+      "created_at": "2026-10-22T10:02:11.411+00:00",
+      "updated_at": "2026-10-22T10:02:29.228+00:00"
+    },
+    "human_decision": {
+      "decision": "reject",
+      "approved_ids": [],
+      "rejected_ids": [
+        "35",
+        "36"
+      ],
+      "edits": {},
+      "note": "",
+      "reviewer": "itinerary-ui"
+    },
+    "approved_items": [],
+    "second_decision_blocked": {
+      "method": "POST",
+      "url": "http://127.0.0.1:3005/api/itinerary/multi-agent/runs/run-479c24b29b70/review",
+      "http_status": 409,
+      "elapsed_seconds": 0.02,
+      "body": {
+        "error": "run already decided or not reviewable",
+        "status": "error"
+      }
+    },
+    "rejected_apply_blocked": {
+      "method": "POST",
+      "url": "http://127.0.0.1:3005/api/itinerary/multi-agent/runs/run-479c24b29b70/apply",
+      "http_status": 409,
+      "elapsed_seconds": 0.03,
+      "body": {
+        "error": "run must have an unapplied approving human decision",
+        "status": "error"
+      }
+    },
+    "after": [
+      {
+        "activity_id": 1,
+        "day": 87,
+        "destination_id": 1,
+        "end_time": "11:00",
+        "estimated_cost": 10.0,
+        "itinerary_item_id": 34,
+        "notes": "Temporary Student 5 Release 2 validation",
+        "start_time": "09:00",
+        "trip_reference": "R2-LIVE-20261022-REJECT"
+      },
+      {
+        "activity_id": 1,
+        "day": 87,
+        "destination_id": 1,
+        "end_time": "11:00",
+        "estimated_cost": 10.0,
+        "itinerary_item_id": 35,
+        "notes": "Temporary Student 5 Release 2 validation",
+        "start_time": "10:00",
+        "trip_reference": "R2-LIVE-20261022-REJECT"
+      },
+      {
+        "activity_id": 1,
+        "day": 87,
+        "destination_id": 1,
+        "end_time": "11:30",
+        "estimated_cost": 10.0,
+        "itinerary_item_id": 36,
+        "notes": "Temporary Student 5 Release 2 validation",
+        "start_time": "10:30",
+        "trip_reference": "R2-LIVE-20261022-REJECT"
+      },
+      {
+        "activity_id": 1,
+        "day": 88,
+        "destination_id": 1,
+        "end_time": "10:00",
+        "estimated_cost": 10.0,
+        "itinerary_item_id": 37,
+        "notes": "Temporary Student 5 Release 2 validation",
+        "start_time": "09:00",
+        "trip_reference": "R2-LIVE-20261022-REJECT"
+      }
+    ],
+    "final_state": "rejected",
+    "applied": null,
+    "history": [
+      {
+        "agent": null,
+        "detail": {
+          "requested_by": "itinerary-be"
+        },
+        "seq": 22,
+        "state": "running",
+        "step": "created",
+        "ts": "2026-10-22T10:02:11.416+00:00"
+      },
+      {
+        "agent": "planner",
+        "detail": {
+          "attempts": [
+            {
+              "attempt": 1,
+              "ok": true
+            }
+          ],
+          "duration_ms": 5812,
+          "source": "llm",
+          "tools_called": []
+        },
+        "seq": 23,
+        "state": "running",
+        "step": "plan",
+        "ts": "2026-10-22T10:02:17.233+00:00"
+      },
+      {
+        "agent": "worker",
+        "detail": {
+          "attempts": [],
+          "duration_ms": 101,
+          "source": "workflow",
+          "tools_called": [
+            "get_itinerary"
+          ]
+        },
+        "seq": 24,
+        "state": "running",
+        "step": "work",
+        "ts": "2026-10-22T10:02:17.341+00:00"
+      },
+      {
+        "agent": "reviewer",
+        "detail": {
+          "attempts": [
+            {
+              "attempt": 1,
+              "error": "ValueError: review must preserve the evidence-based assessment",
+              "ok": false
+            },
+            {
+              "attempt": 2,
+              "error": "ValueError: review must preserve the evidence-based assessment",
+              "ok": false
+            }
+          ],
+          "duration_ms": 11876,
+          "source": "fallback",
+          "tools_called": []
+        },
+        "seq": 25,
+        "state": "running",
+        "step": "review",
+        "ts": "2026-10-22T10:02:29.223+00:00"
+      },
+      {
+        "agent": "human",
+        "detail": {},
+        "seq": 26,
+        "state": "awaiting_human_review",
+        "step": "human_review",
+        "ts": "2026-10-22T10:02:29.235+00:00"
+      },
+      {
+        "agent": "human",
+        "detail": {
+          "approved_ids": [],
+          "decision": "reject",
+          "edits": {},
+          "note": "",
+          "rejected_ids": [
+            "35",
+            "36"
+          ],
+          "reviewer": "itinerary-ui"
+        },
+        "seq": 27,
+        "state": "rejected",
+        "step": "human_review",
+        "ts": "2026-10-22T10:02:29.536+00:00"
+      }
+    ]
+  }
+]

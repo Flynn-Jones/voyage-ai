@@ -19,7 +19,7 @@ multi_agent_mode_bp = Blueprint("multi_agent_mode", __name__)
 
 # Human decision (Lab 10 values) -> shared server decision. Partially Accept carries the correction.
 DECISIONS = {"Accept": "approve", "Partially Accept": "partial", "Reject": "reject"}
-RUN_FIELDS = ("task", "date", "slot_hours", "request")
+RUN_FIELDS = ("date", "slot_hours", "request")
 MAX_TEXT = 500
 
 

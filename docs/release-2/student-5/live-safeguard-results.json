@@ -1,0 +1,200 @@
+{
+  "missing_trip": {
+    "method": "POST",
+    "url": "http://127.0.0.1:3005/api/itinerary/multi-agent/run",
+    "http_status": 400,
+    "elapsed_seconds": 0.03,
+    "body": {
+      "error": "trip_reference must be a non-empty string of at most 120 characters",
+      "status": "error"
+    }
+  },
+  "invalid_day": {
+    "method": "POST",
+    "url": "http://127.0.0.1:3005/api/itinerary/multi-agent/run",
+    "http_status": 400,
+    "elapsed_seconds": 0.02,
+    "body": {
+      "error": "day must be a positive integer",
+      "status": "error"
+    }
+  },
+  "negative_day": {
+    "method": "POST",
+    "url": "http://127.0.0.1:3005/api/itinerary/multi-agent/run",
+    "http_status": 400,
+    "elapsed_seconds": 0.0,
+    "body": {
+      "error": "day must be a positive integer",
+      "status": "error"
+    }
+  },
+  "unknown_run": {
+    "method": "POST",
+    "url": "http://127.0.0.1:3005/api/itinerary/multi-agent/runs/run-does-not-exist/apply",
+    "http_status": 404,
+    "elapsed_seconds": 0.02,
+    "body": {
+      "error": "unknown run: run-does-not-exist",
+      "status": "error"
+    }
+  },
+  "unknown_workflow": {
+    "method": "POST",
+    "url": "http://127.0.0.1:7004/workflows/nonexistent_workflow/runs",
+    "http_status": 404,
+    "elapsed_seconds": 0.0,
+    "body": {
+      "status": "error",
+      "error": "unknown workflow: nonexistent_workflow"
+    }
+  },
+  "foreign_workflow": {
+    "run_id": "run-8d2d97e7ee7d",
+    "workflow": "example_readonly"
+  },
+  "foreign_apply_blocked": {
+    "method": "POST",
+    "url": "http://127.0.0.1:3005/api/itinerary/multi-agent/runs/run-8d2d97e7ee7d/apply",
+    "http_status": 404,
+    "elapsed_seconds": 0.03,
+    "body": {
+      "error": "run does not belong to the Itinerary workflow",
+      "status": "error"
+    }
+  },
+  "disabled": {
+    "configuration": {
+      "MULTI_AGENT_ENABLED": "false"
+    },
+    "routes": {
+      "POST /run": {
+        "method": "POST",
+        "url": "http://127.0.0.1:3005/api/itinerary/multi-agent/run",
+        "http_status": 403,
+        "elapsed_seconds": 0.02,
+        "body": {
+          "error": "Multi-Agent mode is disabled",
+          "status": "error"
+        }
+      },
+      "GET /runs/run-does-not-exist": {
+        "method": "GET",
+        "url": "http://127.0.0.1:3005/api/itinerary/multi-agent/runs/run-does-not-exist",
+        "http_status": 403,
+        "elapsed_seconds": 0.02,
+        "body": {
+          "error": "Multi-Agent mode is disabled",
+          "status": "error"
+        }
+      },
+      "GET /runs/run-does-not-exist/history": {
+        "method": "GET",
+        "url": "http://127.0.0.1:3005/api/itinerary/multi-agent/runs/run-does-not-exist/history",
+        "http_status": 403,
+        "elapsed_seconds": 0.02,
+        "body": {
+          "error": "Multi-Agent mode is disabled",
+          "status": "error"
+        }
+      },
+      "POST /runs/run-does-not-exist/review": {
+        "method": "POST",
+        "url": "http://127.0.0.1:3005/api/itinerary/multi-agent/runs/run-does-not-exist/review",
+        "http_status": 403,
+        "elapsed_seconds": 0.05,
+        "body": {
+          "error": "Multi-Agent mode is disabled",
+          "status": "error"
+        }
+      },
+      "POST /runs/run-does-not-exist/apply": {
+        "method": "POST",
+        "url": "http://127.0.0.1:3005/api/itinerary/multi-agent/runs/run-does-not-exist/apply",
+        "http_status": 403,
+        "elapsed_seconds": 0.03,
+        "body": {
+          "error": "Multi-Agent mode is disabled",
+          "status": "error"
+        }
+      }
+    },
+    "crud": {
+      "create": 201,
+      "read": 200,
+      "update": 200,
+      "delete": 204
+    }
+  },
+  "unavailable": {
+    "method": "POST",
+    "url": "http://127.0.0.1:3005/api/itinerary/multi-agent/run",
+    "http_status": 502,
+    "elapsed_seconds": 0.02,
+    "body": {
+      "error": "Multi-Agent Server unavailable or returned invalid JSON",
+      "status": "error"
+    },
+    "configuration": {
+      "MULTI_AGENT_ENABLED": "true",
+      "MULTI_AGENT_SERVICE_URL": "http://host.docker.internal:65534"
+    },
+    "crud": {
+      "create": 201,
+      "read": 200,
+      "update": 200,
+      "delete": 204
+    }
+  },
+  "overall": "PASS",
+  "restored_enabled_health": {
+    "method": "GET",
+    "url": "http://127.0.0.1:5005/health",
+    "http_status": 200,
+    "elapsed_seconds": 0.02,
+    "body": {
+      "service": "itinerary-be",
+      "status": "running"
+    }
+  },
+  "restored_baseline": true,
+  "final_rag_refresh": {
+    "method": "POST",
+    "url": "http://127.0.0.1:3005/api/itinerary/rag/refresh",
+    "http_status": 200,
+    "elapsed_seconds": 16.55,
+    "body": {
+      "activity_chunk_count": 40,
+      "caller": "itinerary-service",
+      "chunk_count": 68,
+      "collection": "voyageai_shared_context",
+      "embedding_mode": "hash",
+      "itinerary_chunk_count": 12,
+      "itinerary_source_error": null,
+      "missing_docs": [
+        "docs/ARCHITECTURE.md",
+        "budget-service/SUMMARY.md"
+      ],
+      "service_counts": {
+        "accommodation": 15,
+        "activity": 40,
+        "itinerary": 12,
+        "shared": 1
+      },
+      "source_status": {
+        "accommodation_db": "unavailable: HTTPConnectionPool(host='localhost', port=6002): Max retries exceeded with url: /accommodations (Caused by NewConnectionError(\"HTTPConnection(host='localhost', port=6002): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it\"))",
+        "activity_db": "unavailable: HTTPConnectionPool(host='localhost', port=6003): Max retries exceeded with url: /activities (Caused by NewConnectionError(\"HTTPConnection(host='localhost', port=6003): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it\"))",
+        "budget_db": "unavailable: HTTPConnectionPool(host='localhost', port=6004): Max retries exceeded with url: /expenses (Caused by NewConnectionError(\"HTTPConnection(host='localhost', port=6004): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it\"))",
+        "destination_db": "unavailable: HTTPConnectionPool(host='localhost', port=6001): Max retries exceeded with url: /destinations (Caused by NewConnectionError(\"HTTPConnection(host='localhost', port=6001): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it\"))",
+        "itinerary_db": "ok"
+      },
+      "status": "success",
+      "tier_counts": {
+        "tier_1": 12,
+        "tier_2": 54,
+        "tier_3": 2
+      },
+      "vector_store_status": "ready"
+    }
+  }
+}

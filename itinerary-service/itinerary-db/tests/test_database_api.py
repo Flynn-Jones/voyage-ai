@@ -17,7 +17,7 @@ if str(DB_ROOT) not in sys.path:
 for module_name in ("app", "database", "init_db", "validation"):
     sys.modules.pop(module_name, None)
 importlib.invalidate_caches()
-from app import create_app as create_database_app
+from app import create_app as create_database_app  # noqa: E402 - import after isolating the database service modules
 
 
 VALID_ITEM = {

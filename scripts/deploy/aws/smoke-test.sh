@@ -71,12 +71,12 @@ else
   check "FAIL crud:accommodation-service no seeded accommodation rows found on /"
 fi
 
-# Activity: list page
-body=$(curl -s -m 10 "http://$ALB_DNS:3003/activities")
-if echo "$body" | grep -q "act-empty"; then
-  check "FAIL crud:activity-service activity-database returned no rows (empty seed data in this task)"
-else
+# Activity: the Activities page (home) lists every activity in a table
+body=$(curl -s -m 10 "http://$ALB_DNS:3003/")
+if echo "$body" | grep -q 'id="activity-row-'; then
   check "PASS crud:activity-service activity list renders seeded data"
+else
+  check "FAIL crud:activity-service activity-database returned no rows (empty seed data in this task)"
 fi
 
 # Budget: real expense table

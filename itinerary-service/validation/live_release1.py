@@ -5,6 +5,7 @@ Add --ollama to exercise existing AI review and the shared dual-model loop.
 The base RAG checks now also require a running local Ollama model.
 Does not start Docker, alter development records, or leave server processes running.
 """
+# ruff: noqa: S101 - assertions are validation checks, not production security controls
 import argparse
 import json
 import os
@@ -50,7 +51,7 @@ def main():
         def start(script, number):
             log = open(Path(scratch) / f"server-{number}.log", "w+", encoding="utf-8")
             logs.append(log)
-            process = subprocess.Popen([sys.executable, str(ROOT / script)], cwd=ROOT,
+            process = subprocess.Popen([sys.executable, str(ROOT / script)], cwd=ROOT,  # noqa: S603 - fixed Python executable and repository scripts; no shell
                                        env=dict(env, PORT=str(number)), stdout=log, stderr=log)
             processes.append(process)
             deadline = time.monotonic() + 20
@@ -110,7 +111,7 @@ def main():
                               "from collectors.itinerary_evidence import collect; "
                               "results=[collect(k) for k in ('MCP','RAG')]; "
                               "print(results); assert all(ok for ok, evidence in results)")
-            collected = subprocess.run([sys.executable, "-c", collector_code], cwd=ROOT, env=env,
+            collected = subprocess.run([sys.executable, "-c", collector_code], cwd=ROOT, env=env,  # noqa: S603 - fixed Python executable and literal validation code; no shell
                                        capture_output=True, text=True, timeout=180)
             assert collected.returncode == 0, collected.stdout + collected.stderr
             checks.append("existing shared MCP/RAG collectors: real itinerary evidence passed")

@@ -1,7 +1,8 @@
 """activity_schedule_check - Activity Manager (Student 3) workflow for the shared Multi-Agent Server.
 
-"Summarise the activities and their scheduled times, check a day for clashes, or propose a free
-slot on a day that clashes with nothing."
+One job, like the other features' workflows: check one day's schedule. A single run lists the
+activities scheduled that day, finds every overlapping pair, and proposes free slots that clash
+with nothing.
 
 Boundaries:
 - Read-only: list_activities and list_assignments only. Never writes to the activity database.
@@ -22,11 +23,6 @@ from core.workflow import RunContext, Workflow
 
 PROMPTS_DIR = config.REPO_ROOT / "activity-service" / "prompts" / "multi-agent"
 
-TASKS = {
-    "summary": "Summarise the activities and their scheduled times",
-    "overlaps": "Check one day for overlapping scheduled activities",
-    "free_slots": "Propose free slots on one day that clash with no scheduled activity",
-}
 # tool -> (key holding its records in the MCP result, what it is evidence for)
 SOURCES = {
     "list_activities": ("activities", "activity names, types, costs and durations"),
@@ -36,7 +32,7 @@ AGENTS = ("Planner", "Worker", "Reviewer", "Human")
 DECISIONS = ("Accept", "Partially Accept", "Reject")  # least to most strict
 RANK = {"low": 0, "medium": 1, "high": 2}
 
-DAY_START, DAY_END = 8 * 60, 20 * 60  # free_slots searches 08:00-20:00 (minutes after midnight)
+DAY_START, DAY_END = 8 * 60, 20 * 60  # free slots are searched 08:00-20:00 (minutes after midnight)
 MAX_REQUEST = 300
 MAX_SLOTS = 3
 MAX_EVIDENCE_LINES = 40  # keeps the Worker prompt short enough for a 0.5b model
@@ -104,26 +100,22 @@ def _money(value) -> float | None:
 
 class ActivityScheduleCheckWorkflow(Workflow):
     name = "activity_schedule_check"
-    description = ("Activity: summarise activities, check a day for clashing activities, or propose "
-                   "clash-free slots, for human review (read-only; never schedules anything).")
+    description = ("Activity: check one day's schedule - the activities on it, any that overlap, and "
+                   "clash-free slots - for human review (read-only; never schedules anything).")
     allowed_tools = list(SOURCES)
     uses_rag = False
 
     # ---- input --------------------------------------------------------------
     def validate_input(self, payload: dict) -> dict:
-        task = payload.get("task")
-        if task not in TASKS:
-            raise ValueError(f"task must be one of {sorted(TASKS)}")
         day = payload.get("date") or None
-        if day is not None:
-            if not isinstance(day, str) or not DATE_RE.match(day.strip()):
-                raise ValueError("date must be YYYY-MM-DD")
-            try:
-                day = date.fromisoformat(day.strip()).isoformat()
-            except ValueError as exc:
-                raise ValueError("date must be a real calendar date (YYYY-MM-DD)") from exc
-        if task in ("overlaps", "free_slots") and day is None:
-            raise ValueError(f"date (YYYY-MM-DD) is required for {task}")
+        if day is None:
+            raise ValueError("date (YYYY-MM-DD) is required")
+        if not isinstance(day, str) or not DATE_RE.match(day.strip()):
+            raise ValueError("date must be YYYY-MM-DD")
+        try:
+            day = date.fromisoformat(day.strip()).isoformat()
+        except ValueError as exc:
+            raise ValueError("date must be a real calendar date (YYYY-MM-DD)") from exc
         slot_hours = payload.get("slot_hours", 2)
         if (isinstance(slot_hours, bool) or not isinstance(slot_hours, (int, float))
                 or not 0.25 <= slot_hours <= 12):
@@ -131,16 +123,12 @@ class ActivityScheduleCheckWorkflow(Workflow):
         request = payload.get("request") or ""
         if not isinstance(request, str) or len(request) > MAX_REQUEST:
             raise ValueError(f"request must be a string of at most {MAX_REQUEST} characters")
-        return {"task": task, "date": day, "slot_hours": float(slot_hours), "request": request.strip()}
+        return {"date": day, "slot_hours": float(slot_hours), "request": request.strip()}
 
     def _task_text(self, payload: dict) -> str:
-        text = TASKS[payload["task"]]
-        if payload["date"]:
-            text += f" on {payload['date']}"
-        if payload["task"] == "free_slots":
-            text += (f", each {payload['slot_hours']:g} hour(s) long, between "
-                     f"{_hhmm(DAY_START)} and {_hhmm(DAY_END)}")
-        return text
+        return (f"Check the schedule on {payload['date']}: list the activities scheduled that day, find any "
+                f"that overlap, and propose free {payload['slot_hours']:g}-hour slots between "
+                f"{_hhmm(DAY_START)} and {_hhmm(DAY_END)} that clash with none of them")
 
     # ---- plan ---------------------------------------------------------------
     def planner_prompt(self, payload: dict) -> str:
@@ -221,7 +209,7 @@ class ActivityScheduleCheckWorkflow(Workflow):
         return rows
 
     def work(self, payload: dict, plan: dict, ctx: RunContext) -> dict:
-        task, day = payload["task"], payload["date"]
+        day, slot_hours = payload["date"], payload["slot_hours"]
         evidence: list[dict] = []
         activities = self._read(ctx, "list_activities", evidence)
         assignments = self._read(ctx, "list_assignments", evidence)
@@ -246,72 +234,64 @@ class ActivityScheduleCheckWorkflow(Workflow):
                                  "text": f"Assignment #{entry['assignment_id']} has an unreadable time "
                                          f"{entry['time']!r}; it was left out."})
             schedule.append(entry)
-        on_day = sorted((s for s in schedule if s["start"] and (day is None or s["start"].date().isoformat() == day)),
+        on_day = sorted((s for s in schedule if s["start"] and s["start"].date().isoformat() == day),
                         key=lambda s: s["start"])
-        if task != "summary":
-            for s in on_day:
-                if s["minutes"] is None and s["name"] is not None:
-                    problems.append({"code": "unknown_duration",
-                                     "text": f"Activity #{s['activity_id']} '{s['name']}' at {s['time']} has a "
-                                             f"duration that cannot be read "
-                                             f"({by_id[s['activity_id']].get('duration')!r})."})
+        for s in on_day:
+            if s["minutes"] is None and s["name"] is not None:
+                problems.append({"code": "unknown_duration",
+                                 "text": f"Activity #{s['activity_id']} '{s['name']}' at {s['time']} has a "
+                                         f"duration that cannot be read "
+                                         f"({by_id[s['activity_id']].get('duration')!r})."})
 
-        if task == "summary":
-            items, summary = self._summary(activities or [], schedule, day)
-        elif task == "overlaps":
-            items, summary = self._overlaps(on_day, day)
-        else:
-            items, summary = self._free_slots(on_day, day, payload["slot_hours"])
+        # The two kinds of item the human accepts or rejects: clashing pairs, then proposed slots.
+        overlaps = self._overlaps(on_day)
+        # Without the schedule a "free" slot is a guess, so none is proposed.
+        have_schedule = activities is not None and assignments is not None
+        slots = self._free_slots(on_day, day, slot_hours) if have_schedule else []
+        scheduled = [{"assignment_id": s["assignment_id"], "activity_id": s["activity_id"], "name": s["name"],
+                      "time": s["time"], "duration": (by_id.get(s["activity_id"]) or {}).get("duration")}
+                     for s in on_day]
 
-        shown_ids = ({s["activity_id"] for s in on_day} if day else set(by_id))
+        shown_ids = {s["activity_id"] for s in on_day}
         lines = [f"- #{a.get('activity_id')} | {a.get('activity_name')} | {a.get('activity_type')} | "
                  f"cost {a.get('activity_cost')} | duration {a.get('duration')} [MCP:list_activities]"
                  for a in activities or [] if a.get("activity_id") in shown_ids]
         lines += [f"- assignment #{s['assignment_id']} | activity #{s['activity_id']} | {s['time']} "
-                  f"[MCP:list_assignments]" for s in (on_day if day else schedule)]
+                  f"[MCP:list_assignments]" for s in on_day]
         truncated = len(lines) > MAX_EVIDENCE_LINES
 
         work = {
-            "items": items,
-            "summary": summary,
+            "items": overlaps + slots,
+            "scheduled": scheduled,
+            "summary": self._summary(on_day, overlaps, slots, day, slot_hours),
             "evidence": evidence,
             "activity_evidence": lines[:MAX_EVIDENCE_LINES],
-            "totals": {"task": task, "date": day, "activities": len(activities or []),
-                       "assignments": len(schedule), "scheduled_on_day": len(on_day) if day else None,
-                       "items": len(items), "evidence_truncated": truncated},
+            "totals": {"date": day, "slot_hours": slot_hours, "activities": len(activities or []),
+                       "assignments": len(schedule), "scheduled_on_day": len(on_day),
+                       "overlaps": len(overlaps), "free_slots": len(slots),
+                       "items": len(overlaps) + len(slots), "evidence_truncated": truncated},
             "problems": problems,
             # every id the evidence contains; the Worker/Reviewer may only cite these
             "known_ids": sorted({str(i) for i in by_id if i is not None}
                                 | {str(s["assignment_id"]) for s in schedule if s["assignment_id"] is not None}),
-            "busy": [[s["start"].strftime("%H:%M"), s["minutes"]] for s in on_day] if task == "free_slots" else [],
+            "busy": [[s["start"].strftime("%H:%M"), s["minutes"]] for s in on_day],
         }
         work["worker_output"], work["worker_output_source"] = self._narrate(payload, plan, work, ctx)
         work["checks"] = self.checks(work)
         return work
 
-    def _summary(self, activities: list, schedule: list, day: str | None) -> tuple[list, str]:
-        times: dict = {}
-        for s in schedule:
-            if s["start"] and (day is None or s["start"].date().isoformat() == day):
-                times.setdefault(s["activity_id"], []).append(s["time"])
-        items = []
-        for a in activities:
-            if not isinstance(a, dict) or a.get("activity_id") is None:
-                continue
-            if day and a["activity_id"] not in times:
-                continue
-            items.append({"id": a["activity_id"], "name": a.get("activity_name"), "type": a.get("activity_type"),
-                          "cost": _money(a.get("activity_cost")), "duration": a.get("duration"),
-                          "scheduled": sorted(times.get(a["activity_id"], []))})
-        total = round(sum(i["cost"] or 0 for i in items), 2)
-        where = f" scheduled on {day}" if day else ""
-        if not items:
-            return items, f"No activities found{where}."
-        scheduled = sum(1 for i in items if i["scheduled"])
-        return items, (f"{len(items)} activit{'y' if len(items) == 1 else 'ies'}{where}, {scheduled} with a "
-                       f"scheduled time; combined cost {total:.2f}.")
+    @staticmethod
+    def _summary(on_day: list, overlaps: list, slots: list, day: str, slot_hours: float) -> str:
+        if not on_day:
+            head = f"No activities scheduled on {day}"
+        else:
+            head = f"{len(on_day)} activit{'y' if len(on_day) == 1 else 'ies'} scheduled on {day}"
+        clash = f"{len(overlaps)} overlapping pair(s)" if overlaps else "no overlaps"
+        free = (f"{len(slots)} proposed {slot_hours:g}h slot(s) that clash with nothing" if slots
+                else f"no free {slot_hours:g}h slot between {_hhmm(DAY_START)} and {_hhmm(DAY_END)}")
+        return f"{head}; {clash}; {free}."
 
-    def _overlaps(self, on_day: list, day: str) -> tuple[list, str]:
+    def _overlaps(self, on_day: list) -> list:
         known = [s for s in on_day if s["minutes"] is not None]
         items = []
         for i, a in enumerate(known):
@@ -321,19 +301,16 @@ class ActivityScheduleCheckWorkflow(Workflow):
                 overlap = min(a_start + a["minutes"], b_start + b["minutes"]) - max(a_start, b_start)
                 if overlap > 0:
                     items.append({
+                        "kind": "overlap",
                         "id": f"{a['assignment_id']}-{b['assignment_id']}",
                         "first": f"#{a['activity_id']} {a['name']} {_hhmm(a_start)}-{_hhmm(a_start + a['minutes'])}",
                         "second": f"#{b['activity_id']} {b['name']} {_hhmm(b_start)}-{_hhmm(b_start + b['minutes'])}",
                         "activity_ids": [a["activity_id"], b["activity_id"]],
                         "overlap_minutes": overlap,
                     })
-        if not on_day:
-            return items, f"No activities scheduled on {day}."
-        if not items:
-            return items, f"{len(on_day)} activit{'y' if len(on_day) == 1 else 'ies'} on {day}; no overlaps found."
-        return items, f"{len(items)} overlapping pair(s) among {len(on_day)} activities on {day}."
+        return items
 
-    def _free_slots(self, on_day: list, day: str, slot_hours: float) -> tuple[list, str]:
+    def _free_slots(self, on_day: list, day: str, slot_hours: float) -> list:
         length = round(slot_hours * 60)
         busy = []
         for s in on_day:
@@ -345,16 +322,12 @@ class ActivityScheduleCheckWorkflow(Workflow):
         for start, end in busy + [(DAY_END, DAY_END)]:
             if start - cursor >= length and len(items) < MAX_SLOTS:
                 slot_end = cursor + length
-                items.append({"id": f"slot-{len(items) + 1}", "date": day,
+                items.append({"kind": "free_slot", "id": f"slot-{len(items) + 1}", "date": day,
                               "start": _hhmm(cursor), "end": _hhmm(slot_end),
                               "proposal": f"Proposed: free {slot_hours:g}h slot on {day}, "
                                           f"{_hhmm(cursor)}-{_hhmm(slot_end)} (not saved)"})
             cursor = max(cursor, end)
-        if not items:
-            return items, (f"No free {slot_hours:g}h slot between {_hhmm(DAY_START)} and {_hhmm(DAY_END)} "
-                           f"on {day} ({len(on_day)} scheduled).")
-        return items, (f"{len(items)} proposed {slot_hours:g}h slot(s) on {day} that clash with none of the "
-                       f"{len(on_day)} scheduled activit{'y' if len(on_day) == 1 else 'ies'}.")
+        return items
 
     def _narrate(self, payload: dict, plan: dict, work: dict, ctx: RunContext) -> tuple[str, str]:
         """Worker LLM narration of the computed result, or a deterministic one if the LLM is unavailable."""
@@ -392,29 +365,29 @@ class ActivityScheduleCheckWorkflow(Workflow):
                 found.append({"code": "no_data", "text": source["detail"]})
         found += work["problems"]
 
-        task, totals = work["totals"]["task"], work["totals"]
+        totals = work["totals"]
+        overlaps = [i for i in work["items"] if i["kind"] == "overlap"]
+        slots = [i for i in work["items"] if i["kind"] == "free_slot"]
         if not found and not totals["activities"]:
             found.append({"code": "no_records", "text": "The activity database has no activities."})
-        elif task != "summary" and totals["activities"] and not totals["scheduled_on_day"]:
+        elif totals["activities"] and not totals["scheduled_on_day"]:
             found.append({"code": "no_records", "text": f"No activities are scheduled on {totals['date']}."})
-        elif task == "summary" and totals["date"] and totals["activities"] and not work["items"]:
-            found.append({"code": "no_records", "text": f"No activities are scheduled on {totals['date']}."})
-        if task == "overlaps":
-            for item in work["items"]:
-                found.append({"code": "clash", "text": f"{item['first']} overlaps {item['second']} "
-                                                       f"by {item['overlap_minutes']} min."})
-        if task == "free_slots":
-            if not work["items"] and totals["scheduled_on_day"] is not None:
-                found.append({"code": "no_free_slot", "text": work["summary"]})
-            for item in work["items"]:  # self-check: a proposal must never clash with a scheduled activity
-                start, end = (int(t[:2]) * 60 + int(t[3:]) for t in (item["start"], item["end"]))
-                for busy_start, minutes in work["busy"]:
-                    b_start = int(busy_start[:2]) * 60 + int(busy_start[3:])
-                    b_end = b_start + minutes if minutes is not None else DAY_END
-                    if start < b_end and b_start < end:
-                        found.append({"code": "proposal_conflict",
-                                      "text": f"{item['id']} {item['start']}-{item['end']} clashes with an "
-                                              f"activity at {busy_start}."})
+        for item in overlaps:
+            found.append({"code": "clash", "text": f"{item['first']} overlaps {item['second']} "
+                                                   f"by {item['overlap_minutes']} min."})
+        if not slots:
+            found.append({"code": "no_free_slot",
+                          "text": f"No free {totals['slot_hours']:g}h slot between {_hhmm(DAY_START)} and "
+                                  f"{_hhmm(DAY_END)} on {totals['date']}."})
+        for item in slots:  # self-check: a proposal must never clash with a scheduled activity
+            start, end = (int(t[:2]) * 60 + int(t[3:]) for t in (item["start"], item["end"]))
+            for busy_start, minutes in work["busy"]:
+                b_start = int(busy_start[:2]) * 60 + int(busy_start[3:])
+                b_end = b_start + minutes if minutes is not None else DAY_END
+                if start < b_end and b_start < end:
+                    found.append({"code": "proposal_conflict",
+                                  "text": f"{item['id']} {item['start']}-{item['end']} clashes with an "
+                                          f"activity at {busy_start}."})
 
         narrative = work["worker_output"]
         unknown = sorted({m.group(1) for m in ID_MENTION.finditer(narrative)} - set(work["known_ids"]), key=int)
@@ -506,11 +479,11 @@ class ActivityScheduleCheckWorkflow(Workflow):
             if check["code"] == "unknown_duration":
                 recs.append(check["text"].split(" has a duration")[0] + ": set a duration like '2 hours'.")
         if "clash" in codes:
-            recs.append("Move one activity of each clashing pair to another time in Manual Mode.")
+            recs.append("Move one activity of each clashing pair to another time (Edit on the Activities page).")
         if "no_free_slot" in codes:
             recs.append("Try a shorter slot or another day.")
         if "no_records" in codes:
-            recs.append("Add or schedule activities in Manual Mode, then re-run.")
+            recs.append("Add or schedule activities (Register activity, or Edit on the Activities page), then re-run.")
         if "no_data" in codes:
             recs.append("Start the MCP server (7001) and the activity database (6003), then re-run.")
         if "proposal_conflict" in codes:

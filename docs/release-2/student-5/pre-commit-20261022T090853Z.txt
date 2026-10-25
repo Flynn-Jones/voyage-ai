@@ -1,0 +1,86 @@
+# Student 5 pre-commit security scan
+date: 20261022T090853Z (UTC)
+branch: student-5/itinerary-feature
+base commit: bebf735071c00b3e61ecbc07ffeacbf23a2326c0 (uncommitted foundation changes)
+scope: all tracked and new non-ignored itinerary-service files; 59 files supplied
+command: python -B -m pre_commit run --color never --files <files listed below>
+config: .pre-commit-config.yaml; Ruff/S via ruff.toml; existing .secrets.baseline; repository pip-audit wrapper
+
+Input files:
+itinerary-service/.env.example
+itinerary-service/README.md
+itinerary-service/docker-compose.yml
+itinerary-service/itinerary-be/Dockerfile
+itinerary-service/itinerary-be/app.py
+itinerary-service/itinerary-be/prompts/review/system_prompt.txt
+itinerary-service/itinerary-be/prompts/review/task_prompt.txt
+itinerary-service/itinerary-be/requirements.txt
+itinerary-service/itinerary-be/routes/__init__.py
+itinerary-service/itinerary-be/routes/ai_review.py
+itinerary-service/itinerary-be/routes/health.py
+itinerary-service/itinerary-be/routes/itinerary.py
+itinerary-service/itinerary-be/routes/release1.py
+itinerary-service/itinerary-be/services/__init__.py
+itinerary-service/itinerary-be/services/activity_api.py
+itinerary-service/itinerary-be/services/database_api.py
+itinerary-service/itinerary-be/services/destination_api.py
+itinerary-service/itinerary-be/services/enrichment.py
+itinerary-service/itinerary-be/services/llm_client.py
+itinerary-service/itinerary-be/services/prompt_loader.py
+itinerary-service/itinerary-be/services/release1_api.py
+itinerary-service/itinerary-be/services/schedule_analyzer.py
+itinerary-service/itinerary-be/tests/test_ai_review.py
+itinerary-service/itinerary-be/tests/test_backend_api.py
+itinerary-service/itinerary-be/tests/test_cross_service_enrichment.py
+itinerary-service/itinerary-be/tests/test_release1.py
+itinerary-service/itinerary-be/tests/test_release2_config.py
+itinerary-service/itinerary-be/validation.py
+itinerary-service/itinerary-db/Dockerfile
+itinerary-service/itinerary-db/app.py
+itinerary-service/itinerary-db/database.py
+itinerary-service/itinerary-db/init_db.py
+itinerary-service/itinerary-db/requirements.txt
+itinerary-service/itinerary-db/tests/test_database_api.py
+itinerary-service/itinerary-db/validation.py
+itinerary-service/itinerary-fe/Dockerfile
+itinerary-service/itinerary-fe/css/styles.css
+itinerary-service/itinerary-fe/index.html
+itinerary-service/itinerary-fe/js/app.js
+itinerary-service/itinerary-fe/nginx.conf
+itinerary-service/reports/final-runtime/README.md
+itinerary-service/reports/final-runtime/agentic-rag-normal.txt
+itinerary-service/reports/final-runtime/browser-grounded-answer.png
+itinerary-service/reports/final-runtime/browser-insufficient.png
+itinerary-service/reports/final-runtime/browser-results.json
+itinerary-service/reports/final-runtime/check_optional.ps1
+itinerary-service/reports/final-runtime/disabled-results.json
+itinerary-service/reports/final-runtime/http-results.json
+itinerary-service/reports/final-runtime/installed-packages.txt
+itinerary-service/reports/final-runtime/model.override.yml
+itinerary-service/reports/final-runtime/unavailable-results.json
+itinerary-service/reports/final-runtime/validate_browser.py
+itinerary-service/reports/final-runtime/validate_http.py
+itinerary-service/reports/rag-llm-correction-live.txt
+itinerary-service/reports/release1-live.txt
+itinerary-service/reports/release1-validation.md
+itinerary-service/tests/test_agentic_evidence.py
+itinerary-service/tests/test_shared_release1.py
+itinerary-service/validation/live_release1.py
+
+[INFO] Initializing environment for https://github.com/astral-sh/ruff-pre-commit.
+[INFO] Initializing environment for https://github.com/Yelp/detect-secrets.
+[INFO] Initializing environment for local:pip-audit==2.10.1.
+[INFO] Installing environment for https://github.com/astral-sh/ruff-pre-commit.
+[INFO] Once installed this environment will be reused.
+[INFO] This may take a few minutes...
+[INFO] Installing environment for https://github.com/Yelp/detect-secrets.
+[INFO] Once installed this environment will be reused.
+[INFO] This may take a few minutes...
+[INFO] Installing environment for local.
+[INFO] Once installed this environment will be reused.
+[INFO] This may take a few minutes...
+ruff (lint + S security rules, see ruff.toml)............................Passed
+Detect secrets...........................................................Passed
+pip-audit (requirements*.txt)............................................Passed
+
+exit status: 0 (PASS)

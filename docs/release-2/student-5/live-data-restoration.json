@@ -1,0 +1,13 @@
+{
+  "original_records": 12,
+  "final_records": 12,
+  "exact_record_equality": true,
+  "temporary_records_remaining": 0,
+  "seed_trip_references": [
+    "TRIP-1001",
+    "TRIP-1002",
+    "TRIP-1003"
+  ],
+  "rag_refreshed_after_cleanup": true,
+  "runtime_services_left_enabled": true
+}

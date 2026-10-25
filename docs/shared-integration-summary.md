@@ -85,7 +85,7 @@ Full per-query detail: [retrieval-metrics.md](evidence/shared-integration/retrie
   - The `POST /<tool>` shim (Activity, Accommodation, Budget, Itinerary).
 
   `mcp-config.json` and `tool-contracts.md` were updated to match.
-- **RAG.** Activity's corpus is built inside the shared pipeline by `ai-services/rag-server/activity_context.py`.
+- **RAG.** Activity's corpus is built inside the shared pipeline, in the Activity section of `ai-services/rag-server/rag_pipeline.py`.
   It produces records, assignments, per-category summaries, Activity docs and an Activity file index.
   - **Service tags.** Every chunk from every feature carries `metadata.service`, both in `corpus.jsonl`
     and in Chroma.

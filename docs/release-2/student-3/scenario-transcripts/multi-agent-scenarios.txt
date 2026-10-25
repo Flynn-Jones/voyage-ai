@@ -1,0 +1,1215 @@
+# Activity (student-3): activity_schedule_check live run transcripts
+# date: 2026-10-22T12:40:38+00:00
+# Stack: real activity-frontend/backend/database containers (root docker-compose.yml, Multi-Agent
+# enabled), real shared Multi-Agent Server (:7004) and MCP server (:7001) on the host, real Ollama
+# (qwen2.5:0.5b). Every request goes through activity-backend's own routes
+# (backend/routes/multi_agent_mode.py), not straight to the Multi-Agent Server.
+
+================================================================================================
+Scenario 1 setup - add a temporary activity that clashes on 2026-10-06 (deleted afterwards)
+================================================================================================
+
+$ curl -s -X POST http://localhost:5003/api/add_activity \
+    -H 'Content-Type: application/json' \
+    -d '{"activity_name": "Evidence: Bike Repair Workshop", "activity_type": "Adventure", "activity_cost": 25, "duration": "2 hours", "assignment_time": "2026-10-06 11:00"}'
+HTTP 201
+{
+  "activity_cost": 25.0,
+  "activity_id": 13,
+  "activity_name": "Evidence: Bike Repair Workshop",
+  "activity_type": "Adventure",
+  "assignment_id": 13,
+  "assignment_time": "2026-10-06 11:00",
+  "duration": "2 hours"
+}
+
+================================================================================================
+Scenario 1 - 2026-10-06: a clash and free slots in one run, human Partially Accepts
+================================================================================================
+
+$ curl -s -X POST http://localhost:5003/api/activity/multi-agent/workflow \
+    -H 'Content-Type: application/json' \
+    -d '{"date": "2026-10-06", "slot_hours": 2, "request": "Check my 2026-10-06 schedule for clashes and free time."}'
+HTTP 201
+{
+  "result": {
+    "human_approval_required": true,
+    "human_decision": {
+      "allowed_values": [
+        "Accept",
+        "Partially Accept",
+        "Reject"
+      ],
+      "record": null,
+      "status": "pending"
+    },
+    "plan": {
+      "evidence_required": [
+        "MCP:list_activities",
+        "MCP:list_assignments"
+      ],
+      "human_approval": "A human decides; no change is written to the activity database.",
+      "objective": "Check the schedule on 2026-10-06: list the activities scheduled that day, find any that overlap, and propose free 2-hour slots between 08:00 and 20:00 that clash with none of them.",
+      "steps": [
+        {
+          "action": "Read every activity",
+          "agent": "Worker",
+          "tool": "list_activities"
+        },
+        {
+          "action": "Read every scheduled time",
+          "agent": "Worker",
+          "tool": "list_assignments"
+        },
+        {
+          "action": "Check the output against the evidence",
+          "agent": "Reviewer"
+        },
+        {
+          "action": "Accept, Partially Accept or Reject",
+          "agent": "Human"
+        }
+      ]
+    },
+    "review": {
+      "correction": "Rewrite the worker output as Output / Evidence Used / Limitations, at most 100 words.",
+      "findings": [
+        "#7 Old Town Cycling Tour 09:00-13:00 overlaps #13 Evidence: Bike Repair Workshop 11:00-13:00 by 120 min.",
+        "Worker output is missing the Output / Evidence Used / Limitations sections."
+      ],
+      "recommendation": "Partially Accept",
+      "recommendations": [
+        "No 2-hour slot can be proposed that clashes with none of the activities scheduled on 2026-10-06."
+      ],
+      "retest": "Re-run the workflow after the correction.",
+      "risk": "medium"
+    },
+    "run_id": "run-a4744312ae92",
+    "state": "awaiting_human_review",
+    "work": {
+      "activity_evidence": [
+        "- #7 | Old Town Cycling Tour | Adventure | cost 40.0 | duration half day [MCP:list_activities]",
+        "- #13 | Evidence: Bike Repair Workshop | Adventure | cost 25.0 | duration 2 hours [MCP:list_activities]",
+        "- assignment #7 | activity #7 | 2026-10-06 09:00 [MCP:list_assignments]",
+        "- assignment #13 | activity #13 | 2026-10-06 11:00 [MCP:list_assignments]"
+      ],
+      "busy": [
+        [
+          "09:00",
+          240
+        ],
+        [
+          "11:00",
+          120
+        ]
+      ],
+      "checks": [
+        {
+          "code": "clash",
+          "text": "#7 Old Town Cycling Tour 09:00-13:00 overlaps #13 Evidence: Bike Repair Workshop 11:00-13:00 by 120 min."
+        },
+        {
+          "code": "format",
+          "text": "Worker output is missing the Output / Evidence Used / Limitations sections."
+        }
+      ],
+      "evidence": [
+        {
+          "count": 11,
+          "detail": "11 record(s) from list_activities",
+          "source": "list_activities",
+          "status": "ok"
+        },
+        {
+          "count": 11,
+          "detail": "11 record(s) from list_assignments",
+          "source": "list_assignments",
+          "status": "ok"
+        }
+      ],
+      "items": [
+        {
+          "activity_ids": [
+            7,
+            13
+          ],
+          "first": "#7 Old Town Cycling Tour 09:00-13:00",
+          "id": "7-13",
+          "kind": "overlap",
+          "overlap_minutes": 120,
+          "second": "#13 Evidence: Bike Repair Workshop 11:00-13:00"
+        },
+        {
+          "date": "2026-10-06",
+          "end": "15:00",
+          "id": "slot-1",
+          "kind": "free_slot",
+          "proposal": "Proposed: free 2h slot on 2026-10-06, 13:00-15:00 (not saved)",
+          "start": "13:00"
+        }
+      ],
+      "known_ids": [
+        "1",
+        "10",
+        "13",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9"
+      ],
+      "problems": [],
+      "scheduled": [
+        {
+          "activity_id": 7,
+          "assignment_id": 7,
+          "duration": "half day",
+          "name": "Old Town Cycling Tour",
+          "time": "2026-10-06 09:00"
+        },
+        {
+          "activity_id": 13,
+          "assignment_id": 13,
+          "duration": "2 hours",
+          "name": "Evidence: Bike Repair Workshop",
+          "time": "2026-10-06 11:00"
+        }
+      ],
+      "summary": "2 activities scheduled on 2026-10-06; 1 overlapping pair(s); 1 proposed 2h slot(s) that clash with nothing.",
+      "totals": {
+        "activities": 11,
+        "assignments": 11,
+        "date": "2026-10-06",
+        "evidence_truncated": false,
+        "free_slots": 1,
+        "items": 2,
+        "overlaps": 1,
+        "scheduled_on_day": 2,
+        "slot_hours": 2.0
+      },
+      "worker_output": "The schedule on 2026-10-06 includes two activities: the Old Town Cycling Tour from 09:00 to 13:00 and the Bike Repair Workshop from 11:00 to 13:00. These activities overlap, and no two activities overlap with each other. Therefore, no 2-hour slot can be proposed that clashes with none of the activities scheduled on 2026-10-06.",
+      "worker_output_source": "llm"
+    },
+    "workflow": "activity_schedule_check"
+  },
+  "status": "success"
+}
+
+$ curl -s -X GET http://localhost:5003/api/activity/multi-agent/runs/run-a4744312ae92/history
+HTTP 200
+{
+  "result": [
+    {
+      "agent": null,
+      "detail": {
+        "requested_by": "activity-backend"
+      },
+      "seq": 82,
+      "state": "running",
+      "step": "created",
+      "ts": "2026-10-22T12:40:38.360+00:00"
+    },
+    {
+      "agent": "planner",
+      "detail": {
+        "attempts": [
+          {
+            "attempt": 1,
+            "error": "ValueError: plan needs 3 to 5 steps",
+            "ok": false
+          },
+          {
+            "attempt": 2,
+            "error": "ValueError: plan uses 'human_approval', which is not an allowed read-only source",
+            "ok": false
+          }
+        ],
+        "duration_ms": 1426,
+        "source": "fallback",
+        "tools_called": []
+      },
+      "seq": 83,
+      "state": "running",
+      "step": "plan",
+      "ts": "2026-10-22T12:40:39.790+00:00"
+    },
+    {
+      "agent": "worker",
+      "detail": {
+        "attempts": [],
+        "duration_ms": 575,
+        "source": "workflow",
+        "tools_called": [
+          "list_activities",
+          "list_assignments",
+          "llm"
+        ]
+      },
+      "seq": 84,
+      "state": "running",
+      "step": "work",
+      "ts": "2026-10-22T12:40:40.369+00:00"
+    },
+    {
+      "agent": "reviewer",
+      "detail": {
+        "attempts": [
+          {
+            "attempt": 1,
+            "ok": true
+          }
+        ],
+        "duration_ms": 519,
+        "source": "llm",
+        "tools_called": []
+      },
+      "seq": 85,
+      "state": "running",
+      "step": "review",
+      "ts": "2026-10-22T12:40:40.893+00:00"
+    },
+    {
+      "agent": "human",
+      "detail": {},
+      "seq": 86,
+      "state": "awaiting_human_review",
+      "step": "human_review",
+      "ts": "2026-10-22T12:40:40.899+00:00"
+    }
+  ],
+  "status": "success"
+}
+
+$ curl -s -X POST http://localhost:5003/api/activity/multi-agent/runs/run-a4744312ae92/decision \
+    -H 'Content-Type: application/json' \
+    -d '{"decision": "Partially Accept", "approved_ids": [], "correction": "Move the Bike Repair Workshop to the 13:00-15:00 free slot so it no longer overlaps the Old Town Cycling Tour.", "reason": "The clash is real; the fix is to move the shorter activity into the proposed free time.", "evidence_used": "MCP:list_activities, MCP:list_assignments", "reviewer": "student-3"}'
+HTTP 200
+{
+  "result": {
+    "applied_recorded": true,
+    "approved_items": [
+      {
+        "activity_ids": [
+          7,
+          13
+        ],
+        "first": "#7 Old Town Cycling Tour 09:00-13:00",
+        "id": "7-13",
+        "kind": "overlap",
+        "overlap_minutes": 120,
+        "second": "#13 Evidence: Bike Repair Workshop 11:00-13:00"
+      },
+      {
+        "date": "2026-10-06",
+        "end": "15:00",
+        "id": "slot-1",
+        "kind": "free_slot",
+        "proposal": "Proposed: free 2h slot on 2026-10-06, 13:00-15:00 (not saved)",
+        "start": "13:00"
+      }
+    ],
+    "human_decision": {
+      "correction": "Move the Bike Repair Workshop to the 13:00-15:00 free slot so it no longer overlaps the Old Town Cycling Tour.",
+      "decision": "Partially Accept",
+      "evidence_used": "MCP:list_activities, MCP:list_assignments",
+      "reason": "The clash is real; the fix is to move the shorter activity into the proposed free time.",
+      "reviewer": "student-3",
+      "timestamp": "2026-10-22T12:40:40+00:00",
+      "workflow_id": "run-a4744312ae92"
+    },
+    "rejected_ids": [],
+    "run_id": "run-a4744312ae92",
+    "state": "applied"
+  },
+  "status": "success"
+}
+
+$ curl -s -X GET http://localhost:5003/api/activity/multi-agent/runs/run-a4744312ae92/history
+HTTP 200
+{
+  "result": [
+    {
+      "agent": null,
+      "detail": {
+        "requested_by": "activity-backend"
+      },
+      "seq": 82,
+      "state": "running",
+      "step": "created",
+      "ts": "2026-10-22T12:40:38.360+00:00"
+    },
+    {
+      "agent": "planner",
+      "detail": {
+        "attempts": [
+          {
+            "attempt": 1,
+            "error": "ValueError: plan needs 3 to 5 steps",
+            "ok": false
+          },
+          {
+            "attempt": 2,
+            "error": "ValueError: plan uses 'human_approval', which is not an allowed read-only source",
+            "ok": false
+          }
+        ],
+        "duration_ms": 1426,
+        "source": "fallback",
+        "tools_called": []
+      },
+      "seq": 83,
+      "state": "running",
+      "step": "plan",
+      "ts": "2026-10-22T12:40:39.790+00:00"
+    },
+    {
+      "agent": "worker",
+      "detail": {
+        "attempts": [],
+        "duration_ms": 575,
+        "source": "workflow",
+        "tools_called": [
+          "list_activities",
+          "list_assignments",
+          "llm"
+        ]
+      },
+      "seq": 84,
+      "state": "running",
+      "step": "work",
+      "ts": "2026-10-22T12:40:40.369+00:00"
+    },
+    {
+      "agent": "reviewer",
+      "detail": {
+        "attempts": [
+          {
+            "attempt": 1,
+            "ok": true
+          }
+        ],
+        "duration_ms": 519,
+        "source": "llm",
+        "tools_called": []
+      },
+      "seq": 85,
+      "state": "running",
+      "step": "review",
+      "ts": "2026-10-22T12:40:40.893+00:00"
+    },
+    {
+      "agent": "human",
+      "detail": {},
+      "seq": 86,
+      "state": "awaiting_human_review",
+      "step": "human_review",
+      "ts": "2026-10-22T12:40:40.899+00:00"
+    },
+    {
+      "agent": "human",
+      "detail": {
+        "approved_ids": [
+          "7-13",
+          "slot-1"
+        ],
+        "decision": "partial",
+        "edits": {},
+        "note": "Workflow ID: run-a4744312ae92\nDecision: Partially Accept\nCorrection: Move the Bike Repair Workshop to the 13:00-15:00 free slot so it no longer overlaps the Old Town Cycling Tour.\nReason: The clash is real; the fix is to move the shorter activity into the proposed free time.\nEvidence Used: MCP:list_activities, MCP:list_assignments\nReviewer: student-3\nTimestamp: 2026-10-22T12:40:40+00:00",
+        "rejected_ids": [],
+        "reviewer": "student-3"
+      },
+      "seq": 87,
+      "state": "partially_accepted",
+      "step": "human_review",
+      "ts": "2026-10-22T12:40:40.912+00:00"
+    },
+    {
+      "agent": "backend",
+      "detail": {
+        "created_ids": [],
+        "target": "none (read-only workflow; activity-db unchanged)"
+      },
+      "seq": 88,
+      "state": "applied",
+      "step": "applied",
+      "ts": "2026-10-22T12:40:40.918+00:00"
+    }
+  ],
+  "status": "success"
+}
+
+================================================================================================
+Scenario 1 cleanup - delete the temporary activity
+================================================================================================
+
+$ curl -s -X DELETE http://localhost:5003/api/delete_activity/13
+HTTP 200
+{
+  "message": "deleted"
+}
+
+================================================================================================
+Scenario 2 - 2026-10-07: no clashes, free slots proposed, human Accepts
+================================================================================================
+
+$ curl -s -X POST http://localhost:5003/api/activity/multi-agent/workflow \
+    -H 'Content-Type: application/json' \
+    -d '{"date": "2026-10-07", "slot_hours": 2}'
+HTTP 201
+{
+  "result": {
+    "human_approval_required": true,
+    "human_decision": {
+      "allowed_values": [
+        "Accept",
+        "Partially Accept",
+        "Reject"
+      ],
+      "record": null,
+      "status": "pending"
+    },
+    "plan": {
+      "evidence_required": [
+        "MCP:list_activities",
+        "MCP:list_assignments"
+      ],
+      "human_approval": "A human decides; no change is written to the activity database.",
+      "objective": "Check the schedule on 2026-10-07: list the activities scheduled that day, find any that overlap, and propose free 2-hour slots between 08:00 and 20:00 that clash with none of them.",
+      "steps": [
+        {
+          "action": "Read every activity",
+          "agent": "Worker",
+          "tool": "list_activities"
+        },
+        {
+          "action": "Read every scheduled time",
+          "agent": "Worker",
+          "tool": "list_assignments"
+        },
+        {
+          "action": "Check the output against the evidence",
+          "agent": "Reviewer"
+        },
+        {
+          "action": "Accept, Partially Accept or Reject",
+          "agent": "Human"
+        }
+      ]
+    },
+    "review": {
+      "correction": "Remove the ids that are not in the evidence from the worker output. Rewrite the worker output as Output / Evidence Used / Limitations, at most 100 words.",
+      "findings": [
+        "Worker output says no activities were found, but the evidence has 10.",
+        "Worker output is missing the Output / Evidence Used / Limitations sections."
+      ],
+      "recommendation": "Partially Accept",
+      "recommendations": [
+        "Remove the ids that are not in the evidence from the worker output.",
+        "Rewrite the worker output as Output / Evidence Used / Limitations, at most 100 words."
+      ],
+      "retest": "Re-run the workflow after the correction.",
+      "risk": "medium"
+    },
+    "run_id": "run-4588ac06b483",
+    "state": "awaiting_human_review",
+    "work": {
+      "activity_evidence": [
+        "- #8 | Day Spa & Hot Springs | Wellness | cost 120.0 | duration full day [MCP:list_activities]",
+        "- #9 | Live Jazz Club Evening | Nightlife | cost 30.0 | duration 3 hours [MCP:list_activities]",
+        "- assignment #8 | activity #8 | 2026-10-07 10:00 [MCP:list_assignments]",
+        "- assignment #9 | activity #9 | 2026-10-07 20:00 [MCP:list_assignments]"
+      ],
+      "busy": [
+        [
+          "10:00",
+          480
+        ],
+        [
+          "20:00",
+          180
+        ]
+      ],
+      "checks": [
+        {
+          "code": "unsupported_claim",
+          "text": "Worker output says no activities were found, but the evidence has 10."
+        },
+        {
+          "code": "format",
+          "text": "Worker output is missing the Output / Evidence Used / Limitations sections."
+        }
+      ],
+      "evidence": [
+        {
+          "count": 10,
+          "detail": "10 record(s) from list_activities",
+          "source": "list_activities",
+          "status": "ok"
+        },
+        {
+          "count": 10,
+          "detail": "10 record(s) from list_assignments",
+          "source": "list_assignments",
+          "status": "ok"
+        }
+      ],
+      "items": [
+        {
+          "date": "2026-10-07",
+          "end": "10:00",
+          "id": "slot-1",
+          "kind": "free_slot",
+          "proposal": "Proposed: free 2h slot on 2026-10-07, 08:00-10:00 (not saved)",
+          "start": "08:00"
+        },
+        {
+          "date": "2026-10-07",
+          "end": "20:00",
+          "id": "slot-2",
+          "kind": "free_slot",
+          "proposal": "Proposed: free 2h slot on 2026-10-07, 18:00-20:00 (not saved)",
+          "start": "18:00"
+        }
+      ],
+      "known_ids": [
+        "1",
+        "10",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9"
+      ],
+      "problems": [],
+      "scheduled": [
+        {
+          "activity_id": 8,
+          "assignment_id": 8,
+          "duration": "full day",
+          "name": "Day Spa & Hot Springs",
+          "time": "2026-10-07 10:00"
+        },
+        {
+          "activity_id": 9,
+          "assignment_id": 9,
+          "duration": "3 hours",
+          "name": "Live Jazz Club Evening",
+          "time": "2026-10-07 20:00"
+        }
+      ],
+      "summary": "2 activities scheduled on 2026-10-07; no overlaps; 2 proposed 2h slot(s) that clash with nothing.",
+      "totals": {
+        "activities": 10,
+        "assignments": 10,
+        "date": "2026-10-07",
+        "evidence_truncated": false,
+        "free_slots": 2,
+        "items": 2,
+        "overlaps": 0,
+        "scheduled_on_day": 2,
+        "slot_hours": 2.0
+      },
+      "worker_output": "Evidence Used:\n- Activity Evidence: [MCP:list_activities, MCP:list_assignments]\n- Computed Results: [slot-1, slot-2]\n\nLimitations: No activities found.",
+      "worker_output_source": "llm"
+    },
+    "workflow": "activity_schedule_check"
+  },
+  "status": "success"
+}
+
+$ curl -s -X GET http://localhost:5003/api/activity/multi-agent/runs/run-4588ac06b483/history
+HTTP 200
+{
+  "result": [
+    {
+      "agent": null,
+      "detail": {
+        "requested_by": "activity-backend"
+      },
+      "seq": 89,
+      "state": "running",
+      "step": "created",
+      "ts": "2026-10-22T12:40:40.935+00:00"
+    },
+    {
+      "agent": "planner",
+      "detail": {
+        "attempts": [
+          {
+            "attempt": 1,
+            "error": "ValueError: plan needs 3 to 5 steps",
+            "ok": false
+          },
+          {
+            "attempt": 2,
+            "error": "ValueError: evidence_required must be a list of strings",
+            "ok": false
+          }
+        ],
+        "duration_ms": 682,
+        "source": "fallback",
+        "tools_called": []
+      },
+      "seq": 90,
+      "state": "running",
+      "step": "plan",
+      "ts": "2026-10-22T12:40:41.621+00:00"
+    },
+    {
+      "agent": "worker",
+      "detail": {
+        "attempts": [],
+        "duration_ms": 188,
+        "source": "workflow",
+        "tools_called": [
+          "list_activities",
+          "list_assignments",
+          "llm"
+        ]
+      },
+      "seq": 91,
+      "state": "running",
+      "step": "work",
+      "ts": "2026-10-22T12:40:41.814+00:00"
+    },
+    {
+      "agent": "reviewer",
+      "detail": {
+        "attempts": [
+          {
+            "attempt": 1,
+            "ok": true
+          }
+        ],
+        "duration_ms": 226,
+        "source": "llm",
+        "tools_called": []
+      },
+      "seq": 92,
+      "state": "running",
+      "step": "review",
+      "ts": "2026-10-22T12:40:42.045+00:00"
+    },
+    {
+      "agent": "human",
+      "detail": {},
+      "seq": 93,
+      "state": "awaiting_human_review",
+      "step": "human_review",
+      "ts": "2026-10-22T12:40:42.052+00:00"
+    }
+  ],
+  "status": "success"
+}
+
+$ curl -s -X POST http://localhost:5003/api/activity/multi-agent/runs/run-4588ac06b483/decision \
+    -H 'Content-Type: application/json' \
+    -d '{"decision": "Accept", "reason": "No clashes; the morning and evening slots are usable.", "evidence_used": "MCP:list_activities, MCP:list_assignments", "reviewer": "student-3"}'
+HTTP 200
+{
+  "result": {
+    "applied_recorded": true,
+    "approved_items": [
+      {
+        "date": "2026-10-07",
+        "end": "10:00",
+        "id": "slot-1",
+        "kind": "free_slot",
+        "proposal": "Proposed: free 2h slot on 2026-10-07, 08:00-10:00 (not saved)",
+        "start": "08:00"
+      },
+      {
+        "date": "2026-10-07",
+        "end": "20:00",
+        "id": "slot-2",
+        "kind": "free_slot",
+        "proposal": "Proposed: free 2h slot on 2026-10-07, 18:00-20:00 (not saved)",
+        "start": "18:00"
+      }
+    ],
+    "human_decision": {
+      "correction": "",
+      "decision": "Accept",
+      "evidence_used": "MCP:list_activities, MCP:list_assignments",
+      "reason": "No clashes; the morning and evening slots are usable.",
+      "reviewer": "student-3",
+      "timestamp": "2026-10-22T12:40:42+00:00",
+      "workflow_id": "run-4588ac06b483"
+    },
+    "rejected_ids": [],
+    "run_id": "run-4588ac06b483",
+    "state": "applied"
+  },
+  "status": "success"
+}
+
+$ curl -s -X GET http://localhost:5003/api/activity/multi-agent/runs/run-4588ac06b483/history
+HTTP 200
+{
+  "result": [
+    {
+      "agent": null,
+      "detail": {
+        "requested_by": "activity-backend"
+      },
+      "seq": 89,
+      "state": "running",
+      "step": "created",
+      "ts": "2026-10-22T12:40:40.935+00:00"
+    },
+    {
+      "agent": "planner",
+      "detail": {
+        "attempts": [
+          {
+            "attempt": 1,
+            "error": "ValueError: plan needs 3 to 5 steps",
+            "ok": false
+          },
+          {
+            "attempt": 2,
+            "error": "ValueError: evidence_required must be a list of strings",
+            "ok": false
+          }
+        ],
+        "duration_ms": 682,
+        "source": "fallback",
+        "tools_called": []
+      },
+      "seq": 90,
+      "state": "running",
+      "step": "plan",
+      "ts": "2026-10-22T12:40:41.621+00:00"
+    },
+    {
+      "agent": "worker",
+      "detail": {
+        "attempts": [],
+        "duration_ms": 188,
+        "source": "workflow",
+        "tools_called": [
+          "list_activities",
+          "list_assignments",
+          "llm"
+        ]
+      },
+      "seq": 91,
+      "state": "running",
+      "step": "work",
+      "ts": "2026-10-22T12:40:41.814+00:00"
+    },
+    {
+      "agent": "reviewer",
+      "detail": {
+        "attempts": [
+          {
+            "attempt": 1,
+            "ok": true
+          }
+        ],
+        "duration_ms": 226,
+        "source": "llm",
+        "tools_called": []
+      },
+      "seq": 92,
+      "state": "running",
+      "step": "review",
+      "ts": "2026-10-22T12:40:42.045+00:00"
+    },
+    {
+      "agent": "human",
+      "detail": {},
+      "seq": 93,
+      "state": "awaiting_human_review",
+      "step": "human_review",
+      "ts": "2026-10-22T12:40:42.052+00:00"
+    },
+    {
+      "agent": "human",
+      "detail": {
+        "approved_ids": [
+          "slot-1",
+          "slot-2"
+        ],
+        "decision": "approve",
+        "edits": {},
+        "note": "Workflow ID: run-4588ac06b483\nDecision: Accept\nCorrection: -\nReason: No clashes; the morning and evening slots are usable.\nEvidence Used: MCP:list_activities, MCP:list_assignments\nReviewer: student-3\nTimestamp: 2026-10-22T12:40:42+00:00",
+        "rejected_ids": [],
+        "reviewer": "student-3"
+      },
+      "seq": 94,
+      "state": "approved",
+      "step": "human_review",
+      "ts": "2026-10-22T12:40:42.066+00:00"
+    },
+    {
+      "agent": "backend",
+      "detail": {
+        "created_ids": [],
+        "target": "none (read-only workflow; activity-db unchanged)"
+      },
+      "seq": 95,
+      "state": "applied",
+      "step": "applied",
+      "ts": "2026-10-22T12:40:42.073+00:00"
+    }
+  ],
+  "status": "success"
+}
+
+================================================================================================
+Scenario 3 - 2026-12-25: nothing scheduled, human Rejects
+================================================================================================
+
+$ curl -s -X POST http://localhost:5003/api/activity/multi-agent/workflow \
+    -H 'Content-Type: application/json' \
+    -d '{"date": "2026-12-25", "slot_hours": 2}'
+HTTP 201
+{
+  "result": {
+    "human_approval_required": true,
+    "human_decision": {
+      "allowed_values": [
+        "Accept",
+        "Partially Accept",
+        "Reject"
+      ],
+      "record": null,
+      "status": "pending"
+    },
+    "plan": {
+      "evidence_required": [
+        "list_activities",
+        "list_assignments"
+      ],
+      "human_approval": "Review the activities and propose free 2-hour slots between 08:00 and 20:00 that clash with none of them.",
+      "objective": "Check activities scheduled on 2026-12-25 and find overlaps.",
+      "steps": [
+        {
+          "action": "list_activities",
+          "agent": "Worker",
+          "tool": "list_activities"
+        },
+        {
+          "action": "list_assignments",
+          "agent": "Worker",
+          "tool": "list_assignments"
+        },
+        {
+          "action": "review_activities",
+          "agent": "Human"
+        }
+      ]
+    },
+    "review": {
+      "correction": "",
+      "findings": [
+        "No activities are scheduled on 2026-12-25."
+      ],
+      "recommendation": "Accept",
+      "recommendations": [
+        "Add or schedule activities (Register activity, or Edit on the Activities page), then re-run."
+      ],
+      "retest": "",
+      "risk": "low"
+    },
+    "run_id": "run-5c2c8742cfa0",
+    "state": "awaiting_human_review",
+    "work": {
+      "activity_evidence": [],
+      "busy": [],
+      "checks": [
+        {
+          "code": "no_records",
+          "text": "No activities are scheduled on 2026-12-25."
+        }
+      ],
+      "evidence": [
+        {
+          "count": 10,
+          "detail": "10 record(s) from list_activities",
+          "source": "list_activities",
+          "status": "ok"
+        },
+        {
+          "count": 10,
+          "detail": "10 record(s) from list_assignments",
+          "source": "list_assignments",
+          "status": "ok"
+        }
+      ],
+      "items": [
+        {
+          "date": "2026-12-25",
+          "end": "10:00",
+          "id": "slot-1",
+          "kind": "free_slot",
+          "proposal": "Proposed: free 2h slot on 2026-12-25, 08:00-10:00 (not saved)",
+          "start": "08:00"
+        }
+      ],
+      "known_ids": [
+        "1",
+        "10",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9"
+      ],
+      "problems": [],
+      "scheduled": [],
+      "summary": "No activities scheduled on 2026-12-25; no overlaps; 1 proposed 2h slot(s) that clash with nothing.",
+      "totals": {
+        "activities": 10,
+        "assignments": 10,
+        "date": "2026-12-25",
+        "evidence_truncated": false,
+        "free_slots": 1,
+        "items": 1,
+        "overlaps": 0,
+        "scheduled_on_day": 0,
+        "slot_hours": 2.0
+      },
+      "worker_output": "Output:\nNo activities scheduled on 2026-12-25; no overlaps; 1 proposed 2h slot(s) that clash with nothing.\nEvidence Used:\n[MCP:list_activities] 10 record(s); [MCP:list_assignments] 10 record(s)\nLimitations:\nNone",
+      "worker_output_source": "fallback"
+    },
+    "workflow": "activity_schedule_check"
+  },
+  "status": "success"
+}
+
+$ curl -s -X GET http://localhost:5003/api/activity/multi-agent/runs/run-5c2c8742cfa0/history
+HTTP 200
+{
+  "result": [
+    {
+      "agent": null,
+      "detail": {
+        "requested_by": "activity-backend"
+      },
+      "seq": 96,
+      "state": "running",
+      "step": "created",
+      "ts": "2026-10-22T12:40:42.085+00:00"
+    },
+    {
+      "agent": "planner",
+      "detail": {
+        "attempts": [
+          {
+            "attempt": 1,
+            "ok": true
+          }
+        ],
+        "duration_ms": 428,
+        "source": "llm",
+        "tools_called": []
+      },
+      "seq": 97,
+      "state": "running",
+      "step": "plan",
+      "ts": "2026-10-22T12:40:42.517+00:00"
+    },
+    {
+      "agent": "worker",
+      "detail": {
+        "attempts": [],
+        "duration_ms": 33,
+        "source": "workflow",
+        "tools_called": [
+          "list_activities",
+          "list_assignments"
+        ]
+      },
+      "seq": 98,
+      "state": "running",
+      "step": "work",
+      "ts": "2026-10-22T12:40:42.555+00:00"
+    },
+    {
+      "agent": "reviewer",
+      "detail": {
+        "attempts": [
+          {
+            "attempt": 1,
+            "ok": true
+          }
+        ],
+        "duration_ms": 184,
+        "source": "llm",
+        "tools_called": []
+      },
+      "seq": 99,
+      "state": "running",
+      "step": "review",
+      "ts": "2026-10-22T12:40:42.744+00:00"
+    },
+    {
+      "agent": "human",
+      "detail": {},
+      "seq": 100,
+      "state": "awaiting_human_review",
+      "step": "human_review",
+      "ts": "2026-10-22T12:40:42.751+00:00"
+    }
+  ],
+  "status": "success"
+}
+
+$ curl -s -X POST http://localhost:5003/api/activity/multi-agent/runs/run-5c2c8742cfa0/decision \
+    -H 'Content-Type: application/json' \
+    -d '{"decision": "Reject", "reason": "Wrong day: nothing is planned on 2026-12-25, so there is nothing to check.", "evidence_used": "MCP:list_assignments", "reviewer": "student-3"}'
+HTTP 200
+{
+  "result": {
+    "applied_recorded": null,
+    "approved_items": [],
+    "human_decision": {
+      "correction": "",
+      "decision": "Reject",
+      "evidence_used": "MCP:list_assignments",
+      "reason": "Wrong day: nothing is planned on 2026-12-25, so there is nothing to check.",
+      "reviewer": "student-3",
+      "timestamp": "2026-10-22T12:40:42+00:00",
+      "workflow_id": "run-5c2c8742cfa0"
+    },
+    "rejected_ids": [
+      "slot-1"
+    ],
+    "run_id": "run-5c2c8742cfa0",
+    "state": "rejected"
+  },
+  "status": "success"
+}
+
+$ curl -s -X GET http://localhost:5003/api/activity/multi-agent/runs/run-5c2c8742cfa0/history
+HTTP 200
+{
+  "result": [
+    {
+      "agent": null,
+      "detail": {
+        "requested_by": "activity-backend"
+      },
+      "seq": 96,
+      "state": "running",
+      "step": "created",
+      "ts": "2026-10-22T12:40:42.085+00:00"
+    },
+    {
+      "agent": "planner",
+      "detail": {
+        "attempts": [
+          {
+            "attempt": 1,
+            "ok": true
+          }
+        ],
+        "duration_ms": 428,
+        "source": "llm",
+        "tools_called": []
+      },
+      "seq": 97,
+      "state": "running",
+      "step": "plan",
+      "ts": "2026-10-22T12:40:42.517+00:00"
+    },
+    {
+      "agent": "worker",
+      "detail": {
+        "attempts": [],
+        "duration_ms": 33,
+        "source": "workflow",
+        "tools_called": [
+          "list_activities",
+          "list_assignments"
+        ]
+      },
+      "seq": 98,
+      "state": "running",
+      "step": "work",
+      "ts": "2026-10-22T12:40:42.555+00:00"
+    },
+    {
+      "agent": "reviewer",
+      "detail": {
+        "attempts": [
+          {
+            "attempt": 1,
+            "ok": true
+          }
+        ],
+        "duration_ms": 184,
+        "source": "llm",
+        "tools_called": []
+      },
+      "seq": 99,
+      "state": "running",
+      "step": "review",
+      "ts": "2026-10-22T12:40:42.744+00:00"
+    },
+    {
+      "agent": "human",
+      "detail": {},
+      "seq": 100,
+      "state": "awaiting_human_review",
+      "step": "human_review",
+      "ts": "2026-10-22T12:40:42.751+00:00"
+    },
+    {
+      "agent": "human",
+      "detail": {
+        "approved_ids": [],
+        "decision": "reject",
+        "edits": {},
+        "note": "Workflow ID: run-5c2c8742cfa0\nDecision: Reject\nCorrection: -\nReason: Wrong day: nothing is planned on 2026-12-25, so there is nothing to check.\nEvidence Used: MCP:list_assignments\nReviewer: student-3\nTimestamp: 2026-10-22T12:40:42+00:00",
+        "rejected_ids": [
+          "slot-1"
+        ],
+        "reviewer": "student-3"
+      },
+      "seq": 101,
+      "state": "rejected",
+      "step": "human_review",
+      "ts": "2026-10-22T12:40:42.765+00:00"
+    }
+  ],
+  "status": "success"
+}
+
+================================================================================================
+Scenario 4 - invalid input: no date (no run is created)
+================================================================================================
+
+$ curl -s -X POST http://localhost:5003/api/activity/multi-agent/workflow \
+    -H 'Content-Type: application/json' \
+    -d '{"slot_hours": 2}'
+HTTP 400
+{
+  "error": "invalid input: date (YYYY-MM-DD) is required",
+  "status": "error"
+}
+
+================================================================================================
+Scenario 5 - a second decision on an already-decided run is refused
+================================================================================================
+
+$ curl -s -X POST http://localhost:5003/api/activity/multi-agent/runs/run-a4744312ae92/decision \
+    -H 'Content-Type: application/json' \
+    -d '{"decision": "Reject", "reason": "changed my mind", "reviewer": "student-3"}'
+HTTP 409
+{
+  "error": "run run-a4744312ae92 is 'applied', not awaiting_human_review; only one human decision is allowed per run",
+  "status": "error"
+}
+

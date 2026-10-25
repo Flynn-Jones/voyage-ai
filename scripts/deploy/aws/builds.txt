@@ -9,7 +9,7 @@ accommodation-api|accommodation-service/backend/Dockerfile|accommodation-service
 accommodation-database|accommodation-service/database/Dockerfile|accommodation-service/database
 activity-frontend|activity-service/frontend/Dockerfile|activity-service/frontend
 activity-api|activity-service/backend/Dockerfile|activity-service/backend
-activity-database|activity-service/database-service/Dockerfile|activity-service/database-service
+activity-database|activity-service/database/Dockerfile|activity-service/database
 budget-fe|budget-service/budget-fe/Dockerfile|budget-service/budget-fe
 budget-backend|budget-service/budget-be/Dockerfile|budget-service
 budget-database|budget-service/budget-db/Dockerfile|budget-service/budget-db

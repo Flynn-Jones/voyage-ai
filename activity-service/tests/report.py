@@ -1,15 +1,13 @@
 #!/usr/bin/env python3
-"""Runs activity-service's full test suite (database-service, backend,
-frontend) and appends a dated, labeled results section to
-activity-service/docs/test-results.md — never overwritten, so this file
-becomes a running pre/post-testing evidence trail across runs.
+"""Runs activity-service's full test suite (tests/, one pytest run) and
+appends a dated, labeled results section to activity-service/docs/test-results.md
+— never overwritten, so this file becomes a running pre/post-testing evidence
+trail across runs.
 
-Each layer runs in its OWN subprocess (via `python -m pytest <dir>`), not one
-combined in-process run: database-service, backend, and frontend each have a
-top-level `app` module, and importing more than one into the same Python
-process lets the module cache silently serve the wrong `app` to a later
-layer's tests (confirmed — running them combined broke 19 otherwise-passing
-backend tests). Subprocess isolation sidesteps that entirely.
+Each result is labelled with its layer from the test file's name prefix
+(test_backend_*, test_database_*, test_frontend_*, test_shared_*). One run is
+safe because tests/conftest.py loads each tier's app.py under its own module
+name.
 
 Usage (from activity-service/):
     python tests/report.py --label "Pre-testing - before edit/delete rollout"
@@ -25,25 +23,31 @@ from pathlib import Path
 ACTIVITY_SERVICE_ROOT = Path(__file__).resolve().parent.parent
 REPORT_PATH = ACTIVITY_SERVICE_ROOT / "docs" / "test-results.md"
 
-LAYERS = [
-    ("database-service", ACTIVITY_SERVICE_ROOT / "database-service" / "tests"),
-    ("backend", ACTIVITY_SERVICE_ROOT / "backend" / "tests"),
-    ("frontend", ACTIVITY_SERVICE_ROOT / "frontend" / "tests"),
-]
+TESTS_DIR = ACTIVITY_SERVICE_ROOT / "tests"
+LAYERS = ("database", "backend", "frontend", "shared")
 
 
-def run_layer(tests_dir, junit_path):
-    return subprocess.run(
-        [sys.executable, "-m", "pytest", str(tests_dir), f"--junit-xml={junit_path}", "-q"],
-        capture_output=True, text=True,
+def run_tests(junit_path):
+    return subprocess.run(  # noqa: S603 - fixed argv (this interpreter running pytest on tests/), no user input
+        [sys.executable, "-m", "pytest", str(TESTS_DIR), f"--junit-xml={junit_path}", "-q"],
+        capture_output=True, text=True, cwd=ACTIVITY_SERVICE_ROOT,
     )
 
 
-def parse_junit(junit_path, layer):
+def layer_of(testcase):
+    # classname is the test module, e.g. "test_backend_api" or "tests.test_backend_api"
+    module = (testcase.get("classname") or "").rsplit(".", 1)[-1]
+    for layer in LAYERS:
+        if module.startswith(f"test_{layer}_"):
+            return layer
+    return "other"
+
+
+def parse_junit(junit_path):
     if not junit_path.exists():
         return []
     rows = []
-    for testcase in ET.parse(junit_path).getroot().iter("testcase"):
+    for testcase in ET.parse(junit_path).getroot().iter("testcase"):  # noqa: S314 - JUnit XML pytest just wrote to our private temp dir
         failure = testcase.find("failure")
         error = testcase.find("error")
         skipped = testcase.find("skipped")
@@ -55,7 +59,7 @@ def parse_junit(junit_path, layer):
             status, detail = "SKIP", "skipped"
         else:
             status, detail = "PASS", "ok"
-        rows.append({"layer": layer, "name": testcase.get("name"), "status": status, "detail": detail})
+        rows.append({"layer": layer_of(testcase), "name": testcase.get("name"), "status": status, "detail": detail})
     return rows
 
 
@@ -92,27 +96,20 @@ def main():
     run_errors = []
 
     with tempfile.TemporaryDirectory() as tmp:
-        tmp_dir = Path(tmp)
-        for name, tests_dir in LAYERS:
-            if not tests_dir.exists() or not any(tests_dir.iterdir()):
-                layer_summaries.append(f"{name}: no tests found")
-                continue
+        junit_path = Path(tmp) / "activity-service.xml"
+        result = run_tests(junit_path)
+        all_rows = parse_junit(junit_path)
 
-            junit_path = tmp_dir / f"{name}.xml"
-            result = run_layer(tests_dir, junit_path)
-            rows = parse_junit(junit_path, name)
-
-            if not rows and result.returncode not in (0, 1):
-                # 0 = all passed, 1 = some tests failed (both are a real run);
-                # anything else means pytest itself didn't run (import error,
-                # bad args, etc.) rather than the tests failing normally.
-                run_errors.append((name, (result.stderr or result.stdout).strip().splitlines()[-1][:200]))
-                layer_summaries.append(f"{name}: FAILED TO RUN")
-                continue
-
-            all_rows.extend(rows)
+    if not all_rows and result.returncode not in (0, 1):
+        # 0 = all passed, 1 = some tests failed (both are a real run);
+        # anything else means pytest itself didn't run (import error,
+        # bad args, etc.) rather than the tests failing normally.
+        run_errors.append(("tests", (result.stderr or result.stdout).strip().splitlines()[-1][:200]))
+    for layer in (*LAYERS, "other"):
+        rows = [r for r in all_rows if r["layer"] == layer]
+        if rows:
             passed = sum(1 for r in rows if r["status"] == "PASS")
-            layer_summaries.append(f"{name}: {passed}/{len(rows)} passed")
+            layer_summaries.append(f"{layer}: {passed}/{len(rows)} passed")
 
     section = build_section(args.label, all_rows, layer_summaries, run_errors)
 

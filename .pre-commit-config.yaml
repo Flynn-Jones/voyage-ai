@@ -11,8 +11,10 @@
 files: |
   (?x)^(
     accommodation-service/|
+    activity-service/|
     ai-services/|
     budget-service/|
+    itinerary-service/|
     student-1/|
     shared/
   )

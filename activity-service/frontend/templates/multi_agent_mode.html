@@ -1,38 +1,32 @@
 {% extends "base.html" %}
-{% from "_mode_links.html" import mode_header, mode_links %}
+{% from "_mode_header.html" import mode_header %}
 
 {% block title %}VoyageAI — Activities Multi-Agent Mode{% endblock %}
 
 {% block content %}
 <section class="panel">
   {% call mode_header("Multi-Agent Mode") %}
-    Planner &rarr; Worker &rarr; Reviewer &rarr; you. The agents read activities and scheduled times (read-only), then recommend. Only you can Accept, Partially Accept or Reject, and nothing is written to the activity database.
+    Planner &rarr; Worker &rarr; Reviewer &rarr; you. Pick a day: the agents read activities and scheduled times (read-only), list what's on that day, find any activities that overlap, and propose free slots, then recommend. Only you can Accept, Partially Accept or Reject, and nothing is written to the activity database.
   {% endcall %}
-  {{ mode_links("multi_agent_mode") }}
 
   <div class="act-mcp">
     <section class="act-mcp__panel">
-      <h2>Start a workflow</h2>
+      <h2>Check a day's schedule</h2>
       <form id="ma-run-form" class="act-ma__form"
             hx-post="{{ url_for('multi_agent_run') }}"
             hx-target="#ma-log" hx-swap="afterbegin"
             hx-indicator="#ma-pending"
             hx-disabled-elt="#ma-run-form input, #ma-run-form select, #ma-run-form button"
             hx-on::before-request="document.getElementById('ma-empty')?.remove()">
-        <label>Task
-          <select name="task" id="ma-task">
-            {% for key, label in tasks.items() %}<option value="{{ key }}">{{ label }}</option>{% endfor %}
-          </select>
+        <label>Day to check
+          <input type="date" name="date" required>
         </label>
-        <label>Day <span class="act-rag__meta">(needed for overlaps and free slots)</span>
-          <input type="date" name="date">
-        </label>
-        <label>Slot length (hours, free slots only)
+        <label>Free-slot length (hours)
           <input type="text" name="slot_hours" value="2" inputmode="decimal">
         </label>
         <label>Request (optional context for the Planner)
           <input type="text" name="request" list="ma-samples" maxlength="300" autocomplete="off"
-                 placeholder="e.g. Check day 2026-10-06 for overlapping activities.">
+                 placeholder="e.g. Check my 2026-10-06 schedule for clashes and free time.">
         </label>
         <datalist id="ma-samples">
           {% for sample in samples %}<option value="{{ sample }}">{% endfor %}
@@ -47,7 +41,7 @@
         Planner, Worker and Reviewer are working… this can take a minute.
       </div>
       <div id="ma-log" class="act-chat__log act-mcp__log">
-        <p id="ma-empty" class="act-chat__empty">No runs yet. Pick a task and run the agents.</p>
+        <p id="ma-empty" class="act-chat__empty">No runs yet. Pick a day and run the agents.</p>
       </div>
     </section>
   </div>

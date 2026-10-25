@@ -2,7 +2,7 @@
 import logging
 import re
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, current_app, jsonify, request
 
 from services import database_api, llm_client
 from services.schedule_analyzer import analyze_schedule
@@ -24,6 +24,8 @@ def _requested_day(body):
 
 @ai_review_bp.post("/ai-review")
 def ai_review():
+    if not current_app.config["AI_ENABLED"]:
+        return jsonify({"error": "AI Mode is disabled"}), 403
     body = request.get_json(silent=True)
     if not isinstance(body, dict) or not isinstance(body.get("prompt"), str) or not body["prompt"].strip():
         return jsonify({"error": "prompt is required and must be a non-empty string"}), 400

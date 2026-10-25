@@ -23,6 +23,12 @@ CREATE INDEX IF NOT EXISTS idx_itinerary_items_activity_id
     ON itinerary_items (activity_id);
 CREATE INDEX IF NOT EXISTS idx_itinerary_items_destination_id
     ON itinerary_items (destination_id);
+
+CREATE TABLE IF NOT EXISTS itinerary_multi_agent_applications (
+    run_id TEXT PRIMARY KEY,
+    payload TEXT NOT NULL,
+    result TEXT NOT NULL
+);
 """
 
 

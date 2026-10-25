@@ -1,89 +1,222 @@
 name: student-3
 
+# Activity Manager (Student 3). Checks the Release 2 requirements on every push:
+#   1. Pre-commit security scans: the repo's own .pre-commit-config.yaml hooks (Ruff with the S
+#      rules, detect-secrets, pip-audit) over activity-service/.
+#   2. Two backend endpoint functions, add_activity and view_activities, tested against live
+#      containers; the run fails unless both pass.
+# Same job graph as student-1.yml:
+#   security-scans, offline-tests, compose-validate -> build-and-smoke -> evidence-pack
 on:
   workflow_dispatch:
   push:
-    branches: [main, activity-service]
+    branches: [main, activity-service, "student-3/**"]
     paths:
       - "activity-service/**"
+      - ".pre-commit-config.yaml"
+      - ".github/workflows/student-3.yml"
+  pull_request:
+    paths:
+      - "activity-service/**"
+      - ".pre-commit-config.yaml"
       - ".github/workflows/student-3.yml"
 
+concurrency:
+  group: student-3-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+# The shared MCP/RAG/Multi-Agent servers run on a developer's host, not in CI, so the stack runs
+# with them switched off (as in the cloud). activity-service/docker-compose.yml reads these.
+env:
+  ACTIVITY_MCP_ENABLED: "false"
+  ACTIVITY_RAG_ENABLED: "false"
+  ACTIVITY_MULTI_AGENT_ENABLED: "false"
+
 jobs:
-
-  build-images:
+  security-scans:
+    name: security-scans (pre-commit - ruff S, detect-secrets, pip-audit)
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@v7
-
-      - name: Verify docker-compose
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install pre-commit
+        run: pip install pre-commit
+      - name: activity-service is in the pre-commit scope
+        run: grep -q '^ *activity-service/|' .pre-commit-config.yaml
+      - name: Run the pre-commit hooks over activity-service/
         run: |
-          docker-compose --version || (sudo apt-get update && sudo apt-get install -y docker-compose)
+          mkdir -p reports
+          pre-commit run --color never --show-diff-on-failure \
+            --files $(git ls-files activity-service) 2>&1 | tee reports/pre-commit-scan.txt
+          exit ${PIPESTATUS[0]}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: student-3-pre-commit-scan
+          path: reports/pre-commit-scan.txt
 
-      - name: Build services
+  offline-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install test dependencies
+        run: pip install -r activity-service/tests/requirements.txt
+      - name: Run offline tests (no Docker, no Ollama; live tests deselected)
         working-directory: activity-service
-        run: docker-compose build
-
-  smoke-check:
-    runs-on: ubuntu-latest
-    needs: [build-images]
-
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Verify docker-compose
         run: |
-          docker-compose --version || (sudo apt-get update && sudo apt-get install -y docker-compose)
+          mkdir -p reports
+          python -m pytest -v --junitxml=reports/offline-tests.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: student-3-offline-test-results
+          path: activity-service/reports/offline-tests.xml
 
-      - name: Create external network
+  compose-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate the Activity compose file
+        working-directory: activity-service
+        run: docker compose config --quiet
+      - name: Confirm the three expected services are declared
+        working-directory: activity-service
+        run: |
+          services=$(docker compose config --services | sort | tr '\n' ' ')
+          echo "services: $services"
+          [ "$services" = "backend database frontend " ]
+      - name: Shared-AI routes are switched off in the rendered config
+        working-directory: activity-service
+        run: |
+          docker compose config > rendered.yml
+          for flag in MCP_ENABLED RAG_ENABLED MULTI_AGENT_ENABLED; do
+            grep -Eq "^ +$flag: \"?false\"?$" rendered.yml && echo "PASS $flag=false" \
+              || { echo "FAIL $flag is not false"; exit 1; }
+          done
+
+  build-and-smoke:
+    needs: [security-scans, offline-tests, compose-validate]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install test dependencies
+        run: pip install -r activity-service/tests/requirements.txt
+      - name: Create shared external network
         run: docker network inspect microservices-net >/dev/null 2>&1 || docker network create microservices-net
-
-      - name: Start services
+      - name: Build all three Activity images
         working-directory: activity-service
-        run: docker-compose up -d
-
-      - name: Smoke checks
+        run: docker compose build
+      - name: Start the Activity stack
+        working-directory: activity-service
+        run: docker compose up -d
+      - name: Wait for services to become healthy
         run: |
-          check_url() {
-            local url="$1"
-            local attempts=8
-            local code=""
-
-            for i in $(seq 1 "$attempts"); do
-              code=$(curl -sS -o /dev/null -w "%{http_code}" --connect-timeout 5 --max-time 20 "$url" || true)
-              if [ "$code" = "200" ]; then
-                echo "PASS $url -> $code"
-                return 0
-              fi
-              echo "Retry $i/$attempts for $url (got: ${code:-none})"
+          for url in http://localhost:6003/health http://localhost:5003/health http://localhost:3003/; do
+            for _ in $(seq 1 30); do
+              if curl -fsS -o /dev/null "$url"; then echo "PASS $url"; continue 2; fi
               sleep 2
             done
+            echo "FAIL $url not healthy"; exit 1
+          done
 
-            echo "FAIL $url after $attempts attempts"
-            return 1
-          }
+      - name: Run live endpoint tests
+        working-directory: activity-service
+        run: |
+          mkdir -p reports
+          python -m pytest -m live -v --junitxml=reports/live-tests.xml
 
-          check_url "http://localhost:3003/"
-          check_url "http://localhost:5003/health"
-          check_url "http://localhost:6003/health"
-
-      - name: Stop services
+      # Reads the JUnit from the step above (no second run) and fails unless both endpoint
+      # functions have a passing test.
+      - name: Record the two endpoint-function tests from the live JUnit
         if: always()
         working-directory: activity-service
-        run: docker-compose down -v
+        run: |
+          python - <<'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+
+          REQUIRED = {
+              "test_add_activity_is_201_and_persists_in_the_database":
+                  "POST /api/add_activity -> add_activity (201, read back from the database)",
+              "test_view_activities_filters_and_sorts":
+                  "GET /api/view_activities -> view_activities (filters and sort)",
+          }
+          status = {}
+          try:
+              for case in ET.parse("reports/live-tests.xml").getroot().iter("testcase"):  # noqa: S314 - our own JUnit
+                  if case.get("classname", "").endswith("test_backend_endpoints") and case.get("name") in REQUIRED:
+                      bad = any(case.find(tag) is not None for tag in ("failure", "error", "skipped"))
+                      status[case.get("name")] = "FAIL" if bad else "PASS"
+          except (OSError, ET.ParseError) as exc:
+              print(f"live JUnit unreadable: {exc}")
+          lines = ["## Post-commit endpoint tests (student-3 backend, live stack)", "",
+                   "| Test | Endpoint function | Result |", "|---|---|---|"]
+          lines += [f"| `test_backend_endpoints.py::{name}` | {what} | {status.get(name, 'MISSING')} |"
+                    for name, what in REQUIRED.items()]
+          open("reports/endpoint-tests.md", "w").write("\n".join(lines) + "\n")
+          print("\n".join(lines))
+          sys.exit(0 if all(status.get(n) == "PASS" for n in REQUIRED) else 1)
+          PY
+
+      - name: Shared-AI routes answer 403
+        run: |
+          fail=0
+          check() {
+            code=$(curl -s -o body.txt -w "%{http_code}" -X POST "http://localhost:5003$1" \
+              -H "Content-Type: application/json" -d "$2")
+            if [ "$code" = "403" ]; then echo "PASS $1 -> 403"
+            else echo "FAIL $1 -> $code $(head -c 200 body.txt)"; fail=1; fi
+          }
+          check /api/activity/mcp/list-activities '{}'
+          check /api/activity/rag/answer '{"query":"How many activities are there?","k":5}'
+          check /api/activity/multi-agent/workflow '{"date":"2026-10-06"}'
+          exit $fail
+
+      - name: Smoke check public routes
+        if: always()
+        run: |
+          curl -sS -o /dev/null -w "frontend / -> %{http_code}\n" http://localhost:3003/
+          curl -sS -o /dev/null -w "backend /api/view_activities -> %{http_code}\n" http://localhost:5003/api/view_activities
+          curl -sS -o /dev/null -w "database /activities -> %{http_code}\n" http://localhost:6003/activities
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: student-3-live-test-results
+          path: |
+            activity-service/reports/live-tests.xml
+            activity-service/reports/endpoint-tests.md
+
+      - name: Dump container logs on failure
+        if: failure()
+        working-directory: activity-service
+        run: docker compose logs --no-color
+
+      - name: Stop the stack
+        if: always()
+        working-directory: activity-service
+        run: docker compose down -v
 
   evidence-pack:
+    needs: [build-and-smoke]
     runs-on: ubuntu-latest
-    needs: [smoke-check]
-
     steps:
-      - uses: actions/checkout@v7
-
-      - name: Create reports directory
-        working-directory: activity-service
-        run: mkdir -p reports
-
-      - name: Generate report.json
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: activity-service/reports/artifacts
+      - name: Generate report.json, report.md and run-view.md
         working-directory: activity-service
         run: |
           TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -96,28 +229,21 @@ jobs:
             "generated_timestamp": "$TIMESTAMP"
           }
           EOF
-
-      - name: Generate report.md
-        working-directory: activity-service
-        run: |
-          cat > reports/report.md << EOF
-          ## Student 3 (Activity Manager) Workflow Report
-
-          - Workflow: student-3
-          - Run ID: ${{ github.run_id }}
-          - Commit SHA: ${{ github.sha }}
-          - Branch: ${{ github.ref_name }}
-          EOF
-
-      - name: Generate run-view.md
-        working-directory: activity-service
-        run: |
-          cat > reports/run-view.md << EOF
-          Run URL:
-          https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          EOF
-
-      - uses: actions/upload-artifact@v7
+          {
+            echo "## Student 3 (Activity Manager) Workflow Report"
+            echo
+            echo "- Workflow: student-3"
+            echo "- Run ID: ${{ github.run_id }}"
+            echo "- Commit SHA: ${{ github.sha }}"
+            echo "- Branch: ${{ github.ref_name }}"
+            echo "- Jobs: security-scans, offline-tests, compose-validate, build-and-smoke"
+            echo
+            cat reports/artifacts/student-3-live-test-results/endpoint-tests.md 2>/dev/null \
+              || echo "(endpoint-tests.md missing)"
+          } > reports/report.md
+          printf 'Run URL:\nhttps://github.com/%s/actions/runs/%s\n' "${{ github.repository }}" "${{ github.run_id }}" > reports/run-view.md
+          cat reports/report.md
+      - uses: actions/upload-artifact@v4
         with:
           name: student-3-report
           path: activity-service/reports

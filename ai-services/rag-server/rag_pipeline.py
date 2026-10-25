@@ -24,7 +24,6 @@ from pathlib import Path
 from typing import Any
 
 import requests
-import activity_context
 import itinerary_context
 
 logger = logging.getLogger(__name__)
@@ -39,6 +38,25 @@ CHROMA_PATH = DATA_DIR / "chroma"
 BUDGET_DB_URL = os.environ.get("BUDGET_DB_URL", "http://localhost:6004")
 ACCOMMODATION_DB_URL = os.environ.get("ACCOMMODATION_DB_URL", "http://localhost:6002")
 DESTINATION_DB_URL = os.environ.get("DESTINATION_DB_URL", "http://localhost:6001")
+
+# Activity (Student 3), served with scope="activity"; see the Activity section below.
+ACTIVITY_SERVICE = "activity"
+ACTIVITY_DB_URL = os.environ.get("ACTIVITY_DB_URL", "http://localhost:6003").rstrip("/")
+try:
+    ACTIVITY_DB_TIMEOUT_SECONDS = float(os.environ.get("ACTIVITY_DB_TIMEOUT_SECONDS", "5"))
+except ValueError:
+    ACTIVITY_DB_TIMEOUT_SECONDS = 5.0
+
+ACTIVITIES_SOURCE = "activity-db:/activities"
+ASSIGNMENTS_SOURCE = "activity-db:/assignments"
+ACTIVITY_DOCS_SUBDIR = Path("activity-service") / "docs"
+ACTIVITY_GENERATED_REPORT_PREFIX = "rag-"
+ACTIVITY_RUN_LOG_DOCS = {"run-report.md", "test-results.md"}
+ACTIVITY_DOC_CHUNK_WORDS = 80
+ACTIVITY_MAX_K = 20
+ACTIVITY_MAX_QUERY_CHARS = 1000
+ACTIVITY_IGNORED_DIRS = {".git", ".venv", "venv", "__pycache__", ".pytest_cache", "node_modules", "chroma"}
+
 OLLAMA_GENERATE_URL = os.environ.get("OLLAMA_GENERATE_URL", "http://localhost:11434/api/generate")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:7b")
 
@@ -60,7 +78,7 @@ EXCLUDED_SOURCE_IDS = {"README.md", "student-1/README.md"}
 # queries, so keeping them out of unscoped ranking leaves those results unchanged
 # ("street food" must not start matching the Street Food Night Walk activity in a
 # destination answer). Activity's backend always sends scope="activity".
-SCOPED_ONLY_SERVICES = {activity_context.SERVICE}
+SCOPED_ONLY_SERVICES = {ACTIVITY_SERVICE}
 
 # metadata.service for each repo document, by its first path component.
 DOC_SERVICE_BY_DIR = {"budget-service": "budget", "accommodation-service": "accommodation",
@@ -347,15 +365,206 @@ def doc_service(source_id: str) -> str:
     return DOC_SERVICE_BY_DIR.get(str(source_id).replace("\\", "/").split("/", 1)[0], "shared")
 
 
+# ---------------------------------------------------------------- Activity (Student 3)
+#
+# Activity's slice of the shared corpus, served with scope="activity" by
+# activity_operation() below.
+#
+# Ported from the retired activity-service/rag-server/rag_pipeline.py. What
+# carries over, because the Activity backend and frontend rely on it:
+#
+# - tier_1 chunk text and ids (activity_<id>, assignment_<id>, activity_count,
+#   activity_category_counts, activity_category_<slug>) and the per-category
+#   summary chunks;
+# - tier_2 chunks from activity-service/docs and a tier_3 file index. Generated
+#   rag-*.md reports are excluded (metrics tables must never become evidence),
+#   and so are the dated run logs (ACTIVITY_RUN_LOG_DOCS): they quote the sample records
+#   of the day they were written ("Harbour Kayaking Tour, 45.00"), which would
+#   otherwise ground confident answers about activities that no longer exist.
+#   Record facts come from tier_1 only;
+# - deterministic answers for count / per-category questions, computed from the
+#   full activity record set rather than top-k similarity;
+# - the query / k validation (1-1000 chars, integer k from 1 to 20).
+#
+# What does NOT carry over: reading the activity SQLite file. Like every other
+# shared source, tier_1 data comes over the activity database-service HTTP API
+# only (ACTIVITY_DB_URL), never another service's database file.
+
+def _activity_tokenize(text):
+    return _TOKEN_RE.findall((text or "").lower())
+
+
+def _activity_slug(value):
+    return "_".join(_activity_tokenize(value)) or "unknown"
+
+
+def _activity_chunk(chunk_id, source_id, tier, text, metadata):
+    return {"chunk_id": chunk_id, "source_id": source_id, "authority_tier": tier, "text": text,
+            "metadata": {"service": ACTIVITY_SERVICE, **metadata}}
+
+
+# Activity tier_1: records from the activity database API
+
+def _activity_get_list(path):
+    response = requests.get(f"{ACTIVITY_DB_URL}{path}", timeout=ACTIVITY_DB_TIMEOUT_SECONDS)
+    response.raise_for_status()
+    rows = response.json()
+    if not isinstance(rows, list) or any(not isinstance(r, dict) for r in rows):
+        raise ValueError(f"activity database {path} must return a list of objects")
+    return rows
+
+
+def _activity_is_id(value):
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 1
+
+
+def _activity_format_price(value):
+    return f"{float(value):.2f}" if isinstance(value, (int, float)) and not isinstance(value, bool) else "unknown"
+
+
+def load_activity_records():
+    """tier_1 activity, assignment and summary chunks from the activity DB API.
+    Raises requests.RequestException / ValueError when the API is unusable."""
+    # Only real rows become evidence: an id and a name, as the destination loader requires.
+    activities = [a for a in _activity_get_list("/activities") if _activity_is_id(a.get("activity_id"))
+                  and isinstance(a.get("activity_name"), str) and a["activity_name"].strip()]
+    assignments = [s for s in _activity_get_list("/assignments") if _activity_is_id(s.get("assignment_id"))
+                   and _activity_is_id(s.get("activity_id"))]
+    names = {a["activity_id"]: a.get("activity_name") for a in activities}
+
+    chunks = [
+        _activity_chunk(
+            f"activity_{a['activity_id']}", ACTIVITIES_SOURCE, "tier_1",
+            f"Activity record: activity_id={a['activity_id']}, name={a.get('activity_name')}, "
+            f"category={a.get('activity_type')}, price={_activity_format_price(a.get('activity_cost'))}, "
+            f"duration={a.get('duration')}.",
+            {"source_type": "activity_record", "activity_id": a["activity_id"],
+             "name": a.get("activity_name"), "category": a.get("activity_type")},
+        )
+        for a in activities
+    ]
+    chunks += [
+        _activity_chunk(
+            f"assignment_{s['assignment_id']}", ASSIGNMENTS_SOURCE, "tier_1",
+            f"Assignment record: assignment_id={s['assignment_id']}, activity_id={s.get('activity_id')}, "
+            f"activity_name={names.get(s.get('activity_id'))}, scheduled_time={s.get('assignment_time')}.",
+            {"source_type": "assignment_record", "activity_id": s.get("activity_id")},
+        )
+        for s in assignments
+    ]
+    return chunks + activity_summary_chunks(activities)
+
+
+def activity_summary_chunks(activities):
+    by_category = {}
+    for a in activities:
+        by_category.setdefault(a.get("activity_type") or "Uncategorised", []).append(a)
+
+    counts = ", ".join(f"{cat}={len(items)}" for cat, items in sorted(by_category.items()))
+    chunks = [
+        _activity_chunk("activity_count", ACTIVITIES_SOURCE, "tier_1",
+                        f"Activity summary: there are {len(activities)} activities in total in the activities database.",
+                        {"source_type": "summary", "metric": "total_count", "value": len(activities)}),
+        _activity_chunk("activity_category_counts", ACTIVITIES_SOURCE, "tier_1",
+                        f"Activity summary by category: {counts}.",
+                        {"source_type": "summary", "metric": "count_per_category"}),
+    ]
+    for category, items in sorted(by_category.items()):
+        listed = ", ".join(f"{a.get('activity_name')} (activity_id={a['activity_id']})" for a in items)
+        chunks.append(_activity_chunk(
+            f"activity_category_{_activity_slug(category)}", ACTIVITIES_SOURCE, "tier_1",
+            f"Activity category summary: category={category} has {len(items)} activities: {listed}.",
+            {"source_type": "summary", "metric": "category", "category": category, "value": len(items)},
+        ))
+    return chunks
+
+
+# Activity tier_2 / tier_3: activity-service docs and file index
+
+def load_activity_doc_chunks(repo_root):
+    """tier_2 chunks from activity-service/docs plus a tier_3 activity file index."""
+    docs_dir = Path(repo_root) / ACTIVITY_DOCS_SUBDIR
+    chunks = []
+    if docs_dir.is_dir():
+        paths = sorted(
+            p for p in docs_dir.rglob("*")
+            if p.suffix in (".md", ".json") and p.is_file() and not p.is_symlink()
+            and not p.name.startswith(ACTIVITY_GENERATED_REPORT_PREFIX) and p.name not in ACTIVITY_RUN_LOG_DOCS
+        )
+        for path in paths:
+            rel = path.relative_to(repo_root).as_posix()
+            words = path.read_text(encoding="utf-8", errors="ignore").split()
+            for i in range(0, len(words), ACTIVITY_DOC_CHUNK_WORDS):
+                part = i // ACTIVITY_DOC_CHUNK_WORDS + 1
+                chunks.append(_activity_chunk(f"activity_doc_{_activity_slug(path.stem)}_{part}", rel, "tier_2",
+                                              " ".join(words[i:i + ACTIVITY_DOC_CHUNK_WORDS]),
+                                              {"source_type": "doc", "file": rel, "part": part}))
+
+    service_root = Path(repo_root) / "activity-service"
+    files = []
+    for root, dirs, filenames in os.walk(service_root, followlinks=False):
+        dirs[:] = sorted(d for d in dirs if d not in ACTIVITY_IGNORED_DIRS)
+        files += [(Path(root) / f).relative_to(service_root).as_posix() for f in sorted(filenames)]
+    if files:
+        chunks.append(_activity_chunk("activity_repo_index", "repository:activity-service", "tier_3",
+                                      "Repository file index for activity-service: " + ", ".join(files),
+                                      {"source_type": "repository", "file_count": len(files)}))
+    return chunks
+
+
+# Activity retrieval helpers
+
+def validate_activity_query(query, k):
+    if not isinstance(query, str) or not query.strip():
+        raise ValueError("query is required and must be a non-empty string")
+    if len(query) > ACTIVITY_MAX_QUERY_CHARS:
+        raise ValueError(f"query must be at most {ACTIVITY_MAX_QUERY_CHARS} characters")
+    if isinstance(k, bool) or not isinstance(k, int) or not 1 <= k <= ACTIVITY_MAX_K:
+        raise ValueError(f"k must be an integer between 1 and {ACTIVITY_MAX_K}")
+    return query.strip()
+
+
+def select_activity_chunks(chunks):
+    return [c for c in chunks if (c.get("metadata") or {}).get("service") == ACTIVITY_SERVICE]
+
+
+def _activity_records(chunks):
+    return [c for c in chunks if c["metadata"].get("source_type") == "activity_record"]
+
+
+def activity_mentioned_category(query, records):
+    tokens = set(_activity_tokenize(query))
+    categories = {r["metadata"].get("category") for r in records if r["metadata"].get("category")}
+    return next((c for c in sorted(categories) if set(_activity_tokenize(c)) <= tokens), None)
+
+
+def activity_deterministic_answer(chunks, query):
+    """Exact answers from the full tier_1 record set, not from top-k
+    similarity. Returns (answer, cited_chunks) or None when no pattern applies."""
+    text = query.lower()
+    if "activit" not in text:
+        return None
+    records = _activity_records(chunks)
+    category = activity_mentioned_category(query, records)
+    if category:
+        matches = [r for r in records if r["metadata"].get("category") == category]
+        names = ", ".join(f"{r['metadata']['name']} (activity_id={r['metadata']['activity_id']})" for r in matches)
+        return f"There are {len(matches)} {category} activities: {names}.", matches
+    if re.search(r"\bhow many\b|\bnumber of\b|\btotal\b|\bcount\b", text):
+        summary = [c for c in chunks if c["chunk_id"] == "activity_count"]
+        return f"There are {len(records)} activities in total.", summary or records
+    return None
+
+
 def load_activity_chunks() -> list[dict[str, Any]]:
     """Activity tier_1 records (activity-db HTTP API) plus activity-service docs."""
     chunks: list[dict[str, Any]] = []
     try:
-        chunks.extend(activity_context.load_chunks())
+        chunks.extend(load_activity_records())
         _source_status["activity_db"] = "ok"
     except (requests.exceptions.RequestException, ValueError, TypeError, KeyError) as exc:
         _source_status["activity_db"] = f"unavailable: {exc}"
-    chunks.extend(activity_context.load_doc_chunks(REPO_ROOT))
+    chunks.extend(load_activity_doc_chunks(REPO_ROOT))
     for chunk in chunks:
         chunk["indexed_at"] = now_iso()
     return chunks
@@ -545,7 +754,7 @@ def refresh_corpus(caller: str = "system") -> dict[str, Any]:
             "chunk_count": len(chunks),
             "itinerary_chunk_count": sum(c.get("source_id") == itinerary_context.SOURCE for c in chunks),
             "itinerary_source_error": _itinerary_source_error,
-            "activity_chunk_count": sum((c.get("metadata") or {}).get("service") == activity_context.SERVICE
+            "activity_chunk_count": sum((c.get("metadata") or {}).get("service") == ACTIVITY_SERVICE
                                         for c in chunks),
             "tier_counts": {t: sum(c.get("authority_tier") == t for c in chunks) for t in TIER_ORDER},
             "service_counts": _service_counts(chunks),
@@ -569,7 +778,7 @@ def retrieve_context(query: str, k: int = 5, caller: str = "system", scope: str 
                      trip_reference: str = None, day: int = None) -> dict[str, Any]:
     if scope == "itinerary":
         return itinerary_operation(query, k, caller, trip_reference, day, answer=False)
-    if scope == activity_context.SERVICE:
+    if scope == ACTIVITY_SERVICE:
         return activity_operation(query, k, caller, answer=False)
     if scope is not None:
         return {"status": "error", "error": "unknown scope"}
@@ -702,7 +911,7 @@ def answer_question(query: str, k: int = 5, caller: str = "system", scope: str =
                     trip_reference: str = None, day: int = None) -> dict[str, Any]:
     if scope == "itinerary":
         return itinerary_operation(query, k, caller, trip_reference, day, answer=True)
-    if scope == activity_context.SERVICE:
+    if scope == ACTIVITY_SERVICE:
         return activity_operation(query, k, caller, answer=True)
     if scope is not None:
         return {"status": "error", "error": "unknown scope"}
@@ -790,7 +999,7 @@ def activity_operation(query, k, caller, answer):
     """
     start = time.time()
     tool_name = "answer_question" if answer else "retrieve_context"
-    audit_input = {"query": query, "k": k, "caller": caller, "scope": activity_context.SERVICE}
+    audit_input = {"query": query, "k": k, "caller": caller, "scope": ACTIVITY_SERVICE}
 
     def finish(output, validation_status, outcome):
         append_audit(tool_name, audit_input,
@@ -801,22 +1010,22 @@ def activity_operation(query, k, caller, answer):
         return output
 
     try:
-        query = activity_context.validate(query, k)
+        query = validate_activity_query(query, k)
     except ValueError as exc:
         return finish({"status": "error", "error_type": "invalid_input", "error": str(exc), "query": query},
                       "fail", "invalid_input")
 
     try:
-        chunks = activity_context.select(_all_chunks())
+        chunks = select_activity_chunks(_all_chunks())
         if not chunks and refresh_corpus(caller="auto_refresh").get("status") == "success":
-            chunks = activity_context.select(_all_chunks())
+            chunks = select_activity_chunks(_all_chunks())
         if not chunks:
             return finish({"status": "error", "error_type": "retrieval_failed",
                            "error": "activity corpus unavailable", "query": query}, "fail", "error")
 
         retrieval_mode = "hybrid"
         try:
-            distances = _chroma_distances(query, k, service=activity_context.SERVICE, n_results=len(chunks))
+            distances = _chroma_distances(query, k, service=ACTIVITY_SERVICE, n_results=len(chunks))
         except Exception:
             distances, retrieval_mode = {}, "lexical_fallback"
         # An activity category ("Food", "Water Sports") is to Activity what a city is to
@@ -832,7 +1041,7 @@ def activity_operation(query, k, caller, answer):
                       "fail", "error")
 
     retrieval = {"status": "success", "query": query, "caller": caller, "k": k,
-                 "scope": activity_context.SERVICE, "retrieval_mode": retrieval_mode,
+                 "scope": ACTIVITY_SERVICE, "retrieval_mode": retrieval_mode,
                  "candidate_count": len(chunks), "rejected_count": len(chunks) - accepted_total,
                  "results": ranked}
     if not answer:
@@ -842,12 +1051,12 @@ def activity_operation(query, k, caller, answer):
                "rejected_count": retrieval["rejected_count"], "retrieval_mode": retrieval_mode,
                "top_score": ranked[0]["relevance_score"] if ranked else None,
                "top_chunk": ranked[0]["chunk_id"] if ranked else None}
-    base = {"query": query, "scope": activity_context.SERVICE, "retrieval_summary": summary}
+    base = {"query": query, "scope": ACTIVITY_SERVICE, "retrieval_summary": summary}
 
     def cite(rows):
         return [{key: r.get(key) for key in ("chunk_id", "source_id", "authority_tier")} for r in rows]
 
-    exact = activity_context.deterministic_answer(chunks, query)
+    exact = activity_deterministic_answer(chunks, query)
     if exact:
         text, cited = exact
         return finish({"status": "success", **base, "answer": text, "answer_source": "deterministic",
@@ -865,7 +1074,7 @@ def activity_operation(query, k, caller, answer):
     try:
         generated = generate_with_ollama(query, context)
     except LLMUnavailable as exc:
-        return finish(_failure(query, "llm_unavailable", str(exc), scope=activity_context.SERVICE,
+        return finish(_failure(query, "llm_unavailable", str(exc), scope=ACTIVITY_SERVICE,
                                retrieval_summary=summary), "fail", "llm_unavailable")
     if generated.lower().startswith("answer:"):  # strip first; see answer_question
         generated = generated[len("answer:"):].strip()
