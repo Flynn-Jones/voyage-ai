@@ -115,7 +115,8 @@ def run_smoke(tmp_path, aws_fail=(), aws_out=None, fixed_date=None, existing=Non
     }
     if fixed_date:
         env["STUB_DATE"] = fixed_date
-    proc = subprocess.run(["/bin/bash", SCRIPT], env=env, capture_output=True, text=True, timeout=60)
+    proc = subprocess.run(["/bin/bash", SCRIPT], env=env,  # noqa: S603 - fixed argv, stubbed PATH
+                          capture_output=True, text=True, timeout=60)
     return proc, cloud_dir, scratch
 
 

@@ -326,18 +326,51 @@ Use the same `$TS` as the smoke output in §9: the review pairs `stack-outputs-<
 `smoke-test-output-<TS>.txt` it selects (newest), and reads `alb_url` from it. (`smoke-test.sh` writes both
 files this way.)
 
-## 11. Write the cloud deployment report
+## 11. Verify a full CRUD lifecycle
 
-Fill in `docs/release-2/cloud/cloud-deployment-report.md` summarizing: ALB DNS name, which of the 18
-services are steady-state, the smoke test result file from §9, the stack outputs file from §10, and
-confirmation the four AI flags were `false` everywhere (they are, by construction, from
-`common_disabled_ai_env` in `services.yml`). This is the file
-`ai-services/agentic_loop/app_main.py --mode cloud-deployment-review --decision approve|approve-with-conditions|reject`
-reads to grade the run — run that after writing the report.
+§9's `read:` checks only prove the seeded data can be **read**. The review additionally wants a
+complete tagged create → read → update → delete per feature, which `crud-lifecycle.py` performs for
+real over the ALB and records:
 
-## 12. Teardown (do this when you're done — this costs money while it runs)
+```bash
+python3 scripts/deploy/aws/crud-lifecycle.py \
+  --alb-url "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["alb_url"])' \
+                docs/release-2/cloud/stack-outputs-<run>.json)" \
+  --verified-by "<your name>"
+```
 
-Run `scripts/deploy/aws/teardown.sh`. It removes everything in §1–§11 plus the Phase 2 AI
+Pass the ALB URL **from the smoke run's own `stack-outputs-<run>.json`** — the review only accepts
+the evidence when its `alb_url` matches that file and its `verified_at` is not older than the smoke
+run. Each record it creates is tagged `r2-crud-<UTC>` and deleted again, and a `delete` only counts
+as PASS once a follow-up read returns 404, so a successful run leaves the deployment as it found it.
+It writes `docs/release-2/cloud/crud-lifecycle-evidence-<UTC>.json` and exits non-zero if any
+feature's lifecycle failed. `--dry-run` prints the plan without touching anything.
+
+Offline tests for it (no account needed): `python -m pytest scripts/deploy/aws/tests/test_crud_lifecycle.py`
+
+## 12. Write the cloud deployment report
+
+`smoke-test.sh` already generates `docs/release-2/cloud/cloud-deployment-report.md` (and will not
+overwrite one whose Release Decision has been filled in — it writes
+`cloud-deployment-report-<run>.md` beside it instead). Check it records: the ALB DNS name, which of
+the 18 services are steady-state, the smoke result file from §9, and the stack outputs from §10.
+
+On AI: as of Phase 2 the four flags are **not** `false` everywhere. `common_disabled_ai_env` is
+still the default, but the five feature APIs override `MCP`/`RAG`/`MULTI_AGENT`/`AI_ENABLED` to
+`"true"` and talk to the EC2 AI host in §3 — only `shared-api` and the frontends stay off. The
+`ai-mode:` smoke checks confirm each of the five returns a real AI-host-generated answer, and the
+review's `ai_flags` check reports what is configured rather than asserting it is off.
+
+Then grade the run:
+
+```bash
+cd .. && python ai-services/agentic_loop/app_main.py \
+  --mode cloud-deployment-review --decision approve|approve-with-conditions|reject
+```
+
+## 13. Teardown (do this when you're done — this costs money while it runs)
+
+Run `scripts/deploy/aws/teardown.sh`. It removes everything in §1–§12 plus the Phase 2 AI
 host, in reverse order of creation, and is safe to re-run:
 
 ```bash
