@@ -73,8 +73,10 @@ jobs:
         with:
           python-version: "3.11"
 
+      # requests is needed to import crud-lifecycle.py, which test_crud_lifecycle.py loads
+      # by file path - without it the whole scripts/deploy/aws/tests suite fails collection.
       - name: Install test dependencies (same pytest pin as the service test requirements)
-        run: pip install pytest==9.1.1
+        run: pip install pytest==9.1.1 requests
 
       - name: Offline tests for the AWS deployment scripts
         run: python -m pytest scripts/deploy/aws/tests -v
