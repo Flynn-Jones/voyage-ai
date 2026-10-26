@@ -340,11 +340,11 @@ Timestamp: $TS
 
 As of Phase 2 (\`docs/release-2/cloud/phase-2-ai-mode-plan.md\`), MCP/RAG/Multi-Agent/Ollama run on
 a dedicated EC2 "AI host" (not containerised, matching \`ai-services/CLAUDE.md\`'s existing shared-host
-pattern) that all 5 feature backends are wired to — \`MCP_ENABLED\`/\`RAG_ENABLED\`/\`AI_ENABLED\` are
-\`"true"\` for destination/accommodation/activity/budget, and \`MULTI_AGENT_ENABLED\` additionally for
-destination/accommodation/activity/budget (itinerary has no Multi-Agent integration in its own code,
-so no such flag exists for it). The \`ai-mode:*\` checks above confirm each backend returns a real,
-AI-host-generated response, not just that a flag is set.
+pattern) that all 5 feature backends are wired to. All four flags — \`MCP_ENABLED\`, \`RAG_ENABLED\`,
+\`MULTI_AGENT_ENABLED\` and \`AI_ENABLED\` — are \`"true"\` for every one of destination-api,
+accommodation-api, activity-api, budget-backend and itinerary-be; \`shared-api\` and all six
+frontends keep \`common_disabled_ai_env\`'s \`"false"\`. The \`ai-mode:*\` checks above confirm each
+backend returns a real, AI-host-generated response, not just that a flag is set.
 
 ## Known gaps at this run
 

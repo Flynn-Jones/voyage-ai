@@ -13,11 +13,11 @@ CHECK    every frontend answers, the seeded read works on every backend, a compl
          AI path returns a real AI-host-generated result, and the ALB URL is recorded.
 
 Phase 2 (docs/release-2/cloud/phase-2-ai-mode-plan.md) wired AI Mode live for the 5 feature
-backends against a dedicated EC2 "AI host" - MCP/RAG/AI_ENABLED are "true" for
-destination/accommodation/activity/budget, and MULTI_AGENT_ENABLED additionally for all but
-itinerary (no Multi-Agent integration in its code). The `ai_flags` check below is
-informational only (what is actually configured), not a pass/fail assertion of "must be
-false" - a mixed enabled/disabled fleet is the intentional state, not a regression.
+backends against a dedicated EC2 "AI host": all four of MCP/RAG/MULTI_AGENT/AI_ENABLED are
+"true" for every feature api, while shared-api and the frontends keep the "false" default.
+The `ai_flags` check below is informational only (what is actually configured), not a
+pass/fail assertion of "must be false" - a mixed enabled/disabled fleet is the intentional
+state, not a regression.
 
 Smoke output contract (one result per line; other lines are ignored):
     PASS frontend:<name> <detail>
