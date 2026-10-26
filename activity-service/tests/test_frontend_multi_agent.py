@@ -108,3 +108,44 @@ def test_already_decided_replaces_form(app_module, monkeypatch):
     resp = app_module.create_app().test_client().post("/multi-agent/runs/run-abc/decision", data={"decision": "Accept"})
     assert "HX-Retarget" not in resp.headers
     assert b"only one human decision" in resp.data
+
+
+# ---- timeout budget -------------------------------------------------------
+# A Multi-Agent run is Planner -> Worker -> Reviewer: three sequential Ollama calls. On the
+# CPU-only AI host a real activity_schedule_check run measured 139s, but the frontend used
+# one hardcoded 60s read timeout for every backend call, so the page showed "Read timed out"
+# while the run actually completed server-side. These pin the budget so it cannot regress.
+
+def test_multi_agent_timeout_exceeds_the_backend_ceiling(app_module):
+    """The frontend must outwait the backend, or the backend's own error never surfaces."""
+    from services import multi_agent_api  # backend client; conftest puts backend/ on sys.path
+
+    _, frontend_read = app_module.MULTI_AGENT_REQUEST_TIMEOUT
+    assert frontend_read > multi_agent_api.MULTI_AGENT_TIMEOUT_SECONDS, (
+        f"frontend waits {frontend_read}s but the backend waits "
+        f"{multi_agent_api.MULTI_AGENT_TIMEOUT_SECONDS}s for the Multi-Agent Server"
+    )
+
+
+def test_multi_agent_timeout_covers_a_real_run(app_module):
+    # 139s measured live; keep clear headroom for a retried agent call.
+    _, frontend_read = app_module.MULTI_AGENT_REQUEST_TIMEOUT
+    assert frontend_read >= 240, f"{frontend_read}s is too tight for a 3-agent run"
+
+
+def test_ordinary_calls_keep_the_short_timeout(app_module):
+    """Only the Multi-Agent path gets the long budget; CRUD must not hang for minutes."""
+    assert app_module.REQUEST_TIMEOUT == (5, 60)
+
+
+def test_starting_a_run_uses_the_multi_agent_timeout(app_module, client, monkeypatch):
+    seen = {}
+
+    def fake_request(method, url, **kwargs):
+        seen["timeout"] = kwargs.get("timeout")
+        return DummyResponse(200, {"run": RUN})
+
+    monkeypatch.setattr(app_module.requests, "request", fake_request)
+    client.post("/multi-agent/run", data={"date": "2026-10-27", "slot_hours": "2"})
+
+    assert seen["timeout"] == app_module.MULTI_AGENT_REQUEST_TIMEOUT

@@ -7,6 +7,21 @@ from markupsafe import escape
 BACKEND_SERVICE_URL = os.environ.get("BACKEND_SERVICE_URL", "http://activity-backend:5003")
 PORT = int(os.environ.get("PORT", "3004"))
 
+# (connect, read) seconds. The default suits the ordinary CRUD and MCP/RAG calls.
+REQUEST_TIMEOUT = (5, 60)
+# A Multi-Agent run is Planner -> Worker -> Reviewer, i.e. three sequential Ollama calls
+# (plus up to one retry each). On the CPU-only AI host a real activity_schedule_check run
+# measured 139s, so the 60s default cut it off and the page showed "Read timed out" even
+# though the run completed server-side. Must stay ABOVE the backend's own ceiling
+# (multi_agent_api.MULTI_AGENT_TIMEOUT_SECONDS, default 240) so the backend's error
+# surfaces instead of the frontend giving up first - same reasoning and default as
+# student-1/frontend/app.py's MULTI_AGENT_REQUEST_TIMEOUT.
+try:
+    _MAS_READ_TIMEOUT = float(os.environ.get("MULTI_AGENT_REQUEST_TIMEOUT_SECONDS", "250"))
+except ValueError:
+    _MAS_READ_TIMEOUT = 250.0
+MULTI_AGENT_REQUEST_TIMEOUT = (5, _MAS_READ_TIMEOUT)
+
 # MCP Mode's read-only tools, for the tab's runner form and tool table. The
 # backend's routes/mcp_mode.py TOOL_ARGUMENTS is the enforcing registry; this
 # only drives display and maps each tool to its backend route.
@@ -42,12 +57,13 @@ MULTI_AGENT_DECISION_FIELDS = ("decision", "correction", "reason", "evidence_use
 def create_app():
     app = Flask(__name__, template_folder="templates", static_folder="static")
 
-    def backend_request(method, path, *, params=None, json_body=None, headers=None):
+    def backend_request(method, path, *, params=None, json_body=None, headers=None, timeout=None):
         url = f"{BACKEND_SERVICE_URL}{path}"
         try:
             # headers only passed when given, so existing callers' requests are unchanged
             extra = {"headers": headers} if headers else {}
-            return requests.request(method, url, params=params or {}, json=json_body, timeout=(5, 60), **extra)
+            return requests.request(method, url, params=params or {}, json=json_body,
+                                    timeout=timeout or REQUEST_TIMEOUT, **extra)
         except requests.exceptions.RequestException as exc:
             raise RuntimeError(f"Backend request failed: {exc}") from exc
 
@@ -253,7 +269,8 @@ def create_app():
             return render_template("tabs/_multi_agent_run.html", run=None, status_code=None,
                                    error="Slot length must be a number of hours.")
         try:
-            response = backend_request("POST", "/api/activity/multi-agent/workflow", json_body=payload)
+            response = backend_request("POST", "/api/activity/multi-agent/workflow", json_body=payload,
+                                       timeout=MULTI_AGENT_REQUEST_TIMEOUT)
         except RuntimeError as exc:
             return render_template("tabs/_multi_agent_run.html", run=None, status_code=None, error=str(exc))
 
