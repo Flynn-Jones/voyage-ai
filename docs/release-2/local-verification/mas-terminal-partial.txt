@@ -1,0 +1,151 @@
+## partial: run-4350126a00db
+$ review --decision partial --approve 5,1 --reject 10
+{
+  "status": "success",
+  "result": {
+    "run_id": "run-4350126a00db",
+    "state": "partially_accepted",
+    "decision": "partial",
+    "approved_items": [
+      {
+        "id": 5,
+        "destination_id": 5,
+        "city": "Bangkok",
+        "country": "Thailand",
+        "average_daily_cost": 70.0,
+        "recommended_trip_length": 5,
+        "travel_style": "Budget",
+        "matched_interests": [
+          "culture",
+          "food"
+        ],
+        "within_budget": true,
+        "fits_trip_length": true,
+        "estimated_trip_cost": 350.0,
+        "score": 6,
+        "evidence_ref": "destination-db:/destinations/5"
+      },
+      {
+        "id": 1,
+        "destination_id": 1,
+        "city": "Tokyo",
+        "country": "Japan",
+        "average_daily_cost": 150.0,
+        "recommended_trip_length": 6,
+        "travel_style": "City break",
+        "matched_interests": [
+          "culture",
+          "food"
+        ],
+        "within_budget": true,
+        "fits_trip_length": true,
+        "estimated_trip_cost": 750.0,
+        "score": 6,
+        "evidence_ref": "destination-db:/destinations/1"
+      }
+    ],
+    "rejected_ids": [
+      "10",
+      "8",
+      "9"
+    ]
+  }
+}
+review exit=0
+$ second review (expect 409)
+{
+  "status": "error",
+  "error": "run run-4350126a00db is 'partially_accepted', not awaiting_human_review; only one human decision is allowed per run"
+}
+second-review exit=1
+$ applied
+usage: cli.py applied [-h] [--created CREATED] --target TARGET run_id
+cli.py applied: error: the following arguments are required: --target
+applied exit=2
+$ show
+{
+ "run_id": "run-4350126a00db",
+ "state": "partially_accepted",
+ "decision": {
+  "decision": "partial",
+  "approved_ids": [
+   "5",
+   "1"
+  ],
+  "rejected_ids": [
+   "10",
+   "8",
+   "9"
+  ],
+  "edits": {},
+  "note": "r2verify partial: keep Bangkok and Tokyo",
+  "reviewer": "r2verify-terminal"
+ },
+ "approved_items": [
+  {
+   "id": 5,
+   "destination_id": 5,
+   "city": "Bangkok",
+   "country": "Thailand",
+   "average_daily_cost": 70.0,
+   "recommended_trip_length": 5,
+   "travel_style": "Budget",
+   "matched_interests": [
+    "culture",
+    "food"
+   ],
+   "within_budget": true,
+   "fits_trip_length": true,
+   "estimated_trip_cost": 350.0,
+   "score": 6,
+   "evidence_ref": "destination-db:/destinations/5"
+  },
+  {
+   "id": 1,
+   "destination_id": 1,
+   "city": "Tokyo",
+   "country": "Japan",
+   "average_daily_cost": 150.0,
+   "recommended_trip_length": 6,
+   "travel_style": "City break",
+   "matched_interests": [
+    "culture",
+    "food"
+   ],
+   "within_budget": true,
+   "fits_trip_length": true,
+   "estimated_trip_cost": 750.0,
+   "score": 6,
+   "evidence_ref": "destination-db:/destinations/1"
+  }
+ ],
+ "applied": null
+}
+$ history
+created None 2026-10-25T02:59:41.253+00:00
+plan planner 2026-10-25T02:59:47.568+00:00
+work worker 2026-10-25T02:59:47.947+00:00
+review reviewer 2026-10-25T02:59:51.879+00:00
+human_review human 2026-10-25T02:59:51.883+00:00
+human_review human 2026-10-25T02:59:59.802+00:00
+$ applied (read-only target, no created ids)
+{
+  "status": "success",
+  "result": {
+    "run_id": "run-4350126a00db",
+    "state": "applied",
+    "created_ids": [],
+    "target": "none (read-only destination_recommend)"
+  }
+}
+applied exit=0
+$ applied again (expect refusal)
+{
+  "status": "error",
+  "error": "run run-4350126a00db has already been applied"
+}
+applied-again exit=1
+$ show state
+applied {"created_ids": [], "target": "none (read-only destination_recommend)"}
+$ history steps
+['created', 'plan', 'work', 'review', 'human_review', 'human_review', 'applied']

@@ -1,15 +1,18 @@
 name: student-1
 
+# Push runs are unfiltered so every final commit on main gets its own student-1 run, even
+# when a shared change outside student-1/ affects the stack. workflow_call lets
+# cloud-deployment.yml re-run this whole workflow on the SHA it is about to deploy.
 on:
   workflow_dispatch:
+  workflow_call:
   push:
     branches: [main, feat/destination-service, 'student-1/**']
-    paths:
-      - 'student-1/**'
-      - '.github/workflows/student-1.yml'
 
+# github.workflow is the caller's name when called, so a cloud-deployment run never
+# cancels (or is cancelled by) a standalone student-1 run on the same ref.
 concurrency:
-  group: student-1-${{ github.ref }}
+  group: student-1-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 # The shared MCP/RAG/Multi-Agent servers and Ollama run host-local and are not

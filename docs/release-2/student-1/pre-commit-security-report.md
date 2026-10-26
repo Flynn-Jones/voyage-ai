@@ -1,8 +1,8 @@
 # Pre-commit security report: Destination (student-1)
 
-- Scan: `scripts/test/precommit-report.sh student-1` → [`pre-commit-20261022T090916Z.txt`](pre-commit-20261022T090916Z.txt)
-- Result: **PASS** (`--all-files`, whole shared scope including `student-1/`; exit status 0)
-- Run on: branch `student-1/release-2-destination`, base commit `63a7c83`, **uncommitted working tree** (the raw report records the base commit because nothing is committed yet).
+- Scan (current): `scripts/test/precommit-report.sh student-1` → [`pre-commit-20261025T025405Z.txt`](pre-commit-20261025T025405Z.txt). Earlier scan, kept for history: [`pre-commit-20261022T090916Z.txt`](pre-commit-20261022T090916Z.txt).
+- Result: **PASS** (`--all-files`, whole shared scope including `student-1/`; exit status 0; Ruff `S` rules, detect-secrets and pip-audit all Passed)
+- Run on: branch `main`, tested software commit `e223429` (recorded in the raw report), plus uncommitted working-tree edits made during Release 2 verification (deleted zero-byte `.github/workflows/integration-ci.yml` and a documentation-only diagram fix; neither is in the scanned Python/requirements scope). The scan is local-hook evidence; the CI re-run of the same hooks is the `security-scans` job in `cloud-deployment.yml`, which has not run for this SHA.
 - Scope: `student-1/` added to the `files:` regex in `.pre-commit-config.yaml` (one line, above `shared/`). It covers Student 1's frontend, backend, database service and tests.
 - Tools: pre-commit 4.7.0, ruff (hook rev v0.17.1, `ruff.toml`: classic defaults + `S`), detect-secrets 1.5.0 (`.secrets.baseline`, unchanged), pip-audit 2.10.1.
 

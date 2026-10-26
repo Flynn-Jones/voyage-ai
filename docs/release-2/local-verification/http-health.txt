@@ -1,0 +1,18 @@
+frontend :3000 -> 200
+frontend :3001 -> 200
+frontend :3002 -> 200
+frontend :3003 -> 200
+frontend :3004 -> 200
+frontend :3005 -> 200
+api :5000 /health -> 200
+api :5011 /health -> 200
+api :5002 /health -> 200
+api :5003 /health -> 200
+api :5004 /health -> 200
+api :5005 /health -> 200
+api :6000 /health -> 200
+api :6001 /health -> 200
+api :6002 /health -> 200
+api :6003 /health -> 200
+api :6004 /health -> 200
+api :6005 /health -> 200

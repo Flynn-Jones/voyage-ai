@@ -89,7 +89,9 @@ def db_path(tmp_path, monkeypatch):
 
 @pytest.fixture
 def database_client(db_path):
-    flask_app = load_database_app().create_app()  # runs init_schema() against db_path
+    # seed_demo_data=False: the route tests assert exact rows on an empty DB;
+    # startup seeding has its own tests (test_database_seed.py).
+    flask_app = load_database_app().create_app(seed_demo_data=False)  # runs init_schema() against db_path
     with flask_app.test_client() as test_client:
         yield test_client
 

@@ -7,14 +7,14 @@ name: student-3
 #      containers; the run fails unless both pass.
 # Same job graph as student-1.yml:
 #   security-scans, offline-tests, compose-validate -> build-and-smoke -> evidence-pack
+# Push runs are unfiltered so every final commit on main gets its own student-3 run; pull requests
+# keep the path filter. workflow_call lets cloud-deployment.yml re-run this workflow on the SHA it
+# is about to deploy.
 on:
   workflow_dispatch:
+  workflow_call:
   push:
     branches: [main, activity-service, "student-3/**"]
-    paths:
-      - "activity-service/**"
-      - ".pre-commit-config.yaml"
-      - ".github/workflows/student-3.yml"
   pull_request:
     paths:
       - "activity-service/**"
@@ -22,18 +22,19 @@ on:
       - ".github/workflows/student-3.yml"
 
 concurrency:
-  group: student-3-${{ github.ref }}
+  group: student-3-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
   contents: read
 
 # The shared MCP/RAG/Multi-Agent servers run on a developer's host, not in CI, so the stack runs
-# with them switched off (as in the cloud). activity-service/docker-compose.yml reads these.
+# with them (and AI Mode) switched off, as in the cloud. activity-service/docker-compose.yml reads these.
 env:
   ACTIVITY_MCP_ENABLED: "false"
   ACTIVITY_RAG_ENABLED: "false"
   ACTIVITY_MULTI_AGENT_ENABLED: "false"
+  ACTIVITY_AI_ENABLED: "false"
 
 jobs:
   security-scans:
@@ -97,7 +98,7 @@ jobs:
         working-directory: activity-service
         run: |
           docker compose config > rendered.yml
-          for flag in MCP_ENABLED RAG_ENABLED MULTI_AGENT_ENABLED; do
+          for flag in AI_ENABLED MCP_ENABLED RAG_ENABLED MULTI_AGENT_ENABLED; do
             grep -Eq "^ +$flag: \"?false\"?$" rendered.yml && echo "PASS $flag=false" \
               || { echo "FAIL $flag is not false"; exit 1; }
           done
@@ -215,6 +216,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
+          # Only this workflow's artifacts - when called from cloud-deployment.yml the run also
+          # holds the other students' artifacts.
+          pattern: student-3-*
           path: activity-service/reports/artifacts
       - name: Generate report.json, report.md and run-view.md
         working-directory: activity-service

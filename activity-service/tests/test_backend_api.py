@@ -417,6 +417,98 @@ def test_ai_chat_grounded_reply_generation_unavailable_502(client, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
+# AI_ENABLED gate: both AI routes refuse before touching the database or Ollama
+# ---------------------------------------------------------------------------
+
+AI_ROUTES = [
+    ("/api/activity/ai-summary", {"activity_id": 1}),
+    ("/api/activity/ai-chat", {"message": "anything"}),
+]
+
+
+def _forbid_upstream(monkeypatch):
+    """Any database-tier or Ollama call fails the test; returns the call log."""
+    from services import db_client
+    calls = []
+
+    def forbidden(*args, **kwargs):
+        calls.append(args)
+        raise AssertionError("upstream called while AI is disabled")
+
+    monkeypatch.setattr(db_client.requests, "get", forbidden)
+    monkeypatch.setattr(db_client.requests, "request", forbidden)
+    monkeypatch.setattr(ai_client.requests, "post", forbidden)
+    for name in ("get_activity", "get_activities"):
+        monkeypatch.setattr(db_client, name, forbidden)
+    for name in ("generate_summary", "extract_intent", "generate_grounded_reply"):
+        monkeypatch.setattr(ai_client, name, forbidden)
+    return calls
+
+
+@pytest.mark.parametrize("path, body", AI_ROUTES)
+def test_ai_routes_disabled_is_403_without_upstream_calls(client, monkeypatch, path, body):
+    monkeypatch.setattr(ai_client, "AI_ENABLED", False)
+    calls = _forbid_upstream(monkeypatch)
+
+    resp = client.post(path, json=body)
+    assert resp.status_code == 403
+    assert resp.get_json() == {"error": "AI mode is disabled."}
+    assert calls == []
+
+
+@pytest.mark.parametrize("path", [p for p, _ in AI_ROUTES])
+def test_ai_routes_disabled_refuses_even_an_invalid_body(client, monkeypatch, path):
+    monkeypatch.setattr(ai_client, "AI_ENABLED", False)
+    _forbid_upstream(monkeypatch)
+    assert client.post(path, json={}).status_code == 403
+
+
+def test_ai_summary_enabled_path_still_works(client, monkeypatch):
+    from services import db_client
+    monkeypatch.setattr(ai_client, "AI_ENABLED", True)
+    monkeypatch.setattr(
+        db_client.requests, "get",
+        lambda url, timeout=5: DummyResponse(200, {"activity_id": 1, "activity_name": "Kayaking"}),
+    )
+    monkeypatch.setattr(ai_client, "generate_summary", lambda activity: "A fun kayaking trip.")
+
+    resp = client.post("/api/activity/ai-summary", json={"activity_id": 1})
+    assert resp.status_code == 200
+    assert resp.get_json() == {"summary": "A fun kayaking trip."}
+
+
+def test_ai_chat_enabled_path_still_works(client, monkeypatch):
+    from services import db_client
+    monkeypatch.setattr(ai_client, "AI_ENABLED", True)
+    monkeypatch.setattr(db_client, "get_activities", lambda: [
+        {"activity_id": 1, "activity_name": "Aquarium Visit", "activity_type": "Family",
+         "activity_cost": 22, "duration": "2 hours"},
+    ])
+    monkeypatch.setattr(
+        ai_client, "extract_intent",
+        lambda message: ({"max_cost": None, "max_duration_hours": None, "category": None,
+                           "keywords": ["aquarium"]}, False),
+    )
+    monkeypatch.setattr(ai_client, "generate_grounded_reply", lambda message, candidates: "Aquarium Visit: $22.")
+
+    resp = client.post("/api/activity/ai-chat", json={"message": "tell me about the aquarium"})
+    assert resp.status_code == 200
+    assert resp.get_json() == {"reply": "Aquarium Visit: $22."}
+
+
+def test_crud_stays_available_when_ai_is_disabled(client, monkeypatch):
+    from services import db_client
+    monkeypatch.setattr(ai_client, "AI_ENABLED", False)
+    monkeypatch.setattr(
+        db_client.requests, "get",
+        lambda url, timeout=5: DummyResponse(200, [{"activity_id": 1, "activity_name": "Kayaking"}]),
+    )
+    resp = client.get("/api/view_activities")
+    assert resp.status_code == 200
+    assert resp.get_json() == [{"activity_id": 1, "activity_name": "Kayaking"}]
+
+
+# ---------------------------------------------------------------------------
 # ai_client's individual loop steps, unit-tested directly — "genuinely
 # separate and inspectable", not just exercised indirectly through the route.
 # ---------------------------------------------------------------------------

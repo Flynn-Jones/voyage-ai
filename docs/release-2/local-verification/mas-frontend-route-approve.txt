@@ -1,0 +1,16 @@
+$ GET http://localhost:3001/multi-agent/runs/run-9f028d16fe0c (run awaiting Human Review)
+   1 Human Review
+   3 Planner
+   4 Reviewer
+   3 Worker
+   4 awaiting_human_review
+   1 planner
+   2 reviewer
+   1 worker
+$ POST http://localhost:3001/multi-agent/runs/run-9f028d16fe0c/review decision=approve
+HTTP 200
+Decision recorded: run is now applied
+$ MAS state
+applied approve approved_items= 5 applied= {'created_ids': [], 'target': 'none (read-only destination_recommend)'}
+$ history via frontend page + MAS
+['created', 'plan', 'work', 'review', 'human_review', 'human_review', 'applied']

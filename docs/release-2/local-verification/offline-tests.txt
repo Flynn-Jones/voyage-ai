@@ -1,0 +1,21 @@
+## scripts/deploy/aws/tests
+<repo>/ai-services/venv/bin/python: No module named pytest
+exit=1
+## ai-services/agentic_loop
+........................................................................ [ 79%]
+...................                                                      [100%]
+91 passed in 12.86s
+exit=0
+## ai-services/multi-agent-server (scratch DB/audit)
+<repo>/ai-services/venv/bin/python: No module named pytest
+exit=1
+## scripts/deploy/aws/tests
+......................................................                   [100%]
+54 passed in 42.38s
+exit=0
+## ai-services/multi-agent-server (scratch DB/audit)
+........................................................................ [ 38%]
+........................................................................ [ 77%]
+..........................................                               [100%]
+186 passed in 2.19s
+exit=0

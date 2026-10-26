@@ -92,16 +92,18 @@ sequenceDiagram
 
 ```mermaid
 flowchart LR
-    push([push to main]) --> s4["student-4.yml<br/>lint-security · unit-tests · build ·<br/>endpoint-tests · verify-ai-disabled"]
-    push --> ic["integration-ci.yml"]
-    s4 & ic --> gate["cloud-deployment.yml gate<br/>(all student + integration runs green)"]
-    gate --> ecr["build + push to ECR<br/>tag = git SHA"]
+    dispatch([manual workflow_dispatch<br/>sha = HEAD of the dispatched branch]) --> pre["preflight<br/>SHA check · root Compose config ·<br/>offline tests of the AWS scripts"]
+    pre --> sec["security-scans<br/>pre-commit re-run (Ruff S · detect-secrets · pip-audit)"]
+    pre --> s4["student-4.yml (via workflow_call)<br/>lint-security · unit-tests · build ·<br/>endpoint-tests · verify-ai-disabled"]
+    pre --> s15["student-1, 2, 3 and 5 workflows<br/>(via workflow_call)"]
+    pre & sec & s4 & s15 --> gate["gate<br/>(preflight, security-scans and all five<br/>student workflows succeeded)"]
+    gate --> ecr["deploy: build all 18 images, then OIDC login,<br/>push to ECR (tag = git SHA)"]
     ecr --> ecs["ECS Fargate"]
     subgraph ecs_detail["ECS Fargate (one ALB)"]
         alb["ALB :3004"] --> fe2["budget-fe"] -->|"/api → Service Connect<br/>budget-backend:5004"| be2["budget-be<br/>MCP/RAG/MULTI_AGENT/AI_ENABLED=false"] --> db2["budget-db<br/>budget-database:6004 (reseeded)"]
     end
     ecs --> ecs_detail
-    ecs_detail --> smoke["smoke test:<br/>frontend 200 · CRUD · AI routes 403"]
+    ecs_detail --> smoke["smoke test:<br/>frontend 200 · seeded reads · AI routes disabled"]
 ```
 
 In the cloud every AI path is off, and Budget's `verify-ai-disabled` CI job already proves that all six AI

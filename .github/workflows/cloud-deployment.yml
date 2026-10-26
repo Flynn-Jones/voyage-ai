@@ -14,14 +14,31 @@ name: cloud-deployment
 # namespace) - it never creates or deletes any of that. Those are one-time, human-run
 # setup steps (see docs/release-2/cloud/aws-setup-guide.md).
 
+# Pre-deployment gate (Release 2): nothing is pushed to ECR and no ECS service is touched until
+# the dispatched SHA has passed, in this same run,
+#   preflight      - SHA checks, root Compose config, offline tests of the AWS scripts
+#   security-scans - CI re-run of the .pre-commit-config.yaml hooks over the whole configured scope
+#   student-1..5   - each student's full workflow (endpoint suites included), via workflow_call
+# and `gate` has confirmed every one of them succeeded. A failed, skipped, cancelled or missing
+# required job fails `gate`, and `deploy` only runs when `gate` succeeds. Inside `deploy`, all 18
+# images are built before any AWS credentials, ECR login or push.
+#
+#   gh workflow run cloud-deployment.yml --ref <OIDC-trusted branch> -f sha=$(git rev-parse HEAD)
+
 on:
   workflow_dispatch:
+    inputs:
+      sha:
+        description: Full 40-character commit SHA to deploy (must be the HEAD of the dispatched branch)
+        required: true
+        type: string
   # push:
   #   branches:
   #     - main
 
+# Every job, including the called student workflows, gets read-only contents. Only `deploy` can
+# request the OIDC token, and no secrets are passed to the called workflows (none use any).
 permissions:
-  id-token: write
   contents: read
 
 env:
@@ -29,17 +46,130 @@ env:
   CLUSTER: voyageai-cluster
 
 jobs:
-  deploy:
+  preflight:
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.sha }}
+
+      # The called student workflows check out github.sha, so it must be the SHA being deployed.
+      - name: Verify the dispatched SHA is the commit under test
+        env:
+          INPUT_SHA: ${{ inputs.sha }}
+          RUN_SHA: ${{ github.sha }}
+        run: |
+          echo "input sha: $INPUT_SHA"
+          echo "run sha:   $RUN_SHA ($GITHUB_REF)"
+          echo "HEAD:      $(git rev-parse HEAD)"
+          [[ "$INPUT_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "sha must be a full 40-character lowercase commit SHA"; exit 1; }
+          [ "$INPUT_SHA" = "$RUN_SHA" ] || { echo "sha is not the HEAD of $GITHUB_REF - re-dispatch with the current HEAD"; exit 1; }
+          [ "$(git rev-parse HEAD)" = "$INPUT_SHA" ] || { echo "checked-out HEAD differs from sha"; exit 1; }
+
+      - name: Validate the root Compose config
+        run: docker compose -f docker-compose.yml config --quiet
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test dependencies (same pytest pin as the service test requirements)
+        run: pip install pytest==9.1.1
+
+      - name: Offline tests for the AWS deployment scripts
+        run: python -m pytest scripts/deploy/aws/tests -v
+
+  # Additional security validation of the exact commit. This is NOT evidence that any developer
+  # activated or ran their local Git hook - that is each student's own
+  # scripts/test/precommit-report.sh report.
+  security-scans:
+    name: security-scans (CI re-run of .pre-commit-config.yaml, not local-hook evidence)
+    needs: preflight
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install pre-commit
+        run: pip install pre-commit==4.7.0
+      - name: Run every pre-commit hook over all in-scope files
+        run: |
+          set -o pipefail
+          mkdir -p reports
+          pre-commit run --all-files --color never --show-diff-on-failure | tee reports/pre-commit-all-files.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cloud-deployment-pre-commit-scan
+          path: reports/pre-commit-all-files.txt
+
+  student-1:
+    needs: preflight
+    uses: ./.github/workflows/student-1.yml
+
+  student-2:
+    needs: preflight
+    uses: ./.github/workflows/student-2.yml
+
+  student-3:
+    needs: preflight
+    uses: ./.github/workflows/student-3.yml
+
+  student-4:
+    needs: preflight
+    uses: ./.github/workflows/student-4.yml
+
+  student-5:
+    needs: preflight
+    uses: ./.github/workflows/student-5.yml
+
+  gate:
+    name: gate (every required validation succeeded)
+    needs: [preflight, security-scans, student-1, student-2, student-3, student-4, student-5]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require success from every required job
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+
+          REQUIRED = ["preflight", "security-scans", "student-1", "student-2", "student-3", "student-4", "student-5"]
+          needs = json.loads(os.environ["NEEDS"])
+          results = {job: needs.get(job, {}).get("result", "missing") for job in REQUIRED}
+          lines = ["## Pre-deployment gate", "", "| Required job | Result |", "|---|---|"]
+          lines += [f"| {job} | {result} |" for job, result in results.items()]
+          ok = all(result == "success" for result in results.values())
+          lines += ["", "PASS - deploying" if ok else "FAIL - deployment blocked"]
+          print("\n".join(lines))
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
+              summary.write("\n".join(lines) + "\n")
+          sys.exit(0 if ok else 1)
+          PY
+
+  deploy:
+    needs: gate
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Configure AWS credentials (OIDC, no stored keys)
-        uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
+          ref: ${{ inputs.sha }}
+
+      - name: Verify the checked-out commit is the gated SHA
+        env:
+          INPUT_SHA: ${{ inputs.sha }}
+        run: '[ "$(git rev-parse HEAD)" = "$INPUT_SHA" ]'
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -49,20 +179,55 @@ jobs:
       - name: Install deployment script dependencies
         run: pip install pyyaml
 
-      - name: Resolve account ID and image tag
+      - name: Resolve image tag
         id: vars
+        run: echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      # Built before any AWS access, so a broken Dockerfile/context stops the run before ECR or
+      # ECS is touched - and the images pushed below are exactly the ones validated here.
+      - name: Build all 18 service images (no registry access)
+        env:
+          GIT_SHA: ${{ steps.vars.outputs.sha }}
         run: |
-          echo "account_id=$(aws sts get-caller-identity --query Account --output text)" >> "$GITHUB_OUTPUT"
-          echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          python3 - <<'PY'
+          import os
+          import subprocess
+
+          import yaml
+
+          sha = os.environ["GIT_SHA"]
+
+          with open("scripts/deploy/aws/services.yml") as f:
+              manifest = yaml.safe_load(f)
+
+          for s in manifest["services"]:
+              context = s["context"]  # NOT derivable from dockerfile's directory - see services.yml
+              print(f"=== build {s['name']} ===", flush=True)
+              subprocess.run(
+                  ["docker", "build", "--platform", "linux/amd64", "-f", s["dockerfile"],
+                   "-t", f"{s['ecr_repo']}:{sha}", context],
+                  check=True,
+              )
+          PY
+
+      - name: Configure AWS credentials (OIDC, no stored keys)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Resolve account ID
+        id: account
+        run: echo "account_id=$(aws sts get-caller-identity --query Account --output text)" >> "$GITHUB_OUTPUT"
 
       - name: Log in to ECR
         run: |
           aws ecr get-login-password --region "$AWS_REGION" \
-            | docker login --username AWS --password-stdin "${{ steps.vars.outputs.account_id }}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+            | docker login --username AWS --password-stdin "${{ steps.account.outputs.account_id }}.dkr.ecr.${AWS_REGION}.amazonaws.com"
 
-      - name: Build and push all 18 service images
+      - name: Tag and push all 18 service images
         env:
-          AWS_ACCOUNT_ID: ${{ steps.vars.outputs.account_id }}
+          AWS_ACCOUNT_ID: ${{ steps.account.outputs.account_id }}
           GIT_SHA: ${{ steps.vars.outputs.sha }}
         run: |
           python3 - <<'PY'
@@ -81,18 +246,14 @@ jobs:
 
           for s in manifest["services"]:
               uri = f"{ecr}/{s['ecr_repo']}:{sha}"
-              context = s["context"]  # NOT derivable from dockerfile's directory - see services.yml
-              print(f"=== build {s['name']} ===", flush=True)
-              subprocess.run(
-                  ["docker", "build", "--platform", "linux/amd64", "-f", s["dockerfile"], "-t", uri, context],
-                  check=True,
-              )
+              print(f"=== push {s['name']} ===", flush=True)
+              subprocess.run(["docker", "tag", f"{s['ecr_repo']}:{sha}", uri], check=True)
               subprocess.run(["docker", "push", uri], check=True)
           PY
 
       - name: Register updated task definitions
         env:
-          AWS_ACCOUNT_ID: ${{ steps.vars.outputs.account_id }}
+          AWS_ACCOUNT_ID: ${{ steps.account.outputs.account_id }}
           GIT_SHA: ${{ steps.vars.outputs.sha }}
         run: |
           export EXEC_ROLE_ARN=$(aws iam get-role --role-name ecsTaskExecutionRole --query Role.Arn --output text)
