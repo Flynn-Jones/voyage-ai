@@ -75,12 +75,16 @@ PASSING = {
     "3005/api/itinerary": {"code": 200, "body": '[{"itinerary_item_id": 1}]'},
     # AI Mode is live in the cloud as of Phase 2: each AI route answers 200 with a real result.
     "3001/compare": {"code": 200, "body": '<div class="detail-grid">Tokyo vs Kyoto</div>'},
-    "3002/recommend": {"code": 200, "body": "<h2>Top recommendations</h2>"},
-    "3003/ai-mode/chat": {"code": 200, "body": '<div class="chat-log">plenty to do</div>'},
+    "3002/recommend": {"code": 200,
+                       "body": '<div class="recommendation-card-main"><h2>Top recommendations</h2></div>'},
+    "3003/ai-mode/chat": {"code": 200,
+                          "body": '<div class="act-chat__bubble act-chat__bubble--assistant">plenty to do</div>'},
     "3004/api/budget/ai-analyse": {"code": 200, "body": '{"analysis": "within budget"}'},
     "3005/api/itinerary/ai-review": {"code": 200, "body": '{"adapt": [], "summary": "fine"}'},
 }
 ITINERARY_AI = "3005/api/itinerary/ai-review"
+ACTIVITY_AI = "3003/ai-mode/chat"
+ACCOMMODATION_AI = "3002/recommend"
 
 
 def run_smoke(tmp_path, aws_fail=(), aws_out=None, fixed_date=None, existing=None, **overrides):
@@ -320,6 +324,40 @@ def test_itinerary_200_without_a_real_review_fails(tmp_path, body):
     smoke, _, _ = evidence(cloud_dir, scratch)
     assert "FAIL ai-mode:itinerary-service http_200 body_mismatch" in smoke
     assert "PASS ai-mode:itinerary-service" not in smoke
+
+
+@pytest.mark.parametrize("body, why", [
+    # _chat_exchange.html renders a backend failure through the same partial, at 200.
+    ('<div class="act-chat__bubble act-chat__bubble--error">Could not get a response: '
+     'AI mode is disabled.</div>', "error bubble"),
+    # a 200 with no "reply" key in the JSON
+    ('<div class="act-chat__bubble act-chat__bubble--assistant">No reply received.</div>',
+     "no reply"),
+])
+def test_activity_chat_error_dressed_as_200_fails(tmp_path, body, why):
+    proc, cloud_dir, scratch = run_smoke(tmp_path, **{ACTIVITY_AI: {"code": 200, "body": body}})
+
+    assert proc.returncode != 0, why
+    smoke, _, _ = evidence(cloud_dir, scratch)
+    assert "FAIL ai-mode:activity-service" in smoke
+    assert "PASS ai-mode:activity-service" not in smoke
+
+
+@pytest.mark.parametrize("body", [
+    # the failure panel still contains the word "recommendation"
+    '<section class="panel recommendation-panel"><div class="alert alert--error">'
+    '<strong>Recommendation failed</strong></div></section>',
+    # ...so does the "nothing matched" panel, which really is served at 200
+    '<section class="panel recommendation-panel"><div class="alert alert--warning">'
+    '<strong>No recommendation available</strong></div></section>',
+])
+def test_accommodation_recommendation_panel_without_a_result_fails(tmp_path, body):
+    proc, cloud_dir, scratch = run_smoke(tmp_path, **{ACCOMMODATION_AI: {"code": 200, "body": body}})
+
+    assert proc.returncode != 0
+    smoke, _, _ = evidence(cloud_dir, scratch)
+    assert "FAIL ai-mode:accommodation-service http_200 body_mismatch" in smoke
+    assert "PASS ai-mode:accommodation-service" not in smoke
 
 
 def test_itinerary_review_with_extra_fields_and_spacing_passes(tmp_path):

@@ -219,18 +219,29 @@ else
 fi
 
 # Accommodation: POST /recommend, real ranked recommendations (its own code uses a
-# 120-180s internal timeout, so give curl similar headroom)
-if http_expect 200 "[Rr]ecommendation" -m 150 -X POST "http://$ALB_DNS:3002/recommend" \
+# 120-180s internal timeout, so give curl similar headroom). The word
+# "recommendation" is on the failure and "no recommendation available" panels too
+# (recommendation-panel); recommendation-card-main is only rendered for a real result.
+if http_expect 200 "recommendation-card-main" -m 150 -X POST "http://$ALB_DNS:3002/recommend" \
      -d "destination_city=Tokyo&max_price=200&interests=nightlife,food"; then
   check "PASS ai-mode:accommodation-service recommend returned a real result"
 else
   check "FAIL ai-mode:accommodation-service $WHY, no recommendation found"
 fi
 
-# Activity: POST /ai-mode/chat, real chat response (may legitimately say "nothing matched")
-if http_expect 200 "chat-log|act-chat" -m 60 -X POST "http://$ALB_DNS:3003/ai-mode/chat" \
+# Activity: POST /ai-mode/chat, real chat response (may legitimately say "nothing matched").
+# Its frontend renders a backend failure through the SAME partial at HTTP 200
+# (_chat_exchange.html: an --error bubble instead of an --assistant one), and a 200 with no
+# "reply" key becomes "No reply received." - so neither the status nor "act-chat" proves an
+# answer. Require the assistant bubble, then reject those two non-answers; http_expect
+# leaves the response body in $TMP_DIR/body.
+if http_expect 200 "act-chat__bubble--assistant" -m 60 -X POST "http://$ALB_DNS:3003/ai-mode/chat" \
      -d "message=What activities are available?"; then
-  check "PASS ai-mode:activity-service ai-mode/chat returned a real result"
+  if grep -qE "act-chat__bubble--error|No reply received\." "$TMP_DIR/body"; then
+    check "FAIL ai-mode:activity-service http_200 but the chat returned no real reply"
+  else
+    check "PASS ai-mode:activity-service ai-mode/chat returned a real result"
+  fi
 else
   check "FAIL ai-mode:activity-service $WHY, no chat response found"
 fi

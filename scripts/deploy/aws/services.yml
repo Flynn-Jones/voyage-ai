@@ -192,9 +192,13 @@ services:
       RAG_ENABLED: "true"
       MULTI_AGENT_SERVICE_URL: http://172.31.45.32:7004
       MULTI_AGENT_ENABLED: "true"
-      # activity's own direct-chat feature has no _ENABLED flag (always on) and uses
+      # activity's /api/activity/ai-chat and /ai-summary ARE gated by AI_ENABLED
+      # (backend/services/ai_client.py:ai_mode_is_enabled, added after this manifest first
+      # claimed the chat was always-on), so it has to be "true" here or both answer 403 and
+      # the smoke test's ai-mode:activity-service check fails. Activity also uses
       # OLLAMA_URL, not OLLAMA_BASE_URL; its own default model (llama3.1:8b) isn't pulled
       # on the AI host, only qwen2.5:1.5b is - override both.
+      AI_ENABLED: "true"
       OLLAMA_URL: http://172.31.45.32:11434
       OLLAMA_MODEL: qwen2.5:1.5b
       OLLAMA_INTENT_MODEL: qwen2.5:1.5b
