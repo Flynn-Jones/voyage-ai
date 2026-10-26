@@ -120,12 +120,6 @@ json_is_string_array() {
 d = json.load(sys.stdin)
 sys.exit(0 if isinstance(d, list) and all(isinstance(x, str) for x in d) else 1)' <<< "$1" > /dev/null 2>&1
 }
-# body_error_is <message>: the last response body is a JSON object whose "error" is exactly <message>.
-body_error_is() {
-  python3 -I -c 'import json, sys
-d = json.load(open(sys.argv[1]))
-sys.exit(0 if isinstance(d, dict) and d.get("error") == sys.argv[2] else 1)' "$TMP_DIR/body" "$1" > /dev/null 2>&1
-}
 
 # http_expect <status> <grep -E pattern or ""> <curl args...>
 # Succeeds only when curl exited 0, the HTTP status equals <status>, and the body matches
@@ -208,51 +202,67 @@ else
   check "FAIL read:itinerary-service $WHY, no itinerary rows found on /api/itinerary"
 fi
 
-# ---- ai-disabled: every backend's AI/MCP path reports disabled -----------
-# Destination: POST /mcp-lookup, disabled message rendered in the (200) page body
-if http_expect 200 "MCP lookup is disabled" -m 10 -X POST "http://$ALB_DNS:3001/mcp-lookup" -d "city=Tokyo"; then
-  check "PASS ai-disabled:destination-service MCP lookup reports disabled"
+# ---- ai-mode: every backend's AI path, now wired to the AI host (Phase 2) ------------
+# Phase 2 (docs/release-2/cloud/phase-2-ai-mode-plan.md) wired AI Mode live for all 5
+# feature backends - these checks confirm a REAL generated response, not a disabled
+# message. Timeouts are generous (measured live: destination ~21s, accommodation ~91s,
+# activity ~7s, budget ~48s, itinerary ~56s on the CPU-only AI host). They go through
+# http_expect, so a matching body behind a wrong status, a part-way transfer, or an
+# unresolved ALB all FAIL rather than counting as a real AI result.
+
+# Destination: POST /compare, real city comparison rendered in the page body
+if http_expect 200 "detail-grid" -m 60 -X POST "http://$ALB_DNS:3001/compare" \
+     -d "city_a=Tokyo&city_b=Kyoto&preferences=nightlife+and+food"; then
+  check "PASS ai-mode:destination-service compare returned a real result"
 else
-  check "FAIL ai-disabled:destination-service $WHY, disabled message not found"
+  check "FAIL ai-mode:destination-service $WHY, compare did not return a result"
 fi
 
-# Accommodation: POST /mcp, propagates the backend's 403
-if http_expect 403 "MCP mode is disabled" -m 10 -X POST "http://$ALB_DNS:3002/mcp" -d "text=hello"; then
-  check "PASS ai-disabled:accommodation-service http_403 MCP mode is disabled"
+# Accommodation: POST /recommend, real ranked recommendations (its own code uses a
+# 120-180s internal timeout, so give curl similar headroom). The word
+# "recommendation" is on the failure and "no recommendation available" panels too
+# (recommendation-panel); recommendation-card-main is only rendered for a real result.
+if http_expect 200 "recommendation-card-main" -m 150 -X POST "http://$ALB_DNS:3002/recommend" \
+     -d "destination_city=Tokyo&max_price=200&interests=nightlife,food"; then
+  check "PASS ai-mode:accommodation-service recommend returned a real result"
 else
-  check "FAIL ai-disabled:accommodation-service $WHY, disabled message not confirmed"
+  check "FAIL ai-mode:accommodation-service $WHY, no recommendation found"
 fi
 
-# Activity: POST /mcp-mode/call, outer 200 but card reports the real backend status
-if http_expect 200 "MCP mode is disabled" -m 10 -X POST "http://$ALB_DNS:3003/mcp-mode/call" -d "kind=tool&tool=list_activities"; then
-  check "PASS ai-disabled:activity-service MCP mode is disabled (surfaced via card)"
-else
-  check "FAIL ai-disabled:activity-service $WHY, disabled message not found"
-fi
-
-# Budget: POST /api/budget/ai-analyse, direct JSON 403
-if http_expect 403 "AI-Mode disabled" -m 10 -X POST "http://$ALB_DNS:3004/api/budget/ai-analyse" -H 'Content-Type: application/json' -d '{}'; then
-  check "PASS ai-disabled:budget-service http_403 AI-Mode disabled"
-else
-  check "FAIL ai-disabled:budget-service $WHY, disabled message not confirmed"
-fi
-
-# Itinerary: POST /api/itinerary/ai-review with a valid prompt - the route's AI_ENABLED gate
-# (forced false in the cloud) returns an explicit 403 {"error":"AI Mode is disabled"}, like budget.
-itinerary_ok=0
-if http_expect 403 "" -m 20 -X POST "http://$ALB_DNS:3005/api/itinerary/ai-review" -H 'Content-Type: application/json' -d '{"prompt":"Review day 1","day":1}'; then
-  if body_error_is "AI Mode is disabled"; then
-    itinerary_ok=1
+# Activity: POST /ai-mode/chat, real chat response (may legitimately say "nothing matched").
+# Its frontend renders a backend failure through the SAME partial at HTTP 200
+# (_chat_exchange.html: an --error bubble instead of an --assistant one), and a 200 with no
+# "reply" key becomes "No reply received." - so neither the status nor "act-chat" proves an
+# answer. Require the assistant bubble, then reject those two non-answers; http_expect
+# leaves the response body in $TMP_DIR/body.
+if http_expect 200 "act-chat__bubble--assistant" -m 60 -X POST "http://$ALB_DNS:3003/ai-mode/chat" \
+     -d "message=What activities are available?"; then
+  if grep -qE "act-chat__bubble--error|No reply received\." "$TMP_DIR/body"; then
+    check "FAIL ai-mode:activity-service http_200 but the chat returned no real reply"
   else
-    WHY="http_403 body_not_expected_json"
+    check "PASS ai-mode:activity-service ai-mode/chat returned a real result"
   fi
-fi
-if [ "$itinerary_ok" = 1 ]; then
-  check "PASS ai-disabled:itinerary-service http_403 AI Mode is disabled"
 else
-  check "FAIL ai-disabled:itinerary-service $WHY, disabled message not confirmed"
+  check "FAIL ai-mode:activity-service $WHY, no chat response found"
 fi
 
+# Budget: POST /api/budget/ai-analyse, direct JSON 200 with a real analysis
+if http_expect 200 '"analysis"' -m 90 -X POST "http://$ALB_DNS:3004/api/budget/ai-analyse" \
+     -H 'Content-Type: application/json' -d '{"trip_reference":"TRIP-1001"}'; then
+  check "PASS ai-mode:budget-service ai-analyse returned a real result"
+else
+  check "FAIL ai-mode:budget-service $WHY, no analysis found"
+fi
+
+# Itinerary: POST /api/itinerary/ai-review, real schedule review. The route is gated by
+# AI_ENABLED (routes/ai_review.py) and services.yml sets it "true" for itinerary-be, so a
+# real 200 result confirms both the flag and that the AI host is actually reachable.
+if http_expect 200 '"adapt"' -m 90 -X POST "http://$ALB_DNS:3005/api/itinerary/ai-review" \
+     -H 'Content-Type: application/json' -d '{"prompt":"Review day 1","day":1}'; then
+  check "PASS ai-mode:itinerary-service ai-review returned a real result"
+else
+  check "FAIL ai-mode:itinerary-service $WHY, no review found"
+fi
 # ---- stack lookups (failures become FAIL lines; the values stay null in the JSON) ----
 if aws_value stack-service-arns aws ecs list-services --cluster "$CLUSTER" --region "$AWS_REGION" --query 'serviceArns' --output json; then
   if json_is_string_array "$AWS_VALUE"; then
@@ -328,12 +338,13 @@ Timestamp: $TS
 
 ## AI services
 
-MCP/RAG/Multi-Agent/Ollama are not deployed to AWS — they remain host-only per
-\`ai-services/CLAUDE.md\`. Every feature backend's \`AI_ENABLED\`/\`MCP_ENABLED\`/\`RAG_ENABLED\`/
-\`MULTI_AGENT_ENABLED\` flags are forced \`false\` in \`scripts/deploy/aws/services.yml\`.
-
-\`itinerary-be\`'s \`/api/itinerary/ai-review\` route is gated by \`AI_ENABLED\` and answers with an
-explicit 403 "AI Mode is disabled", the same deliberate check as the other services.
+As of Phase 2 (\`docs/release-2/cloud/phase-2-ai-mode-plan.md\`), MCP/RAG/Multi-Agent/Ollama run on
+a dedicated EC2 "AI host" (not containerised, matching \`ai-services/CLAUDE.md\`'s existing shared-host
+pattern) that all 5 feature backends are wired to. All four flags — \`MCP_ENABLED\`, \`RAG_ENABLED\`,
+\`MULTI_AGENT_ENABLED\` and \`AI_ENABLED\` — are \`"true"\` for every one of destination-api,
+accommodation-api, activity-api, budget-backend and itinerary-be; \`shared-api\` and all six
+frontends keep \`common_disabled_ai_env\`'s \`"false"\`. The \`ai-mode:*\` checks above confirm each
+backend returns a real, AI-host-generated response, not just that a flag is set.
 
 ## Known gaps at this run
 

@@ -306,7 +306,7 @@ def test_testing_review_empty_repo_is_not_implemented_and_missing_reports(tmp_pa
 SMOKE_OK = "\n".join(
     [f"PASS frontend:{n} 200" for n in ("home", "destination", "accommodation", "activity", "budget", "itinerary")]
     + [f"PASS read:{n} seeded read" for n in ("destination", "accommodation", "activity", "budget", "itinerary")]
-    + [f"PASS ai-disabled:{n} disabled" for n in ("destination", "accommodation", "activity", "budget", "itinerary")]
+    + [f"PASS ai-mode:{n} real result" for n in ("destination", "accommodation", "activity", "budget", "itinerary")]
 )
 SERVICES_OK = "\n".join(
     f'  {flag}: "false"'  # plain YAML mapping, matching the real services.yml - not CFN Name/Value
@@ -354,17 +354,33 @@ def test_cloud_review_passes_with_full_evidence(tmp_path):
     result = cloud_collector.review(cloud_repo(tmp_path))
     assert result.verdict == "PASS", result.evidence_text()
     assert result.metrics["alb_url"] == ALB
-    assert result.metrics["smoke"] == {"frontend": 6, "read": 5, "ai-disabled": 5}
+    assert result.metrics["smoke"] == {"frontend": 6, "read": 5, "ai-mode": 5}
     assert result.metrics["crud_lifecycle"] == {f: "pass" for f in FEATURES}
 
 
-def test_cloud_review_fails_on_read_and_enabled_ai(tmp_path):
+def test_cloud_review_fails_on_read_failure(tmp_path):
     smoke = SMOKE_OK.replace("PASS read:budget", "FAIL read:budget")
-    services = SERVICES_OK.replace('RAG_ENABLED: "false"', 'RAG_ENABLED: "true"')
-    result = cloud_collector.review(cloud_repo(tmp_path, smoke, services))
+    result = cloud_collector.review(cloud_repo(tmp_path, smoke))
     failing = {(c.id, c.subject) for c in result.checks if c.status == "fail"}
-    assert ("read", "smoke") in failing and ("ai_flags", "RAG_ENABLED") in failing
+    assert ("read", "smoke") in failing
+
+
+def test_cloud_review_fails_on_ai_mode_failure(tmp_path):
+    smoke = SMOKE_OK.replace("PASS ai-mode:budget", "FAIL ai-mode:budget")
+    result = cloud_collector.review(cloud_repo(tmp_path, smoke))
+    failing = {(c.id, c.subject) for c in result.checks if c.status == "fail"}
+    assert ("ai-mode", "smoke") in failing
     assert result.verdict == "FAIL"
+
+
+def test_cloud_review_ai_flags_are_informational_not_pass_fail(tmp_path):
+    # Phase 2 (docs/release-2/cloud/phase-2-ai-mode-plan.md) wired AI live for 4-5
+    # backends - an enabled flag is the intentional state, not a finding to flag.
+    services = SERVICES_OK.replace('RAG_ENABLED: "false"', 'RAG_ENABLED: "true"')
+    result = cloud_collector.review(cloud_repo(tmp_path, services=services))
+    ai_flag_checks = {(c.id, c.subject): c.status for c in result.checks if c.subject == "RAG_ENABLED"}
+    assert ai_flag_checks[("ai_flags", "RAG_ENABLED")] == "pass"
+    assert result.verdict == "PASS"
 
 
 def test_cloud_review_missing_evidence_is_gaps(tmp_path):
@@ -386,10 +402,20 @@ def test_cloud_review_reads_alone_are_not_crud_proof(tmp_path):
 def test_cloud_review_legacy_crud_lines_count_as_reads_only(tmp_path):
     legacy = SMOKE_OK.replace("PASS read:", "PASS crud:")
     result = cloud_collector.review(cloud_repo(tmp_path, legacy, lifecycle=None))
-    assert result.metrics["smoke"] == {"frontend": 6, "read": 5, "ai-disabled": 5}
+    assert result.metrics["smoke"] == {"frontend": 6, "read": 5, "ai-mode": 5}
     assert [c.status for c in lifecycle_checks(result)] == ["gap"]
     assert result.verdict == "INCOMPLETE"
     assert "legacy crud: label, read-only check" in cloud_collector.parse_smoke(legacy)["read"][0][2]
+
+
+def test_cloud_review_legacy_ai_disabled_lines_are_not_ai_mode_proof(tmp_path):
+    # Pre-Phase-2 smoke output asserted the AI routes were off; that is the opposite claim and
+    # must never satisfy the ai-mode check (unlike crud:, it is not a relabelling).
+    legacy = SMOKE_OK.replace("PASS ai-mode:", "PASS ai-disabled:")
+    result = cloud_collector.review(cloud_repo(tmp_path, legacy))
+    assert result.metrics["smoke"] == {"frontend": 6, "read": 5, "ai-mode": 0}
+    assert [c.status for c in result.checks if c.id == "ai-mode"] == ["gap"]
+    assert result.verdict == "INCOMPLETE"
 
 
 def test_cloud_review_lifecycle_needs_every_step_tag_and_feature(tmp_path):

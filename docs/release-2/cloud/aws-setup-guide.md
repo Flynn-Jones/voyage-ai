@@ -326,41 +326,90 @@ Use the same `$TS` as the smoke output in §9: the review pairs `stack-outputs-<
 `smoke-test-output-<TS>.txt` it selects (newest), and reads `alb_url` from it. (`smoke-test.sh` writes both
 files this way.)
 
-## 11. Write the cloud deployment report
+## 11. Verify a full CRUD lifecycle
 
-Fill in `docs/release-2/cloud/cloud-deployment-report.md` summarizing: ALB DNS name, which of the 18
-services are steady-state, the smoke test result file from §9, the stack outputs file from §10, and
-confirmation the four AI flags were `false` everywhere (they are, by construction, from
-`common_disabled_ai_env` in `services.yml`). This is the file
-`ai-services/agentic_loop/app_main.py --mode cloud-deployment-review --decision approve|approve-with-conditions|reject`
-reads to grade the run — run that after writing the report.
-
-## 12. Teardown (do this when you're done — this costs money while it runs)
-
-Reverse order of creation:
+§9's `read:` checks only prove the seeded data can be **read**. The review additionally wants a
+complete tagged create → read → update → delete per feature, which `crud-lifecycle.py` performs for
+real over the ALB and records:
 
 ```bash
-services_tsv | while IFS=$'\t' read -r name group tier repo dockerfile cport albport scname; do
-  aws ecs update-service --cluster voyageai-cluster --service "$name" --desired-count 0 --region "$AWS_REGION"
-  aws ecs delete-service --cluster voyageai-cluster --service "$name" --region "$AWS_REGION"
-done
+python3 scripts/deploy/aws/crud-lifecycle.py \
+  --alb-url "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["alb_url"])' \
+                docs/release-2/cloud/stack-outputs-<run>.json)" \
+  --verified-by "<your name>"
+```
 
-# wait for services to actually drain before deleting the cluster/ALB/target groups
-aws elbv2 describe-listeners --load-balancer-arn "$ALB_ARN" --region "$AWS_REGION" \
-  --query 'Listeners[].ListenerArn' --output text | tr '\t' '\n' \
-  | xargs -I{} aws elbv2 delete-listener --listener-arn {} --region "$AWS_REGION"
-grep -o 'tg_arn=\S*' /tmp/voyageai-target-groups.txt | cut -d= -f2 \
-  | xargs -I{} aws elbv2 delete-target-group --target-group-arn {} --region "$AWS_REGION"
-aws elbv2 delete-load-balancer --load-balancer-arn "$ALB_ARN" --region "$AWS_REGION"
-aws ecs delete-cluster --cluster voyageai-cluster --region "$AWS_REGION"
-aws servicediscovery list-namespaces --region "$AWS_REGION" \
-  --query "Namespaces[?Name=='voyageai.local'].Id" --output text \
-  | xargs -I{} aws servicediscovery delete-namespace --id {} --region "$AWS_REGION"
+Pass the ALB URL **from the smoke run's own `stack-outputs-<run>.json`** — the review only accepts
+the evidence when its `alb_url` matches that file and its `verified_at` is not older than the smoke
+run. Each record it creates is tagged `r2-crud-<UTC>` and deleted again, and a `delete` only counts
+as PASS once a follow-up read returns 404, so a successful run leaves the deployment as it found it.
+It writes `docs/release-2/cloud/crud-lifecycle-evidence-<UTC>.json` and exits non-zero if any
+feature's lifecycle failed. `--dry-run` prints the plan without touching anything.
 
-services_tsv | while IFS=$'\t' read -r name group tier repo dockerfile cport albport scname; do
-  aws ecr delete-repository --repository-name "$repo" --force --region "$AWS_REGION"
-done
+Offline tests for it (no account needed): `python -m pytest scripts/deploy/aws/tests/test_crud_lifecycle.py`
 
-aws ec2 delete-security-group --group-id "$TASK_SG" --region "$AWS_REGION"
-aws ec2 delete-security-group --group-id "$ALB_SG" --region "$AWS_REGION"
+## 12. Write the cloud deployment report
+
+`smoke-test.sh` already generates `docs/release-2/cloud/cloud-deployment-report.md` (and will not
+overwrite one whose Release Decision has been filled in — it writes
+`cloud-deployment-report-<run>.md` beside it instead). Check it records: the ALB DNS name, which of
+the 18 services are steady-state, the smoke result file from §9, and the stack outputs from §10.
+
+On AI: as of Phase 2 the four flags are **not** `false` everywhere. `common_disabled_ai_env` is
+still the default, but the five feature APIs override `MCP`/`RAG`/`MULTI_AGENT`/`AI_ENABLED` to
+`"true"` and talk to the EC2 AI host in §3 — only `shared-api` and the frontends stay off. The
+`ai-mode:` smoke checks confirm each of the five returns a real AI-host-generated answer, and the
+review's `ai_flags` check reports what is configured rather than asserting it is off.
+
+Then grade the run:
+
+```bash
+cd .. && python ai-services/agentic_loop/app_main.py \
+  --mode cloud-deployment-review --decision approve|approve-with-conditions|reject
+```
+
+## 13. Teardown (do this when you're done — this costs money while it runs)
+
+Run `scripts/deploy/aws/teardown.sh`. It removes everything in §1–§12 plus the Phase 2 AI
+host, in reverse order of creation, and is safe to re-run:
+
+```bash
+./scripts/deploy/aws/teardown.sh          # dry run (default): prints the plan, changes nothing
+./scripts/deploy/aws/teardown.sh --yes    # actually delete
+```
+
+Every resource is **discovered from AWS** and matched against this project's own names
+(`voyageai-cluster`, `voyageai-alb`, `voyageai-db-nlb`, the `voyageai/` ECR repos, the
+`/voyageai/` log groups and SSM parameters, the four `voyageai-*-sg` groups, the
+`Name=voyageai-ai-host` instance), so a stale `services.yml` cannot orphan a resource and
+nothing outside the project can be matched by accident. Target groups are collected from
+the load balancer they are attached to, never by name pattern.
+
+It handles the ordering that makes a hand-run teardown fail: services are scaled to zero
+and **waited** to drain before the security groups they pin can go, listeners are deleted
+before their load balancer and the load balancer before its target groups, and the AI
+host is terminated and waited on before `voyageai-ai-host-sg`. The security groups
+cross-reference each other, so deletion is retried a few passes.
+
+Useful flags:
+
+| flag | effect |
+| --- | --- |
+| `--dry-run` | the default; print the plan and exit 0 |
+| `--yes` | apply the deletions |
+| `--keep-ecr` | keep the container images (they do cost storage) |
+| `--keep-s3` | keep the `voyageai-ai-bundle-<account>` code bundle |
+| `--keep-iam` | keep the AI host role and instance profile |
+| `--keep-ai-host` | leave the EC2 AI host running (it is the largest hourly cost) |
+| `--include-oidc` | also delete the `voyageai-github-actions` deploy role |
+| `--region <r>` | override `AWS_REGION` (default `ap-southeast-2`) |
+
+Never touched: the default VPC and its subnets, `ecsTaskExecutionRole`, and — unless
+`--include-oidc` — the GitHub OIDC provider and the `voyageai-github-actions` role, which
+cost nothing and whose removal would break every teammate's CI deploy.
+
+Offline tests for the script (stubbed `aws`, no account needed):
+
+```bash
+python -m pytest scripts/deploy/aws/tests/test_teardown.py
 ```

@@ -73,13 +73,18 @@ PASSING = {
     "3003/": {"code": 200, "body": '<tr id="activity-row-1">'},
     "3004/api/expenses": {"code": 200, "body": '<tr data-expense-id="1">'},
     "3005/api/itinerary": {"code": 200, "body": '[{"itinerary_item_id": 1}]'},
-    "3001/mcp-lookup": {"code": 200, "body": "MCP lookup is disabled"},
-    "3002/mcp": {"code": 403, "body": "MCP mode is disabled"},
-    "3003/mcp-mode/call": {"code": 200, "body": "MCP mode is disabled"},
-    "3004/api/budget/ai-analyse": {"code": 403, "body": '{"error": "AI-Mode disabled"}'},
-    "3005/api/itinerary/ai-review": {"code": 403, "body": '{"error":"AI Mode is disabled"}'},
+    # AI Mode is live in the cloud as of Phase 2: each AI route answers 200 with a real result.
+    "3001/compare": {"code": 200, "body": '<div class="detail-grid">Tokyo vs Kyoto</div>'},
+    "3002/recommend": {"code": 200,
+                       "body": '<div class="recommendation-card-main"><h2>Top recommendations</h2></div>'},
+    "3003/ai-mode/chat": {"code": 200,
+                          "body": '<div class="act-chat__bubble act-chat__bubble--assistant">plenty to do</div>'},
+    "3004/api/budget/ai-analyse": {"code": 200, "body": '{"analysis": "within budget"}'},
+    "3005/api/itinerary/ai-review": {"code": 200, "body": '{"adapt": [], "summary": "fine"}'},
 }
 ITINERARY_AI = "3005/api/itinerary/ai-review"
+ACTIVITY_AI = "3003/ai-mode/chat"
+ACCOMMODATION_AI = "3002/recommend"
 
 
 def run_smoke(tmp_path, aws_fail=(), aws_out=None, fixed_date=None, existing=None, **overrides):
@@ -110,7 +115,8 @@ def run_smoke(tmp_path, aws_fail=(), aws_out=None, fixed_date=None, existing=Non
     }
     if fixed_date:
         env["STUB_DATE"] = fixed_date
-    proc = subprocess.run(["/bin/bash", SCRIPT], env=env, capture_output=True, text=True, timeout=60)
+    proc = subprocess.run(["/bin/bash", SCRIPT], env=env,  # noqa: S603 - fixed argv, stubbed PATH
+                          capture_output=True, text=True, timeout=60)
     return proc, cloud_dir, scratch
 
 
@@ -136,7 +142,7 @@ def test_all_checks_passing_exits_zero(tmp_path):
     assert proc.returncode == 0, proc.stdout + proc.stderr
     smoke, outputs, report = evidence(cloud_dir, scratch)
     assert "FAIL" not in smoke
-    assert "PASS ai-disabled:itinerary-service http_403 AI Mode is disabled" in smoke
+    assert "PASS ai-mode:itinerary-service ai-review returned a real result" in smoke
     assert "Deployment Status: Success" in report
     assert outputs["cluster_arn"] == "arn:aws:ecs:ap-southeast-2:123456789012:cluster/voyageai-cluster"
     assert outputs["alb_url"] == "http://alb.test" and outputs["service_arns"] == []
@@ -170,7 +176,7 @@ def test_matching_body_behind_http_503_fails(tmp_path, key):
     assert "http_503" in smoke and "Partial (" in evidence_report(cloud_dir)  # ports 3001-3003 carry 2 checks
 
 
-@pytest.mark.parametrize("key", ["3000/", "3003/", "3002/mcp", ITINERARY_AI])
+@pytest.mark.parametrize("key", ["3000/", "3003/", "3002/recommend", ITINERARY_AI])
 def test_curl_error_after_matching_body_and_status_fails(tmp_path, key):
     # Right status and right body, but curl itself exited 18 (partial transfer).
     proc, cloud_dir, scratch = run_smoke(tmp_path, **{key: {**PASSING[key], "exit": 18}})
@@ -190,20 +196,25 @@ def test_transport_failure_is_recorded_not_fatal(tmp_path, key):
 
 
 def test_itinerary_502_fails(tmp_path):
-    outdated = {"code": 502, "body": '{"error": "AI review service is unavailable"}'}
-    proc, cloud_dir, scratch = run_smoke(tmp_path, **{ITINERARY_AI: outdated})
+    unavailable = {"code": 502, "body": '{"error": "AI review service is unavailable"}'}
+    proc, cloud_dir, scratch = run_smoke(tmp_path, **{ITINERARY_AI: unavailable})
 
     assert proc.returncode != 0
     smoke, _, _ = evidence(cloud_dir, scratch)
-    assert "FAIL ai-disabled:itinerary-service http_502" in smoke
-    assert "PASS ai-disabled:itinerary-service" not in smoke
+    assert "FAIL ai-mode:itinerary-service http_502" in smoke
+    assert "PASS ai-mode:itinerary-service" not in smoke
 
 
-def test_itinerary_403_with_a_different_error_fails(tmp_path):
-    proc, cloud_dir, scratch = run_smoke(tmp_path, **{ITINERARY_AI: {"code": 403, "body": '{"error":"Forbidden"}'}})
+def test_itinerary_ai_disabled_403_fails(tmp_path):
+    # The pre-Phase-2 "disabled" answer is now a regression, not a pass: services.yml sets
+    # AI_ENABLED=true for itinerary-be, so a 403 means the live AI path is not working.
+    disabled = {"code": 403, "body": '{"error":"AI Mode is disabled"}'}
+    proc, cloud_dir, scratch = run_smoke(tmp_path, **{ITINERARY_AI: disabled})
 
     assert proc.returncode != 0
-    assert "FAIL ai-disabled:itinerary-service http_403 body_not_expected_json" in evidence(cloud_dir, scratch)[0]
+    smoke, _, _ = evidence(cloud_dir, scratch)
+    assert "FAIL ai-mode:itinerary-service http_403" in smoke
+    assert "PASS ai-mode:itinerary-service" not in smoke
 
 
 @pytest.mark.parametrize("lookup, field", [
@@ -244,7 +255,7 @@ def test_alb_lookup_failure_fails_every_http_check_without_calling_curl(tmp_path
 
     assert proc.returncode != 0
     smoke, outputs, report = evidence(cloud_dir, scratch)
-    assert smoke.count("alb_unresolved") == 16  # 6 frontends + 5 read + 5 ai-disabled
+    assert smoke.count("alb_unresolved") == 16  # 6 frontends + 5 read + 5 ai-mode
     assert "PASS" not in smoke
     assert outputs["alb_url"] is None and "ALB URL: unresolved" in report
 
@@ -298,33 +309,64 @@ def test_valid_list_services_output_is_kept(tmp_path):
     assert len(evidence(cloud_dir, scratch)[1]["service_arns"]) == 2
 
 
-# ---- itinerary: 403 plus a JSON body whose error is exactly the disabled message ----
+# ---- itinerary: a 200 alone is not proof; the body must carry a real review ----
 
 @pytest.mark.parametrize("body", [
-    "AI Mode is disabled",                       # plain text containing the message
-    'error: "AI Mode is disabled"',              # looks like JSON, is not
-    '{"error": "AI Mode is disabled"',           # truncated JSON
-    '<p>{"error":"AI Mode is disabled"}</p>',    # message embedded in HTML
-    '{"error":"AI Mode is disabled."}',          # not exactly the message
-    '{"error":["AI Mode is disabled"]}',         # wrong type
-    '{"message":"AI Mode is disabled"}',         # wrong key
-    '["AI Mode is disabled"]',                   # not an object
+    '{"review": "looks fine"}',        # a 200, but no review payload
+    '{"adapted": true}',               # near-miss key
+    'adapt: []',                       # unquoted, not the JSON field
+    '{"error":"AI Mode is disabled"}', # disabled message behind a 200
+    "",                                # empty body
 ])
-def test_itinerary_403_requires_json_error_exactly(tmp_path, body):
-    proc, cloud_dir, scratch = run_smoke(tmp_path, **{ITINERARY_AI: {"code": 403, "body": body}})
+def test_itinerary_200_without_a_real_review_fails(tmp_path, body):
+    proc, cloud_dir, scratch = run_smoke(tmp_path, **{ITINERARY_AI: {"code": 200, "body": body}})
 
     assert proc.returncode == 1, proc.stdout + proc.stderr
     smoke, _, _ = evidence(cloud_dir, scratch)
-    assert "FAIL ai-disabled:itinerary-service http_403 body_not_expected_json" in smoke
-    assert "PASS ai-disabled:itinerary-service" not in smoke
+    assert "FAIL ai-mode:itinerary-service http_200 body_mismatch" in smoke
+    assert "PASS ai-mode:itinerary-service" not in smoke
 
 
-def test_itinerary_403_json_with_extra_fields_and_spacing_passes(tmp_path):
-    body = '{\n  "error": "AI Mode is disabled",\n  "request_id": "abc"\n}'
-    proc, cloud_dir, scratch = run_smoke(tmp_path, **{ITINERARY_AI: {"code": 403, "body": body}})
+@pytest.mark.parametrize("body, why", [
+    # _chat_exchange.html renders a backend failure through the same partial, at 200.
+    ('<div class="act-chat__bubble act-chat__bubble--error">Could not get a response: '
+     'AI mode is disabled.</div>', "error bubble"),
+    # a 200 with no "reply" key in the JSON
+    ('<div class="act-chat__bubble act-chat__bubble--assistant">No reply received.</div>',
+     "no reply"),
+])
+def test_activity_chat_error_dressed_as_200_fails(tmp_path, body, why):
+    proc, cloud_dir, scratch = run_smoke(tmp_path, **{ACTIVITY_AI: {"code": 200, "body": body}})
+
+    assert proc.returncode != 0, why
+    smoke, _, _ = evidence(cloud_dir, scratch)
+    assert "FAIL ai-mode:activity-service" in smoke
+    assert "PASS ai-mode:activity-service" not in smoke
+
+
+@pytest.mark.parametrize("body", [
+    # the failure panel still contains the word "recommendation"
+    '<section class="panel recommendation-panel"><div class="alert alert--error">'
+    '<strong>Recommendation failed</strong></div></section>',
+    # ...so does the "nothing matched" panel, which really is served at 200
+    '<section class="panel recommendation-panel"><div class="alert alert--warning">'
+    '<strong>No recommendation available</strong></div></section>',
+])
+def test_accommodation_recommendation_panel_without_a_result_fails(tmp_path, body):
+    proc, cloud_dir, scratch = run_smoke(tmp_path, **{ACCOMMODATION_AI: {"code": 200, "body": body}})
+
+    assert proc.returncode != 0
+    smoke, _, _ = evidence(cloud_dir, scratch)
+    assert "FAIL ai-mode:accommodation-service http_200 body_mismatch" in smoke
+    assert "PASS ai-mode:accommodation-service" not in smoke
+
+
+def test_itinerary_review_with_extra_fields_and_spacing_passes(tmp_path):
+    body = '{\n  "adapt": ["move day 1 earlier"],\n  "request_id": "abc"\n}'
+    proc, cloud_dir, scratch = run_smoke(tmp_path, **{ITINERARY_AI: {"code": 200, "body": body}})
 
     assert proc.returncode == 0, proc.stdout + proc.stderr
-    assert "PASS ai-disabled:itinerary-service http_403 AI Mode is disabled" in evidence(cloud_dir, scratch)[0]
+    assert "PASS ai-mode:itinerary-service ai-review returned a real result" in evidence(cloud_dir, scratch)[0]
 
 
 # ---- an existing cloud-deployment-report.md is never silently erased -------------

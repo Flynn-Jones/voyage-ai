@@ -1,4 +1,4 @@
-"""cloud-deployment-review: evidence that the AWS deployment works with AI disabled.
+"""cloud-deployment-review: evidence that the AWS deployment works.
 
 OBSERVE  docs/release-2/cloud/
            cloud-deployment-report.md
@@ -7,17 +7,26 @@ OBSERVE  docs/release-2/cloud/
                                      via plain `aws elbv2`/`aws ecs` calls - no CloudFormation stack;
                                      only the file sharing the selected smoke run's id is used)
            crud-lifecycle-evidence*.json (filled by hand after live verification; newest wins)
-         scripts/deploy/aws/services.yml (static: AI flags set to false)
+         scripts/deploy/aws/services.yml (AI flags - see note below)
 CHECK    every frontend answers, the seeded read works on every backend, a complete tagged
-         create/read/update/delete lifecycle is evidenced for every feature, AI routes report
-         disabled, the ALB URL is recorded, and no AI flag is enabled.
+         create/read/update/delete lifecycle is evidenced for every feature, each backend's
+         AI path returns a real AI-host-generated result, and the ALB URL is recorded.
+
+Phase 2 (docs/release-2/cloud/phase-2-ai-mode-plan.md) wired AI Mode live for the 5 feature
+backends against a dedicated EC2 "AI host": all four of MCP/RAG/MULTI_AGENT/AI_ENABLED are
+"true" for every feature api, while shared-api and the frontends keep the "false" default.
+The `ai_flags` check below is informational only (what is actually configured), not a
+pass/fail assertion of "must be false" - a mixed enabled/disabled fleet is the intentional
+state, not a regression.
 
 Smoke output contract (one result per line; other lines are ignored):
     PASS frontend:<name> <detail>
     FAIL read:<service> <detail>
-    PASS ai-disabled:<service> <detail>
-`read:` lines are seeded GET checks and prove reads only. Older smoke files whose `crud:` lines came
-from the read-only script are counted as `read:`; they are never CRUD proof.
+    PASS ai-mode:<service> <detail>
+`read:` lines are seeded GET checks and prove reads only. Older smoke files whose `crud:` lines
+came from the read-only script are counted as `read:`; they are never CRUD proof. Older
+`ai-disabled:` lines are from the pre-Phase-2 AI-off contract and are ignored outright - a
+disabled AI route is not evidence that AI Mode works.
 
 CRUD lifecycle evidence (docs/release-2/cloud/crud-lifecycle-evidence-<UTC>.json). The AWS teammate
 fills this in after running a complete tagged create -> read -> update -> delete on each feature
@@ -43,10 +52,10 @@ from pathlib import Path
 from core.review import ReviewResult
 
 MODE = "cloud-deployment-review"
-KINDS = ("frontend", "read", "ai-disabled")
-EXPECTED_MIN = {"frontend": 6, "read": 5, "ai-disabled": 5}  # home + 5 frontends; 5 backends
+KINDS = ("frontend", "read", "ai-mode")
+EXPECTED_MIN = {"frontend": 6, "read": 5, "ai-mode": 5}  # home + 5 frontends; 5 backends
 AI_FLAGS = ("MCP_ENABLED", "RAG_ENABLED", "MULTI_AGENT_ENABLED", "AI_ENABLED")
-SMOKE_LINE = re.compile(r"^(PASS|FAIL)\s+(frontend|read|crud|ai-disabled):(\S+)\s*(.*)$")
+SMOKE_LINE = re.compile(r"^(PASS|FAIL)\s+(frontend|read|crud|ai-mode):(\S+)\s*(.*)$")
 SMOKE_STAMP = re.compile(r"smoke-test-output-(\d{8}T\d{6}Z)")
 LEGACY_NOTE = "(legacy crud: label, read-only check)"
 
@@ -240,7 +249,9 @@ def review(repo_root: Path) -> ReviewResult:
     # ---- full CRUD lifecycle (separate, explicit evidence) -----------------
     lifecycle = _review_lifecycle(result, cloud, repo_root, alb, smoke_file)
 
-    # ---- static: AI disabled in the deployed task definitions -------------
+    # ---- static: AI flags actually configured in services.yml (informational) --------
+    # Not a pass/fail assertion - see the module docstring. A missing flag is only a gap
+    # if NO service sets it at all, since itinerary legitimately has no MULTI_AGENT_ENABLED.
     services = repo_root / "scripts" / "deploy" / "aws" / "services.yml"
     if services.exists():
         result.sources.append(str(services.relative_to(repo_root)))
@@ -248,11 +259,10 @@ def review(repo_root: Path) -> ReviewResult:
         for flag in AI_FLAGS:
             values = _flag_values(template, flag)
             if not values:
-                result.add("ai_flags", flag, "fail", f"{flag} not set in services.yml (backends would use their default)")
-            elif any(v != "false" for v in values):
-                result.add("ai_flags", flag, "fail", f"{flag} has non-false value(s): {sorted(set(values))}")
+                result.gap("ai_flags", flag, f"{flag} not set anywhere in services.yml")
             else:
-                result.add("ai_flags", flag, "pass", f"false in {len(values)} container definition(s)")
+                counts = {v: values.count(v) for v in sorted(set(values))}
+                result.add("ai_flags", flag, "pass", f"configured: {counts}")
     else:
         result.gap("ai_flags", "services.yml", "scripts/deploy/aws/services.yml not found; cannot confirm AI flags")
 
@@ -280,9 +290,9 @@ def _recommendations(result: ReviewResult) -> list[str]:
     gaps = gaps - {"crud_lifecycle"}
     if "frontend" in failing:
         recs.append("Implementation: a frontend is unreachable via the ALB; check its target group health check and listener.")
-    if "ai-disabled" in failing or "ai_flags" in failing:
-        recs.append("Review: AI must be off in the cloud; set MCP/RAG/MULTI_AGENT/AI_ENABLED=false for every backend "
-                    "and confirm the AI routes answer 'disabled'.")
+    if "ai-mode" in failing:
+        recs.append("Implementation: a backend's AI path didn't return a real result; check the AI host "
+                    "(scripts/deploy/aws/ai-ec2-setup.sh / ai-ec2-deploy.sh) is running and reachable.")
     if gaps:
         recs.append("Evidence: run scripts/deploy/aws/smoke-test.sh against the live ECS Fargate deployment; it "
                     "writes the smoke output, stack outputs, and deployment report under docs/release-2/cloud/ "
