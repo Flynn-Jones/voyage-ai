@@ -30,7 +30,12 @@ fi
 
 REPO_URL=$(git config --get remote.origin.url)
 REPO_SLUG=$(echo "$REPO_URL" | sed -E 's#(git@github.com:|https://github.com/)##; s#\.git$##')
-BRANCH=$(git rev-parse --abbrev-ref HEAD)
+# The branch the deploy role will trust. Defaults to main - NOT the current branch:
+# deriving it from HEAD silently re-pinned the shared role to whoever ran this last from a
+# feature branch, which is exactly how a main dispatch came to fail with
+# "Not authorized to perform sts:AssumeRoleWithWebIdentity". Override deliberately:
+#   ./gh-oidc-setup.sh some-branch
+BRANCH="${1:-main}"
 AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 EXEC_ROLE_ARN=$(aws iam get-role --role-name "$EXEC_ROLE_NAME" --query Role.Arn --output text)
 
@@ -41,6 +46,9 @@ REPO_ID=$(gh api "repos/${REPO_SLUG}" --jq '.id')
 SUBJECT="repo:${OWNER_NAME}@${OWNER_ID}/${REPO_NAME}@${REPO_ID}:ref:refs/heads/${BRANCH}"
 
 echo "Repo: $REPO_SLUG   Trusted branch: $BRANCH   Account: $AWS_ACCOUNT_ID"
+if [ "$BRANCH" != "$(git rev-parse --abbrev-ref HEAD)" ]; then
+    echo "NOTE: trusting '$BRANCH', not your checked-out branch $(git rev-parse --abbrev-ref HEAD) - cloud-deployment.yml must be dispatched from '$BRANCH'."
+fi
 echo "OIDC subject: $SUBJECT"
 
 # Step 1: GitHub's OIDC identity provider (one per AWS account, shared by every repo/role)
