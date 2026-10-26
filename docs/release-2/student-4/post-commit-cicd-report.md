@@ -1,5 +1,24 @@
 # Post-commit CI/CD report: Budget (Student 4), Release 2
 
+## Final-SHA GitHub Actions run (added 2026-10-25 by Student 1)
+
+**Result: PASS** (GitHub Actions conclusion `success`), verified with `gh run view` and `gh run download`.
+
+| Field | Value |
+|---|---|
+| Run URL | https://github.com/Flynn-Jones/voyage-ai/actions/runs/40160985543 |
+| Commit SHA | `48bb3cc6a76d2647d1ca00bedf52ee72f08c33e9` (`main`, the PR #28 merge; final code SHA) |
+| Trigger | `push` / `main`, attempt 1, 2026-10-25 04:11:41–04:12:54 UTC |
+| Jobs | `lint-security`, `unit-tests`, `build`, `endpoint-tests`, `verify-ai-disabled` all success |
+| JUnit (unmodified CI artifacts) | [`junit-endpoint-tests.xml`](ci-run-40160985543-48bb3cc/junit-endpoint-tests.xml): 20 tests, 0 failures, errors or skips; [`junit-unit-tests.xml`](ci-run-40160985543-48bb3cc/junit-unit-tests.xml): 25 tests, 0 failures, errors or skips |
+
+| Required endpoint test | Endpoint function | Result |
+|---|---|---|
+| `tests/test_endpoints.py::test_post_valid_expense_is_201_and_reads_back` | POST /expenses -> create_expense | PASS |
+| `tests/test_endpoints.py::test_put_valid_update_persists` | PUT /expenses/<id> -> update_expense | PASS |
+
+Source: [`ci-run-40160985543-48bb3cc/endpoint-tests.md`](ci-run-40160985543-48bb3cc/endpoint-tests.md), written by the workflow's "Record the two endpoint-function tests" step. The run, commit and JUnit described below are the first `student-4` run (2026-10-20, run 39367021651) and are kept as historical evidence.
+
 - **Result: PASS** (all 5 jobs green on the first run of the new pipeline)
 - Workflow: `.github/workflows/student-4.yml`
 - Run: https://github.com/Flynn-Jones/voyage-ai/actions/runs/39367021651

@@ -1,6 +1,25 @@
 # Post-commit CI/CD report: Accommodation (student-2)
 
-**Status note:** the steps below were run locally, command-for-command identical to
+## Final-SHA GitHub Actions run (added 2026-10-25 by Student 1)
+
+**Result: PASS** (GitHub Actions conclusion `success`), verified with `gh run view` and `gh run download`.
+
+| Field | Value |
+|---|---|
+| Run URL | https://github.com/Flynn-Jones/voyage-ai/actions/runs/40160985621 |
+| Commit SHA | `48bb3cc6a76d2647d1ca00bedf52ee72f08c33e9` (`main`, the PR #28 merge; final code SHA) |
+| Trigger | `push` / `main`, attempt 1, 2026-10-25 04:11:41–04:13:43 UTC |
+| Jobs | `lint-security`, `unit-tests`, `build`, `endpoint-tests`, `verify-ai-disabled` all success |
+| JUnit (unmodified CI artifacts) | [`junit-endpoint-tests.xml`](ci-run-40160985621-48bb3cc/junit-endpoint-tests.xml): 6 tests, 0 failures, errors or skips; [`junit-unit-tests.xml`](ci-run-40160985621-48bb3cc/junit-unit-tests.xml): 64 tests, 0 failures, errors or skips |
+
+| Required endpoint test | Endpoint function | Result |
+|---|---|---|
+| `tests/test_endpoints.py::test_post_valid_accommodation_is_201_and_reads_back` | POST /accommodations -> create_accommodation | PASS |
+| `tests/test_endpoints.py::test_get_list_includes_created_record` | GET /accommodations -> list_accommodations | PASS |
+
+Source: [`ci-run-40160985621-48bb3cc/endpoint-tests.md`](ci-run-40160985621-48bb3cc/endpoint-tests.md), written by the workflow's "Record the two endpoint-function tests" step. The JUnit files at the top of this folder are the earlier local run (2026-10-21) and are kept as historical evidence.
+
+**Status note (historical, 2026-10-21; superseded by the final-SHA run above):** the steps below were run locally, command-for-command identical to
 `.github/workflows/student-2.yml`'s jobs, against real Docker containers — they have not yet run
 as an actual GitHub Actions workflow (that needs this branch pushed and a run triggered; see
 `contribution-log.md` for what's still outstanding). Every number and transcript here is real
@@ -9,6 +28,8 @@ output from this host, not fabricated.
 **Independently verified by the shared agentic_loop's `testing-review` mode** (reads this report
 + the JUnit XML below from disk, not hand-checked): student-2 passes every check — see
 [`../agentic-loop/testing-review-20261021T025747Z.md`](../agentic-loop/testing-review-20261021T025747Z.md).
+*Superseded 2026-10-25:* the current review is
+[`../agentic-loop/testing-review-20261025T043322Z.md`](../agentic-loop/testing-review-20261025T043322Z.md) (PASS for all five students).
 The mode's overall verdict is INCOMPLETE only because students 1/3/5 have no `docs/release-2/student-N/`
 yet — not a student-2 finding.
 
