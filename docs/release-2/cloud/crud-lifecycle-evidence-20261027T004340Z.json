@@ -1,0 +1,48 @@
+{
+  "format": "voyageai-crud-lifecycle/1",
+  "verified_at": "2026-10-27T00:43:40Z",
+  "verified_by": "GiangPiano (Claude Code, scripts/deploy/aws/crud-lifecycle.py)",
+  "alb_url": "http://voyageai-alb-615478022.ap-southeast-2.elb.amazonaws.com",
+  "features": {
+    "destination-service": {
+      "tag": "r2-crud-20261027T004337Z",
+      "notes": "create: created id 11 via POST /destinations/new (HTTP 302); read: GET /destinations/11 returned the tagged record; update: description updated to updated-r2-crud-20261027T004337Z and confirmed by a follow-up read; delete: deleted and confirmed gone (read-after-delete HTTP 404)",
+      "create": "PASS",
+      "read": "PASS",
+      "update": "PASS",
+      "delete": "PASS"
+    },
+    "accommodation-service": {
+      "tag": "r2-crud-20261027T004337Z",
+      "notes": "create: created id 22 via POST /accommodations (HTTP 302); read: GET /accommodations/22 returned the tagged record; update: description updated to updated-r2-crud-20261027T004337Z and confirmed by a follow-up read; delete: deleted and confirmed gone (read-after-delete HTTP 404)",
+      "create": "PASS",
+      "read": "PASS",
+      "update": "PASS",
+      "delete": "PASS"
+    },
+    "activity-service": {
+      "tag": "r2-crud-20261027T004337Z",
+      "notes": "create: created id 16 via POST /activities/register (HTTP 302); read: GET /activities/16 returned the tagged record; update: activity_name updated to updated-r2-crud-20261027T004337Z and confirmed by a follow-up read; delete: deleted and confirmed gone (read-after-delete HTTP 404)",
+      "create": "PASS",
+      "read": "PASS",
+      "update": "PASS",
+      "delete": "PASS"
+    },
+    "budget-service": {
+      "tag": "r2-crud-20261027T004337Z",
+      "notes": "create: created expense 13 via POST /api/expenses (HTTP 201); read: GET /api/expenses/13 returned the tagged expense; update: actual_cost set to 42.0 and status to Paid, confirmed by a follow-up read; delete: deleted and confirmed gone (read-after-delete HTTP 404)",
+      "create": "PASS",
+      "read": "PASS",
+      "update": "PASS",
+      "delete": "PASS"
+    },
+    "itinerary-service": {
+      "tag": "r2-crud-20261027T004337Z",
+      "notes": "create: created itinerary item 13 via POST /api/itinerary (HTTP 201); read: GET /api/itinerary/13 returned the tagged item; update: notes updated to updated-r2-crud-20261027T004337Z and confirmed by a follow-up read; delete: deleted and confirmed gone (read-after-delete HTTP 404)",
+      "create": "PASS",
+      "read": "PASS",
+      "update": "PASS",
+      "delete": "PASS"
+    }
+  }
+}
