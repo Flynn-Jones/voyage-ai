@@ -6,10 +6,10 @@ Deployment Status: Success
 
 ALB URL: http://voyageai-alb-615478022.ap-southeast-2.elb.amazonaws.com
 
-Smoke test: `smoke-test-output-20261026T122800Z.txt`
-Stack outputs: `stack-outputs-20261026T122800Z.json`
+Smoke test: `smoke-test-output-20261027T004100Z.txt`
+Stack outputs: `stack-outputs-20261027T004100Z.json`
 
-Timestamp: 20261026T122800Z
+Timestamp: 20261027T004100Z
 
 ## AI services
 
