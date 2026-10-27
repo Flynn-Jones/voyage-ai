@@ -1,0 +1,26 @@
+{
+  "alb_url": "http://voyageai-alb-615478022.ap-southeast-2.elb.amazonaws.com",
+  "alb_arn": "arn:aws:elasticloadbalancing:ap-southeast-2:446983861585:loadbalancer/app/voyageai-alb/a2a3da26510cc2c8",
+  "cluster_arn": "arn:aws:ecs:ap-southeast-2:446983861585:cluster/voyageai-cluster",
+  "service_arns": [
+    "arn:aws:ecs:ap-southeast-2:446983861585:service/voyageai-cluster/budget-fe",
+    "arn:aws:ecs:ap-southeast-2:446983861585:service/voyageai-cluster/budget-backend",
+    "arn:aws:ecs:ap-southeast-2:446983861585:service/voyageai-cluster/itinerary-be",
+    "arn:aws:ecs:ap-southeast-2:446983861585:service/voyageai-cluster/itinerary-fe",
+    "arn:aws:ecs:ap-southeast-2:446983861585:service/voyageai-cluster/shared-frontend",
+    "arn:aws:ecs:ap-southeast-2:446983861585:service/voyageai-cluster/activity-database",
+    "arn:aws:ecs:ap-southeast-2:446983861585:service/voyageai-cluster/activity-frontend",
+    "arn:aws:ecs:ap-southeast-2:446983861585:service/voyageai-cluster/budget-database",
+    "arn:aws:ecs:ap-southeast-2:446983861585:service/voyageai-cluster/destination-frontend",
+    "arn:aws:ecs:ap-southeast-2:446983861585:service/voyageai-cluster/shared-database",
+    "arn:aws:ecs:ap-southeast-2:446983861585:service/voyageai-cluster/shared-api",
+    "arn:aws:ecs:ap-southeast-2:446983861585:service/voyageai-cluster/accommodation-database",
+    "arn:aws:ecs:ap-southeast-2:446983861585:service/voyageai-cluster/accommodation-api",
+    "arn:aws:ecs:ap-southeast-2:446983861585:service/voyageai-cluster/accommodation-frontend",
+    "arn:aws:ecs:ap-southeast-2:446983861585:service/voyageai-cluster/itinerary-db",
+    "arn:aws:ecs:ap-southeast-2:446983861585:service/voyageai-cluster/activity-api",
+    "arn:aws:ecs:ap-southeast-2:446983861585:service/voyageai-cluster/destination-api",
+    "arn:aws:ecs:ap-southeast-2:446983861585:service/voyageai-cluster/destination-database"
+],
+  "generated": "20261026T143326Z"
+}
