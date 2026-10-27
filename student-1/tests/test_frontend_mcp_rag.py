@@ -215,12 +215,16 @@ def _load_with_env(monkeypatch, mcp=None, rag=None):
 
 
 def test_hop_timeout_defaults(monkeypatch):
+    # Ollama is CPU-only on the shared AI host, so every AI hop had to be raised and each
+    # must outwait the hop it calls - see docs/release-2/cloud/ai-timeouts.md.
     mod = _load_with_env(monkeypatch)
-    assert mod.MCP_REQUEST_TIMEOUT == (3, 15.0)
-    assert mod.RAG_REQUEST_TIMEOUT == (3, 130.0)
-    # Release 0 timeouts are untouched.
+    assert mod.MCP_REQUEST_TIMEOUT == (3, 90.0)
+    assert mod.RAG_REQUEST_TIMEOUT == (3, 300.0)
+    assert mod.MULTI_AGENT_REQUEST_TIMEOUT == (3, 480.0)
+    # AI Mode now outwaits the backend's own 180s Ollama ceiling.
+    assert mod.AI_REQUEST_TIMEOUT == (3, 240.0)
+    # plain CRUD against the database tier is untouched - no model involved
     assert mod.REQUEST_TIMEOUT == (3, 10)
-    assert mod.AI_REQUEST_TIMEOUT == (3, 120)
 
 
 def test_hop_timeout_positive_override(monkeypatch):
@@ -232,8 +236,8 @@ def test_hop_timeout_positive_override(monkeypatch):
 @pytest.mark.parametrize("bad", ["abc", "", "0", "-5", "-0.1", "nan", "inf"])
 def test_hop_timeout_invalid_values_fall_back(monkeypatch, bad):
     mod = _load_with_env(monkeypatch, mcp=bad, rag=bad)
-    assert mod.MCP_REQUEST_TIMEOUT == (3, 15.0)
-    assert mod.RAG_REQUEST_TIMEOUT == (3, 130.0)
+    assert mod.MCP_REQUEST_TIMEOUT == (3, 90.0)
+    assert mod.RAG_REQUEST_TIMEOUT == (3, 300.0)
 
 
 def test_default_hop_timeouts_exceed_backend_timeouts(monkeypatch):
