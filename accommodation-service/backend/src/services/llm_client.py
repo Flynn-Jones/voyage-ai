@@ -13,6 +13,13 @@ OLLAMA_HOST = os.environ.get("OLLAMA_HOST", os.environ.get("OLLAMA_BASE_URL", "h
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:7b")
 # AI-Mode switch: false in the cloud (and CI), where no Ollama is deployed.
 AI_ENABLED = os.environ.get("AI_ENABLED", "true").strip().lower() in ("1", "true", "yes", "on")
+# Ollama runs CPU-only on the shared AI host, so a single generation can take minutes.
+# Env-configurable with a generous default; see docs/release-2/cloud/ai-timeouts.md for
+# the full ladder (each hop must outwait the one it calls).
+try:
+    OLLAMA_TIMEOUT_SECONDS = float(os.environ.get("OLLAMA_TIMEOUT_SECONDS", "180"))
+except ValueError:
+    OLLAMA_TIMEOUT_SECONDS = 180.0
 
 
 class LLMServiceError(Exception):
@@ -34,7 +41,7 @@ def get_ollama_status():
         return {"ollama": "unreachable", "model": OLLAMA_MODEL, "loaded": False}
 
 
-def generate_recommendation(prompt: str, model: str | None = None, timeout: int = 180):
+def generate_recommendation(prompt: str, model: str | None = None, timeout: float | None = None):
     payload = {
         "model": model or OLLAMA_MODEL,
         "prompt": prompt,
@@ -42,7 +49,8 @@ def generate_recommendation(prompt: str, model: str | None = None, timeout: int 
         "options": {"temperature": 0.0},
     }
     try:
-        response = requests.post(f"{OLLAMA_HOST}/api/generate", json=payload, timeout=timeout)
+        response = requests.post(f"{OLLAMA_HOST}/api/generate", json=payload,
+                                 timeout=timeout or OLLAMA_TIMEOUT_SECONDS)
     except requests.exceptions.RequestException as exc:
         raise LLMServiceError(str(exc)) from exc
 

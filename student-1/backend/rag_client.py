@@ -11,10 +11,9 @@ import requests
 RAG_SERVICE_URL = os.environ.get("RAG_SERVICE_URL", "http://localhost:7002").rstrip("/")
 RAG_ENABLED = os.environ.get("RAG_ENABLED", "true").strip().lower() in ("1", "true", "yes", "on")
 try:
-    RAG_TIMEOUT_SECONDS = float(os.environ.get("RAG_TIMEOUT_SECONDS", "120"))
+    RAG_TIMEOUT_SECONDS = float(os.environ.get("RAG_TIMEOUT_SECONDS", "240"))
 except ValueError:
-    RAG_TIMEOUT_SECONDS = 120.0
-
+    RAG_TIMEOUT_SECONDS = 240.0
 RAG_CALLER = "destination-service"
 RAG_K = 5
 GROUNDED_CONFIDENCE = ("High", "Medium", "Low")

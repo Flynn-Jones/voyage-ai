@@ -12,10 +12,9 @@ import requests
 MCP_SERVICE_URL = os.environ.get("MCP_SERVICE_URL", "http://localhost:7001").rstrip("/")
 MCP_ENABLED = os.environ.get("MCP_ENABLED", "true").strip().lower() in ("1", "true", "yes", "on")
 try:
-    MCP_TIMEOUT_SECONDS = float(os.environ.get("MCP_TIMEOUT_SECONDS", "10"))
+    MCP_TIMEOUT_SECONDS = float(os.environ.get("MCP_TIMEOUT_SECONDS", "60"))
 except ValueError:
-    MCP_TIMEOUT_SECONDS = 10.0
-
+    MCP_TIMEOUT_SECONDS = 60.0
 MCP_PATH = "/mcp"
 MCP_HEADERS = {"Accept": "application/json, text/event-stream", "Content-Type": "application/json"}
 TOOL_NAME = "list_destinations"

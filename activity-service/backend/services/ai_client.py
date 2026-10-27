@@ -18,6 +18,13 @@ OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.1:8b")
 OLLAMA_INTENT_MODEL = os.environ.get("OLLAMA_INTENT_MODEL", "qwen2.5:7b")
 # AI Mode switch (false in the cloud): /api/activity/ai-chat and /ai-summary answer 403 when off.
 AI_ENABLED = os.environ.get("AI_ENABLED", "true").strip().lower() in ("1", "true", "yes", "on")
+# Ollama runs CPU-only on the shared AI host, so a single generation can take minutes.
+# Env-configurable with a generous default; see docs/release-2/cloud/ai-timeouts.md for
+# the full ladder (each hop must outwait the one it calls).
+try:
+    OLLAMA_TIMEOUT_SECONDS = float(os.environ.get("OLLAMA_TIMEOUT_SECONDS", "180"))
+except ValueError:
+    OLLAMA_TIMEOUT_SECONDS = 180.0
 
 
 def ai_mode_is_enabled():
@@ -37,7 +44,8 @@ def _generate(prompt, temperature=None, model=None):
     if temperature is not None:
         payload["options"] = {"temperature": temperature}
     try:
-        response = requests.post(f"{OLLAMA_URL}/api/generate", json=payload, timeout=30)
+        response = requests.post(f"{OLLAMA_URL}/api/generate", json=payload,
+                                 timeout=OLLAMA_TIMEOUT_SECONDS)
     except requests.exceptions.RequestException as exc:
         raise AIServiceError(str(exc)) from exc
 

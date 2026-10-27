@@ -16,11 +16,6 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PORT = int(os.environ.get("PORT", "3001"))
 BACKEND_SERVICE_URL = os.environ.get("BACKEND_SERVICE_URL", "http://localhost:5001")
 REQUEST_TIMEOUT = (3, 10)  # (connect, read) seconds
-# The AI comparison call chains through to a single Ollama request, which
-# takes far longer than any CRUD round trip — give it its own read timeout.
-AI_REQUEST_TIMEOUT = (3, 120)
-
-
 def _read_timeout(name, default):
     """Positive float read timeout from the environment, else the default."""
     try:
@@ -30,14 +25,20 @@ def _read_timeout(name, default):
     return value if math.isfinite(value) and value > 0 else default
 
 
-# Shared-service calls: read timeouts exceed the backend's own (10s MCP, 120s
+# The AI comparison call chains through to a single Ollama request, which
+# takes far longer than any CRUD round trip — give it its own read timeout.
+# Ollama is CPU-only on the shared AI host and the backend now waits 180s for it,
+# so this has to exceed that. See docs/release-2/cloud/ai-timeouts.md.
+AI_REQUEST_TIMEOUT = (3, _read_timeout("AI_REQUEST_TIMEOUT_SECONDS", 240.0))
+
+# Shared-service calls: read timeouts exceed the backend's own (60s MCP, 240s
 # RAG) so the backend's structured timeout envelope reaches the UI first.
-MCP_REQUEST_TIMEOUT = (3, _read_timeout("MCP_REQUEST_TIMEOUT_SECONDS", 15.0))
-RAG_REQUEST_TIMEOUT = (3, _read_timeout("RAG_REQUEST_TIMEOUT_SECONDS", 130.0))
+MCP_REQUEST_TIMEOUT = (3, _read_timeout("MCP_REQUEST_TIMEOUT_SECONDS", 90.0))
+RAG_REQUEST_TIMEOUT = (3, _read_timeout("RAG_REQUEST_TIMEOUT_SECONDS", 300.0))
 
 # A Multi-Agent run is synchronous and waits on up to four Ollama calls inside the
-# shared server; keep this above the backend's own 240s so its envelope arrives first.
-MULTI_AGENT_REQUEST_TIMEOUT = (3, _read_timeout("MULTI_AGENT_REQUEST_TIMEOUT_SECONDS", 250.0))
+# shared server; keep this above the backend's own 420s so its envelope arrives first.
+MULTI_AGENT_REQUEST_TIMEOUT = (3, _read_timeout("MULTI_AGENT_REQUEST_TIMEOUT_SECONDS", 480.0))
 MULTI_AGENT_BASE = "/api/destinations/multi-agent/runs"
 MULTI_AGENT_DECISIONS = (
     ("approve", "Approve all"),

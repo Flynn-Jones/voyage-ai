@@ -7,20 +7,30 @@ from markupsafe import escape
 BACKEND_SERVICE_URL = os.environ.get("BACKEND_SERVICE_URL", "http://activity-backend:5003")
 PORT = int(os.environ.get("PORT", "3004"))
 
-# (connect, read) seconds. The default suits the ordinary CRUD and MCP/RAG calls.
+# (connect, read) seconds. Every AI path must outwait the backend hop it triggers, or the
+# frontend reports a transport error for work that actually succeeded. Ollama is CPU-only
+# on the shared AI host, so generation is slow: see docs/release-2/cloud/ai-timeouts.md for
+# the whole ladder and the measured latencies behind these numbers.
+def _read_timeout(name, default):
+    try:
+        value = float(os.environ.get(name, str(default)))
+    except ValueError:
+        return default
+    return value if value > 0 else default
+
+
+# plain CRUD against the database tier - no model involved
 REQUEST_TIMEOUT = (5, 60)
-# A Multi-Agent run is Planner -> Worker -> Reviewer, i.e. three sequential Ollama calls
-# (plus up to one retry each). On the CPU-only AI host a real activity_schedule_check run
-# measured 139s, so the 60s default cut it off and the page showed "Read timed out" even
-# though the run completed server-side. Must stay ABOVE the backend's own ceiling
-# (multi_agent_api.MULTI_AGENT_TIMEOUT_SECONDS, default 240) so the backend's error
-# surfaces instead of the frontend giving up first - same reasoning and default as
-# student-1/frontend/app.py's MULTI_AGENT_REQUEST_TIMEOUT.
-try:
-    _MAS_READ_TIMEOUT = float(os.environ.get("MULTI_AGENT_REQUEST_TIMEOUT_SECONDS", "250"))
-except ValueError:
-    _MAS_READ_TIMEOUT = 250.0
-MULTI_AGENT_REQUEST_TIMEOUT = (5, _MAS_READ_TIMEOUT)
+# /ai-chat and /ai-summary: one Ollama generation (backend ceiling 180s)
+AI_REQUEST_TIMEOUT = (5, _read_timeout("AI_REQUEST_TIMEOUT_SECONDS", 240.0))
+# MCP tools are plain database reads on the AI host, no model
+MCP_REQUEST_TIMEOUT = (5, _read_timeout("MCP_REQUEST_TIMEOUT_SECONDS", 60.0))
+# RAG retrieval plus one grounded generation (backend ceiling 240s)
+RAG_REQUEST_TIMEOUT = (5, _read_timeout("RAG_REQUEST_TIMEOUT_SECONDS", 300.0))
+# A Multi-Agent run is Planner -> Worker -> Reviewer: three sequential Ollama calls plus up
+# to one retry each. Measured 139s live, and the backend waits 420s
+# (multi_agent_api.MULTI_AGENT_TIMEOUT_SECONDS), so this has to exceed that.
+MULTI_AGENT_REQUEST_TIMEOUT = (5, _read_timeout("MULTI_AGENT_REQUEST_TIMEOUT_SECONDS", 480.0))
 
 # MCP Mode's read-only tools, for the tab's runner form and tool table. The
 # backend's routes/mcp_mode.py TOOL_ARGUMENTS is the enforcing registry; this
@@ -93,7 +103,9 @@ def create_app():
         return response.json()
 
     def fetch_activity_summary(activity_id):
-        response = backend_request("POST", "/api/activity/ai-summary", json_body={"activity_id": activity_id})
+        response = backend_request("POST", "/api/activity/ai-summary",
+                                   json_body={"activity_id": activity_id},
+                                   timeout=AI_REQUEST_TIMEOUT)
         if response.status_code >= 400:
             payload = response.json() if response.headers.get("Content-Type", "").startswith("application/json") else {}
             raise RuntimeError(payload.get("error") or f"Backend returned {response.status_code}")
@@ -167,7 +179,8 @@ def create_app():
             return "", 204
 
         try:
-            response = backend_request("POST", "/api/activity/ai-chat", json_body={"message": message})
+            response = backend_request("POST", "/api/activity/ai-chat", json_body={"message": message},
+                                       timeout=AI_REQUEST_TIMEOUT)
         except RuntimeError as exc:
             return render_template("_chat_exchange.html", message=message, reply=None, error=str(exc))
 
@@ -206,7 +219,8 @@ def create_app():
             path, call = f"/api/activity/mcp/{spec['route']}", {"kind": "tool", "tool": tool, "arguments": payload}
 
         try:
-            response = backend_request("POST", path, json_body=payload, headers={"X-MCP-Mode": "on"})
+            response = backend_request("POST", path, json_body=payload, headers={"X-MCP-Mode": "on"},
+                                       timeout=MCP_REQUEST_TIMEOUT)
         except RuntimeError as exc:
             return render_template("tabs/_mcp_call.html", call=call, status_code=None, data=None, error=str(exc))
 
@@ -240,7 +254,8 @@ def create_app():
 
         try:
             response = backend_request("POST", f"/api/activity/rag/{kind}", json_body=payload,
-                                       headers={"X-RAG-Mode": rag_header})
+                                       headers={"X-RAG-Mode": rag_header},
+                                       timeout=RAG_REQUEST_TIMEOUT)
         except RuntimeError as exc:
             return render_template("tabs/_rag_call.html", call=call, status_code=None, data=None, error=str(exc))
 

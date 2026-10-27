@@ -78,7 +78,7 @@ def test_start_uses_only_scoped_fixed_workflow(client, monkeypatch, run):
     call = network.call_args
     assert call.args == ("POST", "http://localhost:7004/workflows/itinerary_schedule_review/runs")
     assert call.kwargs["json"] == {"input": {"trip_reference": "TRIP-A", "day": 1}, "requested_by": "itinerary-be"}
-    assert call.kwargs["timeout"] == 240
+    assert call.kwargs["timeout"] == 420
     assert set(result.json["result"]) >= {"plan", "work", "review", "state"}
 
 
