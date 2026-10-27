@@ -11,10 +11,10 @@ from routes.multi_agent import multi_agent_bp
 
 def _multi_agent_timeout():
     try:
-        timeout = int(os.environ.get("MULTI_AGENT_TIMEOUT_SECONDS", "240"))
-        return timeout if timeout > 0 else 240
+        timeout = int(os.environ.get("MULTI_AGENT_TIMEOUT_SECONDS", "420"))
+        return timeout if timeout > 0 else 420
     except ValueError:
-        return 240
+        return 420
 
 
 def create_app():

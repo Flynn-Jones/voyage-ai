@@ -32,7 +32,7 @@ def ollama_model() -> str:
 
 
 def ollama_timeout() -> float:
-    return float(os.environ.get("OLLAMA_TIMEOUT_SECONDS", "60"))
+    return float(os.environ.get("OLLAMA_TIMEOUT_SECONDS", "180"))
 
 
 def mcp_service_url() -> str:
@@ -44,7 +44,7 @@ def rag_service_url() -> str:
 
 
 def service_timeout() -> float:
-    return float(os.environ.get("MULTI_AGENT_SERVICE_TIMEOUT_SECONDS", "30"))
+    return float(os.environ.get("MULTI_AGENT_SERVICE_TIMEOUT_SECONDS", "240"))
 
 
 def db_path() -> Path:

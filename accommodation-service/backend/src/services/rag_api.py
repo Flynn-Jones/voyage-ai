@@ -7,11 +7,9 @@ RAG_SERVICE_URL = os.environ.get("RAG_SERVICE_URL", "http://localhost:7002")
 RAG_ENABLED = os.environ.get("RAG_ENABLED", "true").strip().lower() in ("1", "true", "yes", "on")
 
 try:
-    RAG_TIMEOUT_SECONDS = int(os.environ.get("RAG_TIMEOUT_SECONDS", "120"))
+    RAG_TIMEOUT_SECONDS = int(os.environ.get("RAG_TIMEOUT_SECONDS", "240"))
 except ValueError:
-    RAG_TIMEOUT_SECONDS = 120
-
-
+    RAG_TIMEOUT_SECONDS = 240
 class RAGServiceError(Exception):
     """Raised when the shared RAG server cannot be reached or returns an unexpected error."""
 

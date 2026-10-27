@@ -7,11 +7,9 @@ MCP_SERVICE_URL = os.environ.get("MCP_SERVICE_URL", "http://localhost:7001")
 MCP_ENABLED = os.environ.get("MCP_ENABLED", "true").strip().lower() in ("1", "true", "yes", "on")
 
 try:
-    MCP_TIMEOUT_SECONDS = int(os.environ.get("MCP_TIMEOUT_SECONDS", "30"))
+    MCP_TIMEOUT_SECONDS = int(os.environ.get("MCP_TIMEOUT_SECONDS", "60"))
 except ValueError:
-    MCP_TIMEOUT_SECONDS = 30
-
-
+    MCP_TIMEOUT_SECONDS = 60
 class MCPServiceError(Exception):
     """Raised when the shared MCP server cannot be reached or returns an unexpected error."""
 

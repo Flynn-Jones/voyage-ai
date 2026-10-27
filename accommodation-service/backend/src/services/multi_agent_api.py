@@ -14,11 +14,9 @@ WORKFLOW = "accommodation_shortlist"
 
 try:
     # A run waits on three Ollama calls (Planner, Reviewer, and up to one retry each).
-    MULTI_AGENT_TIMEOUT_SECONDS = int(os.environ.get("MULTI_AGENT_TIMEOUT_SECONDS", "240"))
+    MULTI_AGENT_TIMEOUT_SECONDS = int(os.environ.get("MULTI_AGENT_TIMEOUT_SECONDS", "420"))
 except ValueError:
-    MULTI_AGENT_TIMEOUT_SECONDS = 240
-
-
+    MULTI_AGENT_TIMEOUT_SECONDS = 420
 class MultiAgentServiceError(Exception):
     """Raised when the Multi-Agent Server cannot be reached or returns a non-JSON reply."""
 

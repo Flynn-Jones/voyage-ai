@@ -10,6 +10,13 @@ OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:7b")
 # AI-Mode switch: false in the cloud (and CI), where no Ollama is deployed.
 AI_ENABLED = os.environ.get("AI_ENABLED", "true").strip().lower() in ("1", "true", "yes", "on")
+# Ollama runs CPU-only on the shared AI host, so a single generation can take minutes.
+# Env-configurable with a generous default; see docs/release-2/cloud/ai-timeouts.md for
+# the full ladder (each hop must outwait the one it calls).
+try:
+    OLLAMA_TIMEOUT_SECONDS = float(os.environ.get("OLLAMA_TIMEOUT_SECONDS", "180"))
+except ValueError:
+    OLLAMA_TIMEOUT_SECONDS = 180.0
 
 
 class LLMServiceError(Exception):
@@ -24,7 +31,8 @@ def create_chat_completion(messages, model=None, temperature=0.0):
         "options": {"temperature": temperature},
     }
     try:
-        response = requests.post(f"{OLLAMA_BASE_URL}/api/chat", json=payload, timeout=60)
+        response = requests.post(f"{OLLAMA_BASE_URL}/api/chat", json=payload,
+                                 timeout=OLLAMA_TIMEOUT_SECONDS)
     except requests.exceptions.RequestException as exc:
         raise LLMServiceError(str(exc)) from exc
 

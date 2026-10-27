@@ -15,9 +15,9 @@ def review_itinerary(user_prompt, day, items, observations):
     base_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
     model = os.environ.get("OLLAMA_MODEL", "qwen2.5:7b")
     try:
-        timeout = float(os.environ.get("OLLAMA_TIMEOUT_SECONDS", "60"))
+        timeout = float(os.environ.get("OLLAMA_TIMEOUT_SECONDS", "180"))
     except ValueError:
-        timeout = 60
+        timeout = 180
 
     context = {"requested_day": day, "itinerary_items": items, "observations": observations}
     task = load_prompt("task_prompt.txt").format(

@@ -13,10 +13,9 @@ MULTI_AGENT_SERVICE_URL = os.environ.get("MULTI_AGENT_SERVICE_URL", "http://loca
 MULTI_AGENT_ENABLED = os.environ.get("MULTI_AGENT_ENABLED", "true").strip().lower() in ("1", "true", "yes", "on")
 try:
     # A run waits on up to four Ollama calls (Planner and Reviewer, each with one retry).
-    MULTI_AGENT_TIMEOUT_SECONDS = float(os.environ.get("MULTI_AGENT_TIMEOUT_SECONDS", "240"))
+    MULTI_AGENT_TIMEOUT_SECONDS = float(os.environ.get("MULTI_AGENT_TIMEOUT_SECONDS", "420"))
 except ValueError:
-    MULTI_AGENT_TIMEOUT_SECONDS = 240.0
-
+    MULTI_AGENT_TIMEOUT_SECONDS = 420.0
 WORKFLOW = "destination_recommend"
 REQUESTED_BY = "destination-backend"
 APPLIED_TARGET = "none (read-only destination_recommend)"

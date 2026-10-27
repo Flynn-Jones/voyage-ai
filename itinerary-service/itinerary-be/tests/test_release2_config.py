@@ -17,7 +17,7 @@ def test_defaults_preserve_ai_and_leave_multi_agent_disabled(monkeypatch):
     assert application.config["AI_ENABLED"] is True
     assert application.config["MULTI_AGENT_ENABLED"] is False
     assert application.config["MULTI_AGENT_SERVICE_URL"] == "http://localhost:7004"
-    assert application.config["MULTI_AGENT_TIMEOUT_SECONDS"] == 240
+    assert application.config["MULTI_AGENT_TIMEOUT_SECONDS"] == 420
 
 
 def test_configuration_overrides_do_not_contact_multi_agent(monkeypatch):
@@ -38,7 +38,7 @@ def test_configuration_overrides_do_not_contact_multi_agent(monkeypatch):
 @pytest.mark.parametrize("value", ["0", "-1", "invalid", "1.5", "nan", "inf", ""])
 def test_invalid_multi_agent_timeout_uses_positive_default(monkeypatch, value):
     monkeypatch.setenv("MULTI_AGENT_TIMEOUT_SECONDS", value)
-    assert create_app().config["MULTI_AGENT_TIMEOUT_SECONDS"] == 240
+    assert create_app().config["MULTI_AGENT_TIMEOUT_SECONDS"] == 420
 
 
 def test_all_ai_modes_disabled_preserves_crud_and_health(monkeypatch):

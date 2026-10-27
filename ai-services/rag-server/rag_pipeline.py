@@ -58,6 +58,13 @@ ACTIVITY_MAX_QUERY_CHARS = 1000
 ACTIVITY_IGNORED_DIRS = {".git", ".venv", "venv", "__pycache__", ".pytest_cache", "node_modules", "chroma"}
 
 OLLAMA_GENERATE_URL = os.environ.get("OLLAMA_GENERATE_URL", "http://localhost:11434/api/generate")
+# Ollama runs CPU-only on the shared AI host, so a single generation can take minutes.
+# Env-configurable with a generous default; see docs/release-2/cloud/ai-timeouts.md for
+# the full ladder (each hop must outwait the one it calls).
+try:
+    OLLAMA_TIMEOUT_SECONDS = float(os.environ.get("OLLAMA_TIMEOUT_SECONDS", "180"))
+except ValueError:
+    OLLAMA_TIMEOUT_SECONDS = 180.0
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:7b")
 
 # Only factual docs. README.md / student-1/README.md are excluded on purpose: they hold demo
@@ -880,7 +887,7 @@ Answer:
         resp = requests.post(
             OLLAMA_GENERATE_URL,
             json={"model": OLLAMA_MODEL, "prompt": prompt, "stream": False, "options": {"temperature": 0}},
-            timeout=120,
+            timeout=OLLAMA_TIMEOUT_SECONDS,
         )
         resp.raise_for_status()
         body = resp.json()
@@ -1096,7 +1103,7 @@ def generate_itinerary_answer(prompt):
             OLLAMA_GENERATE_URL,
             json={"model": OLLAMA_MODEL, "prompt": prompt, "stream": False,
                   "options": {"temperature": 0, "num_predict": 256}},
-            timeout=90,
+            timeout=OLLAMA_TIMEOUT_SECONDS,
         )
         response.raise_for_status()
         body = response.json()

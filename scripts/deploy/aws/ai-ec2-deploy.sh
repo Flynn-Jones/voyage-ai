@@ -42,14 +42,25 @@ if [ "$STATE" != "running" ]; then
 fi
 
 # Step 1: package the three services (code only - no venv/__pycache__/local gitignored
-# artefacts, which the AI host rebuilds for itself).
+# artefacts, which the AI host rebuilds for itself), plus the feature-owned prompt files a
+# workflow reads at run time.
+#
+# multi-agent-server's workflows are per-feature plugins and a plugin may keep its agent
+# prompts in its own feature directory: activity_schedule_check.py reads
+# config.REPO_ROOT/"activity-service"/"prompts"/"multi-agent". On this host the layout
+# /opt/voyageai/<service> mirrors the repo's <root>/ai-services/<service>, so
+# config.REPO_ROOT (SERVICE_DIR.parent.parent) resolves to /opt - i.e. /opt is the host's
+# repo root and those prompts have to land at /opt/activity-service/prompts, NOT under
+# /opt/voyageai. Shipping only ai-services/ left Multi-Agent Mode failing at the plan step
+# with "No such file or directory: /opt/activity-service/prompts/multi-agent/planner_prompt.txt".
 BUNDLE="/tmp/voyageai-ai-bundle.tar.gz"
-echo "Packaging mcp-server, rag-server, multi-agent-server..."
-tar -czf "$BUNDLE" -C "$REPO_ROOT/ai-services" \
+echo "Packaging mcp-server, rag-server, multi-agent-server + feature prompts..."
+tar -czf "$BUNDLE" \
   --exclude='__pycache__' --exclude='.pytest_cache' --exclude='*.pyc' \
   --exclude='chroma' --exclude='corpus' --exclude='logs' --exclude='runs.db' \
   --exclude='rag-audit.jsonl' --exclude='mcp-audit.jsonl' \
-  mcp-server rag-server multi-agent-server
+  -C "$REPO_ROOT/ai-services" mcp-server rag-server multi-agent-server \
+  -C "$REPO_ROOT" activity-service/prompts
 
 echo "Uploading to s3://$BUCKET/bundle.tar.gz..."
 aws s3 cp "$BUNDLE" "s3://$BUCKET/bundle.tar.gz" --region "$AWS_REGION" --only-show-errors
@@ -62,8 +73,15 @@ REMOTE_SCRIPT=$(cat <<'REMOTE'
 set -e
 aws s3 cp "s3://__BUCKET__/bundle.tar.gz" /tmp/bundle.tar.gz --region __REGION__
 rm -rf /opt/voyageai/mcp-server /opt/voyageai/rag-server /opt/voyageai/multi-agent-server
-mkdir -p /opt/voyageai
-tar -xzf /tmp/bundle.tar.gz -C /opt/voyageai
+rm -rf /opt/activity-service/prompts
+mkdir -p /opt/voyageai /opt/activity-service
+# Extracted in two places on purpose - see the packaging note: the services live under
+# /opt/voyageai, but the feature prompts must sit at the host's repo root (/opt) because
+# that is what config.REPO_ROOT resolves to inside multi-agent-server.
+tar -xzf /tmp/bundle.tar.gz -C /opt/voyageai mcp-server rag-server multi-agent-server
+tar -xzf /tmp/bundle.tar.gz -C /opt activity-service/prompts
+test -f /opt/activity-service/prompts/multi-agent/planner_prompt.txt \
+  || { echo "activity multi-agent prompts missing after extract" >&2; exit 1; }
 
 if [ ! -d /opt/voyageai/venv ]; then
   python3.11 -m venv /opt/voyageai/venv

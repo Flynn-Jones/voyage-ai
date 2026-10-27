@@ -10,6 +10,16 @@ BACKEND_SERVICE_URL = os.environ.get(
 )
 PORT = int(os.environ.get("PORT", "3002"))
 
+# (connect, read) seconds. The recommend path waits on the backend, which waits on one
+# Ollama generation (180s) or a whole Multi-Agent run (420s). This has to exceed the larger
+# of those, or the page reports a transport error for a run that actually finished.
+# Env-overridable; see docs/release-2/cloud/ai-timeouts.md for the full ladder.
+try:
+    _READ_TIMEOUT = float(os.environ.get("MULTI_AGENT_REQUEST_TIMEOUT_SECONDS", "480"))
+except ValueError:
+    _READ_TIMEOUT = 480.0
+REQUEST_TIMEOUT = (5, _READ_TIMEOUT)
+
 
 def create_app():
     app = Flask(__name__, template_folder="templates", static_folder="static")
@@ -22,7 +32,7 @@ def create_app():
                 url,
                 params=params or {},
                 json=json_body,
-                timeout=(5, 300),
+                timeout=REQUEST_TIMEOUT,
             )
         except requests.exceptions.RequestException as exc:
             raise RuntimeError(f"Backend request failed: {exc}") from exc

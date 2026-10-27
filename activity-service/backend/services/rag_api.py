@@ -15,11 +15,9 @@ RAG_SCOPE = "activity"
 RAG_ENABLED = os.environ.get("RAG_ENABLED", "true").strip().lower() in ("1", "true", "yes", "on")
 
 try:
-    RAG_TIMEOUT_SECONDS = int(os.environ.get("RAG_TIMEOUT_SECONDS", "120"))
+    RAG_TIMEOUT_SECONDS = int(os.environ.get("RAG_TIMEOUT_SECONDS", "240"))
 except ValueError:
-    RAG_TIMEOUT_SECONDS = 120
-
-
+    RAG_TIMEOUT_SECONDS = 240
 class RAGServiceError(Exception):
     """Raised when the RAG server cannot be reached or returns a non-JSON body."""
 
