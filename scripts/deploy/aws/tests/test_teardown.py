@@ -21,13 +21,24 @@ SCRIPT = os.path.join(os.path.dirname(__file__), "..", "teardown.sh")
 AWS_STUB = f"""#!{sys.executable}
 import json, os, sys
 line = " ".join(sys.argv[1:])
+# read the log BEFORE appending, so "unless_logged" sees only EARLIER calls
+try:
+    with open(os.environ["STUB_LOG"]) as log:
+        earlier = log.read()
+except OSError:
+    earlier = ""
 with open(os.environ["STUB_LOG"], "a") as log:
     log.write(line + "\\n")
 for rule in json.loads(os.environ.get("STUB_RULES", "[]")):
-    if rule["match"] in line:
-        sys.stdout.write(rule.get("stdout", ""))
-        sys.stderr.write(rule.get("stderr", ""))
-        sys.exit(rule.get("exit", 0))
+    if rule["match"] not in line:
+        continue
+    # "unless_logged": the rule only applies while that call has not happened yet. Models
+    # AWS state - a security group cannot be deleted until its referencing rules are gone.
+    if rule.get("unless_logged") and rule["unless_logged"] in earlier:
+        continue
+    sys.stdout.write(rule.get("stdout", ""))
+    sys.stderr.write(rule.get("stderr", ""))
+    sys.exit(rule.get("exit", 0))
 sys.exit(0)
 """
 
@@ -74,6 +85,23 @@ ABSENT_ALL = [
     {"match": "s3api head-bucket", "exit": 254},
     {"match": "iam get-instance-profile", "exit": 254},
     {"match": "iam get-role", "exit": 254},
+]
+
+# What describe-security-groups returns for a project group: one group-to-group rule (the
+# self-reference that makes the cycle unbreakable by ordering) and one plain CIDR rule,
+# which teardown must leave alone.
+SG_PERMISSIONS = json.dumps([
+    {"IpProtocol": "tcp", "FromPort": 0, "ToPort": 65535,
+     "UserIdGroupPairs": [{"GroupId": "sg-voyageai-task-sg"}]},
+    {"IpProtocol": "tcp", "FromPort": 3000, "ToPort": 3000,
+     "IpRanges": [{"CidrIp": "0.0.0.0/0"}], "UserIdGroupPairs": []},
+])
+
+# A faithful cycle: no delete succeeds until the group-to-group rules have been revoked.
+CYCLE = [
+    {"match": "describe-security-groups --group-ids", "stdout": SG_PERMISSIONS},
+    {"match": "ec2 delete-security-group", "unless_logged": "revoke-security-group-ingress",
+     "stderr": "DependencyViolation: resource has a dependent object", "exit": 254},
 ]
 
 MUTATIONS = ("delete-", "deregister-", "terminate-instances", "update-service",
@@ -283,6 +311,52 @@ def test_security_group_still_in_use_is_retried_then_reported(tmp_path):
     assert "voyageai-task-sg is still in use" in proc.stdout
     # the other groups were not held back by it
     assert any("delete-security-group --group-id sg-voyageai-alb-sg" in c for c in calls)
+
+
+# ---- the security-group reference cycle -------------------------------------
+# The real teardown stalled here: all four groups failed DependencyViolation on every
+# retry because they reference each other (task-sg references ITSELF on 0-65535), so no
+# delete order exists. Retrying cannot fix a cycle - the rules have to be revoked first.
+
+def test_security_groups_in_a_reference_cycle_are_still_deleted(tmp_path):
+    proc, calls = run_teardown(tmp_path, "--yes", rules=[*CYCLE, *FULL])
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    deleted = {c.split("--group-id ")[1].split()[0] for c in calls
+               if "ec2 delete-security-group" in c}
+    assert deleted == {f"sg-{n}" for n in ("voyageai-task-sg", "voyageai-alb-sg",
+                                           "voyageai-db-nlb-sg", "voyageai-ai-host-sg")}
+    assert "still in use" not in proc.stdout
+
+
+def test_group_to_group_rules_are_revoked_before_any_delete(tmp_path):
+    _, calls = run_teardown(tmp_path, "--yes", rules=[*CYCLE, *FULL])
+
+    first_revoke = index_of(calls, "revoke-security-group-ingress")
+    first_delete = index_of(calls, "ec2 delete-security-group")
+    assert -1 < first_revoke < first_delete, (
+        "deleting before revoking is the bug: a cycle has no valid delete order")
+
+
+def test_only_group_to_group_rules_are_revoked_not_cidr_rules(tmp_path):
+    """Revoking the CIDR rules would be pointless churn on a group about to be deleted."""
+    _, calls = run_teardown(tmp_path, "--yes", rules=[*CYCLE, *FULL])
+
+    revokes = [c for c in calls if "revoke-security-group-ingress" in c]
+    assert revokes
+    for call in revokes:
+        assert "UserIdGroupPairs" in call
+        assert "CidrIp" not in call
+
+
+def test_a_group_with_no_cross_references_is_not_revoked(tmp_path):
+    """Nothing to break: skip straight to the delete."""
+    rules = [{"match": "describe-security-groups --group-ids", "stdout": "[]"}, *FULL]
+    proc, calls = run_teardown(tmp_path, "--yes", rules=rules)
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert not any("revoke-security-group-ingress" in c for c in calls)
+    assert len([c for c in calls if "ec2 delete-security-group" in c]) == 4
 
 
 # ---- keep flags --------------------------------------------------------------
