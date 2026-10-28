@@ -413,3 +413,30 @@ Offline tests for the script (stubbed `aws`, no account needed):
 ```bash
 python -m pytest scripts/deploy/aws/tests/test_teardown.py
 ```
+
+### Bringing it back
+
+`cloud-deployment.yml` is a **deploy**, not a **provision** — it runs `docker push` (ECR does
+not auto-create repositories) and `ecs update-service` (which needs the service to exist), so
+dispatching it against a torn-down account fails. Run `provision.sh` first:
+
+```bash
+./scripts/deploy/aws/provision.sh          # dry run
+./scripts/deploy/aws/provision.sh --yes    # recreate the infrastructure
+```
+
+It recreates, idempotently, what teardown removes and nothing else recreates: the 18 ECR
+repositories, the 18 `/voyageai/*` log groups, both security groups with their rules, the
+ECS cluster, the Service Connect namespace, and the ALB with a target group and listener per
+frontend. It then prints the remaining steps — build/push, `taskdefs.py`, `services.py`, and
+the three AI-host scripts — in order.
+
+The log groups matter more than they look: `taskdefs.py` does **not** set
+`awslogs-create-group`, and `ecsTaskExecutionRole` carries only
+`AmazonECSTaskExecutionRolePolicy`, which does not allow `logs:CreateLogGroup`. A Fargate
+task whose log group is missing never starts. (§6's hand-written task definition *does* set
+`awslogs-create-group`, which is why the first deployment worked and a scripted redeploy
+would not.)
+
+Needs PyYAML; it refuses to run without it rather than silently skipping the
+manifest-driven steps. Offline tests: `python -m pytest scripts/deploy/aws/tests/test_provision.py`
