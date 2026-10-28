@@ -270,6 +270,32 @@ sg_id_of() {
   aws_read ec2 describe-security-groups --filters "Name=group-name,Values=$1" \
     --query 'SecurityGroups[0].GroupId' --output text || true
 }
+# Break the reference cycle BEFORE deleting. These four groups point at each other -
+# task-sg allows the ALB, NLB and AI-host groups, and itself on 0-65535 - and AWS refuses
+# to delete a group while any rule still references it. That cycle has no valid delete
+# order, so retrying alone never clears it; the group-to-group rules have to go first.
+# IP/CIDR rules are left alone: they block nothing and the group is about to be deleted.
+revoke_group_refs() {
+  local name="$1" sg_id perms
+  sg_id="$(sg_id_of "$name")"
+  [ -n "$sg_id" ] && [ "$sg_id" != "None" ] || return 0
+  perms="$(aws_read ec2 describe-security-groups --group-ids "$sg_id" \
+             --query 'SecurityGroups[0].IpPermissions' --output json \
+           | python3 -I -c 'import json, sys
+try:
+    perms = json.load(sys.stdin) or []
+except ValueError:
+    perms = []
+print(json.dumps([p for p in perms if p.get("UserIdGroupPairs")]))' 2>/dev/null || echo "[]")"
+  [ -n "$perms" ] && [ "$perms" != "[]" ] || return 0
+  aws_do "group-to-group ingress rules on $name" \
+    ec2 revoke-security-group-ingress --group-id "$sg_id" --ip-permissions "$perms"
+}
+
+for sg in $SECURITY_GROUPS; do
+  revoke_group_refs "$sg"
+done
+
 remaining="$SECURITY_GROUPS"
 for attempt in 1 2 3; do
   [ -n "$remaining" ] || break
